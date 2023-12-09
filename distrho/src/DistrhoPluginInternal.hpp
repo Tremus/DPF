@@ -140,7 +140,7 @@ void snprintf_u32(char* const dst, const uint32_t value, const size_t size)
 // -----------------------------------------------------------------------
 // Plugin private data
 
-struct Plugin::PrivateData {
+struct PluginPrivateData {
     const bool canRequestParameterValueChanges;
     const bool isDummy;
     const bool isSelfTest;
@@ -185,7 +185,7 @@ struct Plugin::PrivateData {
     double   sampleRate;
     char*    bundlePath;
 
-    PrivateData() noexcept
+    PluginPrivateData() noexcept
         : canRequestParameterValueChanges(d_nextCanRequestParameterValueChanges),
           isDummy(d_nextPluginIsDummy),
           isSelfTest(d_nextPluginIsSelfTest),
@@ -241,7 +241,7 @@ struct Plugin::PrivateData {
 #endif
     }
 
-    ~PrivateData() noexcept
+    ~PluginPrivateData() noexcept
     {
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
         if (audioPorts != nullptr)
@@ -329,7 +329,7 @@ public:
                    const requestParameterValueChangeFunc requestParameterValueChangeCall,
                    const updateStateValueFunc updateStateValueCall)
         : fPlugin(createPlugin()),
-          fData((fPlugin != nullptr) ? fPlugin->pData : nullptr),
+          fData(getPluginPrivateData(fPlugin)),
           fIsActive(false)
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
@@ -414,17 +414,17 @@ public:
             uint32_t j=0;
 # if DISTRHO_PLUGIN_NUM_INPUTS > 0
             for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i, ++j)
-                fPlugin->initAudioPort(true, i, fData->audioPorts[j]);
+                plugin_initAudioPort(fPlugin, true, i, fData->audioPorts[j]);
 # endif
 # if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
             for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i, ++j)
-                fPlugin->initAudioPort(false, i, fData->audioPorts[j]);
+                plugin_initAudioPort(fPlugin, false, i, fData->audioPorts[j]);
 # endif
         }
 #endif // DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
 
         for (uint32_t i=0, count=fData->parameterCount; i < count; ++i)
-            fPlugin->initParameter(i, fData->parameters[i]);
+            plugin_initParameter(fPlugin, i, fData->parameters[i]);
 
         {
             std::set<uint32_t> portGroupIndices;
@@ -450,7 +450,7 @@ public:
                     portGroup.groupId = *it;
 
                     if (portGroup.groupId < portGroupSize)
-                        fPlugin->initPortGroup(portGroup.groupId, portGroup);
+                        plugin_initPortGroup(fPlugin, portGroup.groupId, portGroup);
                     else
                         fillInPredefinedPortGroupData(portGroup.groupId, portGroup);
                 }
@@ -459,12 +459,12 @@ public:
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
         for (uint32_t i=0, count=fData->programCount; i < count; ++i)
-            fPlugin->initProgramName(i, fData->programNames[i]);
+            plugin_initProgramName(fPlugin, i, fData->programNames[i]);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
         for (uint32_t i=0, count=fData->stateCount; i < count; ++i)
-            fPlugin->initState(i, fData->states[i]);
+            plugin_initState(fPlugin, i, fData->states[i]);
 #endif
 
         fData->callbacksPtr = callbacksPtr;
@@ -475,7 +475,7 @@ public:
 
     ~PluginExporter()
     {
-        delete fPlugin;
+        destroyPlugin(fPlugin);
     }
 
     // -------------------------------------------------------------------
@@ -484,56 +484,56 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
 
-        return fPlugin->getName();
+        return plugin_getName(fPlugin);
     }
 
     const char* getLabel() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
 
-        return fPlugin->getLabel();
+        return plugin_getLabel(fPlugin);
     }
 
     const char* getDescription() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
 
-        return fPlugin->getDescription();
+        return plugin_getDescription(fPlugin);
     }
 
     const char* getMaker() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
 
-        return fPlugin->getMaker();
+        return plugin_getMaker(fPlugin);
     }
 
     const char* getHomePage() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
 
-        return fPlugin->getHomePage();
+        return plugin_getHomePage(fPlugin);
     }
 
     const char* getLicense() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
 
-        return fPlugin->getLicense();
+        return plugin_getLicense(fPlugin);
     }
 
     uint32_t getVersion() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0);
 
-        return fPlugin->getVersion();
+        return plugin_getVersion(fPlugin);
     }
 
     long getUniqueId() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0);
 
-        return fPlugin->getUniqueId();
+        return plugin_getUniqueId(fPlugin);
     }
 
     void* getInstancePointer() const noexcept
@@ -745,7 +745,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0.0f);
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, 0.0f);
 
-        return fPlugin->getParameterValue(index);
+        return plugin_getParameterValue(fPlugin, index);
     }
 
     void setParameterValue(const uint32_t index, const float value)
@@ -753,7 +753,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount,);
 
-        fPlugin->setParameterValue(index, value);
+        plugin_setParameterValue(fPlugin, index, value);
     }
 
     uint32_t getPortGroupCount() const noexcept
@@ -812,7 +812,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->programCount,);
 
-        fPlugin->loadProgram(index);
+        plugin_loadProgram(fPlugin, index);
     }
 #endif
 
@@ -924,7 +924,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(! fIsActive,);
 
         fIsActive = true;
-        fPlugin->activate();
+        plugin_activate(fPlugin);
     }
 
     void deactivate()
@@ -933,7 +933,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fIsActive,);
 
         fIsActive = false;
-        fPlugin->deactivate();
+        plugin_deactivate(fPlugin);
     }
 
     void deactivateIfNeeded()
@@ -943,7 +943,7 @@ public:
         if (fIsActive)
         {
             fIsActive = false;
-            fPlugin->deactivate();
+            plugin_deactivate(fPlugin);
         }
     }
 
@@ -957,11 +957,11 @@ public:
         if (! fIsActive)
         {
             fIsActive = true;
-            fPlugin->activate();
+            plugin_activate(fPlugin);
         }
 
         fData->isProcessing = true;
-        fPlugin->run(inputs, outputs, frames, midiEvents, midiEventCount);
+        plugin_run(fPlugin, inputs, outputs, frames, midiEvents, midiEventCount);
         fData->isProcessing = false;
     }
 #else
@@ -973,11 +973,11 @@ public:
         if (! fIsActive)
         {
             fIsActive = true;
-            fPlugin->activate();
+            plugin_activate(fPlugin);
         }
 
         fData->isProcessing = true;
-        fPlugin->run(inputs, outputs, frames);
+        plugin_run(fPlugin, inputs, outputs, frames);
         fData->isProcessing = false;
     }
 #endif
@@ -1009,9 +1009,9 @@ public:
 
         if (doCallback)
         {
-            if (fIsActive) fPlugin->deactivate();
-            fPlugin->bufferSizeChanged(bufferSize);
-            if (fIsActive) fPlugin->activate();
+            if (fIsActive) plugin_deactivate(fPlugin);
+            plugin_bufferSizeChanged(fPlugin, bufferSize);
+            if (fIsActive) plugin_activate(fPlugin);
         }
     }
 
@@ -1028,9 +1028,9 @@ public:
 
         if (doCallback)
         {
-            if (fIsActive) fPlugin->deactivate();
-            fPlugin->sampleRateChanged(sampleRate);
-            if (fIsActive) fPlugin->activate();
+            if (fIsActive) plugin_deactivate(fPlugin);
+            plugin_sampleRateChanged(fPlugin, sampleRate);
+            if (fIsActive) plugin_activate(fPlugin);
         }
     }
 
@@ -1038,8 +1038,8 @@ private:
     // -------------------------------------------------------------------
     // Plugin and DistrhoPlugin data
 
-    Plugin* const fPlugin;
-    Plugin::PrivateData* const fData;
+    void* const fPlugin;
+    PluginPrivateData* const fData;
     bool fIsActive;
 
     // -------------------------------------------------------------------

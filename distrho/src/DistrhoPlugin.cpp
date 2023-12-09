@@ -40,8 +40,7 @@ const PortGroupWithId            PluginExporter::sFallbackPortGroup;
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin */
 
-Plugin::Plugin(uint32_t parameterCount, uint32_t programCount, uint32_t stateCount)
-    : pData(new PrivateData())
+void PluginPrivateData_init(PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount, uint32_t stateCount)
 {
    #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
     pData->audioPorts = new AudioPortWithBusId[DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS];
@@ -84,74 +83,74 @@ Plugin::Plugin(uint32_t parameterCount, uint32_t programCount, uint32_t stateCou
     #undef DPF_ABORT
 }
 
-Plugin::~Plugin()
-{
-    delete pData;
-}
-
 /* ------------------------------------------------------------------------------------------------------------
  * Host state */
 
-uint32_t Plugin::getBufferSize() const noexcept
+uint32_t plugin_getBufferSize(void* ptr)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->bufferSize;
 }
 
-double Plugin::getSampleRate() const noexcept
+double plugin_getSampleRate(void* ptr)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->sampleRate;
 }
 
-const char* Plugin::getBundlePath() const noexcept
+const char* plugin_getBundlePath(void* ptr)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->bundlePath;
 }
 
-bool Plugin::isDummyInstance() const noexcept
+bool plugin_isDummyInstance(void* ptr)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->isDummy;
 }
 
-bool Plugin::isSelfTestInstance() const noexcept
+bool plugin_isSelfTestInstance(void* ptr)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->isSelfTest;
 }
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
-const TimePosition& Plugin::getTimePosition() const noexcept
+const TimePosition& plugin_getTimePosition()
 {
     return pData->timePosition;
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_LATENCY
-void Plugin::setLatency(const uint32_t frames) noexcept
+void plugin_setLatency(const uint32_t frames) noexcept
 {
     pData->latency = frames;
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-bool Plugin::writeMidiEvent(const MidiEvent& midiEvent) noexcept
+bool plugin_writeMidiEvent(const MidiEvent& midiEvent) noexcept
 {
     return pData->writeMidiCallback(midiEvent);
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
-bool Plugin::canRequestParameterValueChanges() const noexcept
+bool plugin_canRequestParameterValueChanges()
 {
     return pData->canRequestParameterValueChanges;
 }
 
-bool Plugin::requestParameterValueChange(const uint32_t index, const float value) noexcept
+bool plugin_requestParameterValueChange(const uint32_t index, const float value) noexcept
 {
     return pData->requestParameterValueChangeCallback(index, value);
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
-bool Plugin::updateStateValue(const char* const key, const char* const value) noexcept
+bool plugin_updateStateValue(const char* const key, const char* const value) noexcept
 {
     return pData->updateStateValueCallback(key, value);
 }
@@ -160,7 +159,7 @@ bool Plugin::updateStateValue(const char* const key, const char* const value) no
 /* ------------------------------------------------------------------------------------------------------------
  * Init */
 
-void Plugin::initAudioPort(bool input, uint32_t index, AudioPort& port)
+void plugin_initAudioPort(bool input, uint32_t index, AudioPort& port)
 {
     if (port.hints & kAudioPortIsCV)
     {
@@ -178,19 +177,19 @@ void Plugin::initAudioPort(bool input, uint32_t index, AudioPort& port)
     }
 }
 
-void Plugin::initParameter(uint32_t, Parameter&) {}
+void plugin_initParameter(uint32_t, Parameter&) {}
 
-void Plugin::initPortGroup(const uint32_t groupId, PortGroup& portGroup)
+void plugin_initPortGroup(const uint32_t groupId, PortGroup& portGroup)
 {
     fillInPredefinedPortGroupData(groupId, portGroup);
 }
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
-void Plugin::initProgramName(uint32_t, String&) {}
+void plugin_initProgramName(uint32_t, String&) {}
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
-void Plugin::initState(const uint32_t index, State& state)
+void plugin_initState(const uint32_t index, State& state)
 {
     uint hints = 0x0;
     String stateKey, defaultStateValue;
@@ -226,26 +225,26 @@ void Plugin::initState(const uint32_t index, State& state)
 /* ------------------------------------------------------------------------------------------------------------
  * Init */
 
-float Plugin::getParameterValue(uint32_t) const { return 0.0f; }
-void Plugin::setParameterValue(uint32_t, float) {}
+float plugin_getParameterValue(void* ptr, uint32_t) { return 0.0f; }
+void plugin_setParameterValue(void* ptr, uint32_t, float) {}
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
-void Plugin::loadProgram(uint32_t) {}
+void plugin_loadProgram(uint32_t) {}
 #endif
 
 #if DISTRHO_PLUGIN_WANT_FULL_STATE
-String Plugin::getState(const char*) const { return String(); }
+String plugin_getState(const char*) { return String(); }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
-void Plugin::setState(const char*, const char*) {}
+void plugin_setState(const char*, const char*) {}
 #endif
 
 /* ------------------------------------------------------------------------------------------------------------
  * Callbacks (optional) */
 
-void Plugin::bufferSizeChanged(uint32_t) {}
-void Plugin::sampleRateChanged(double) {}
+void plugin_bufferSizeChanged(void* ptr, uint32_t) {}
+void plugin_sampleRateChanged(void* ptr, double) {}
 
 // -----------------------------------------------------------------------------------------------------------
 

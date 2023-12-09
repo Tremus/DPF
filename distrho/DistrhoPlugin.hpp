@@ -57,322 +57,304 @@ START_NAMESPACE_DISTRHO
    The process function run() changes wherever DISTRHO_PLUGIN_WANT_MIDI_INPUT is enabled or not.@n
    When enabled it provides midi input events.
  */
-class Plugin
-{
-public:
-   /**
-      Plugin class constructor.@n
-      You must set all parameter values to their defaults, matching ParameterRanges::def.
-    */
-    Plugin(uint32_t parameterCount, uint32_t programCount, uint32_t stateCount);
 
-   /**
-      Destructor.
-    */
-    virtual ~Plugin();
+/**
+    Plugin class constructor.@n
+    You must set all parameter values to their defaults, matching ParameterRanges::def.
+*/
+extern void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount, uint32_t stateCount);
 
-   /* --------------------------------------------------------------------------------------------------------
-    * Host state */
+/* --------------------------------------------------------------------------------------------------------
+* Host state */
 
-   /**
-      Get the current buffer size that will probably be used during processing, in frames.@n
-      This value will remain constant between activate and deactivate.
-      @note This value is only a hint!@n
-            Hosts might call run() with a higher or lower number of frames.
-      @see bufferSizeChanged(uint32_t)
-    */
-    uint32_t getBufferSize() const noexcept;
+/**
+    Get the current buffer size that will probably be used during processing, in frames.@n
+    This value will remain constant between activate and deactivate.
+    @note This value is only a hint!@n
+        Hosts might call run() with a higher or lower number of frames.
+    @see bufferSizeChanged(uint32_t)
+*/
+extern uint32_t plugin_getBufferSize(void*);
 
-   /**
-      Get the current sample rate that will be used during processing.@n
-      This value will remain constant between activate and deactivate.
-      @see sampleRateChanged(double)
-    */
-    double getSampleRate() const noexcept;
+/**
+    Get the current sample rate that will be used during processing.@n
+    This value will remain constant between activate and deactivate.
+    @see sampleRateChanged(double)
+*/
+extern double plugin_getSampleRate(void*);
 
-   /**
-      Get the bundle path where the plugin resides.
-      Can return null if the plugin is not available in a bundle (if it is a single binary).
-      @see getBinaryFilename
-      @see getResourcePath
-    */
-    const char* getBundlePath() const noexcept;
+/**
+    Get the bundle path where the plugin resides.
+    Can return null if the plugin is not available in a bundle (if it is a single binary).
+    @see getBinaryFilename
+    @see getResourcePath
+*/
+extern const char* plugin_getBundlePath(void*);
 
-   /**
-      Check if this plugin instance is a "dummy" one used for plugin meta-data/information export.@n
-      When true no processing will be done, the plugin is created only to extract information.@n
-      In DPF, LADSPA/DSSI, VST2 and VST3 formats create one global instance per plugin binary
-      while LV2 creates one when generating turtle meta-data.
-    */
-    bool isDummyInstance() const noexcept;
+/**
+    Check if this plugin instance is a "dummy" one used for plugin meta-data/information export.@n
+    When true no processing will be done, the plugin is created only to extract information.@n
+    In DPF, LADSPA/DSSI, VST2 and VST3 formats create one global instance per plugin binary
+    while LV2 creates one when generating turtle meta-data.
+*/
+extern bool plugin_isDummyInstance(void*);
 
-   /**
-      Check if this plugin instance is a "selftest" one used for automated plugin tests.@n
-      To enable this mode build with `DPF_RUNTIME_TESTING` macro defined (i.e. set as compiler build flag),
-      and run the JACK/Standalone executable with "selftest" as its only and single argument.
+/**
+    Check if this plugin instance is a "selftest" one used for automated plugin tests.@n
+    To enable this mode build with `DPF_RUNTIME_TESTING` macro defined (i.e. set as compiler build flag),
+    and run the JACK/Standalone executable with "selftest" as its only and single argument.
 
-      A few basic DSP and UI tests will run in self-test mode, with once instance having this function returning true.@n
-      You can use this chance to do a few tests of your own as well.
-    */
-    bool isSelfTestInstance() const noexcept;
+    A few basic DSP and UI tests will run in self-test mode, with once instance having this function returning true.@n
+    You can use this chance to do a few tests of your own as well.
+*/
+extern bool plugin_isSelfTestInstance(void*);
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
-   /**
-      Get the current host transport time position.@n
-      This function should only be called during run().@n
-      You can call this during other times, but the returned position is not guaranteed to be in sync.
-      @note TimePosition is not supported in LADSPA and DSSI plugin formats.
-    */
-    const TimePosition& getTimePosition() const noexcept;
+/**
+    Get the current host transport time position.@n
+    This function should only be called during run().@n
+    You can call this during other times, but the returned position is not guaranteed to be in sync.
+    @note TimePosition is not supported in LADSPA and DSSI plugin formats.
+*/
+extern const TimePosition& plugin_getTimePosition(void*);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_LATENCY
-   /**
-      Change the plugin audio output latency to @a frames.@n
-      This function should only be called in the constructor, activate() and run().
-      @note This function is only available if DISTRHO_PLUGIN_WANT_LATENCY is enabled.
-    */
-    void setLatency(uint32_t frames) noexcept;
+/**
+    Change the plugin audio output latency to @a frames.@n
+    This function should only be called in the constructor, activate() and run().
+    @note This function is only available if DISTRHO_PLUGIN_WANT_LATENCY is enabled.
+*/
+extern void plugin_setLatency(void*, uint32_t frames);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-   /**
-      Write a MIDI output event.@n
-      This function must only be called during run().@n
-      Returns false when the host buffer is full, in which case do not call this again until the next run().
-    */
-    bool writeMidiEvent(const MidiEvent& midiEvent) noexcept;
+/**
+    Write a MIDI output event.@n
+    This function must only be called during run().@n
+    Returns false when the host buffer is full, in which case do not call this again until the next run().
+*/
+extern bool plugin_writeMidiEvent(void*, const MidiEvent& midiEvent);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
-   /**
-      Check if parameter value change requests will work with the current plugin host.
-      @note This function is only available if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST is enabled.
-      @see requestParameterValueChange(uint32_t, float)
-    */
-    bool canRequestParameterValueChanges() const noexcept;
+/**
+    Check if parameter value change requests will work with the current plugin host.
+    @note This function is only available if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST is enabled.
+    @see requestParameterValueChange(uint32_t, float)
+*/
+extern bool plugin_canRequestParameterValueChanges(void*);
 
-   /**
-      Request a parameter value change from the host.
-      If successful, this function will automatically trigger a parameter update on the UI side as well.
-      This function can fail, for example if the host is busy with the parameter for read-only automation.
-      Some hosts simply do not have this functionality, which can be verified with canRequestParameterValueChanges().
-      @note This function is only available if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST is enabled.
-    */
-    bool requestParameterValueChange(uint32_t index, float value) noexcept;
+/**
+    Request a parameter value change from the host.
+    If successful, this function will automatically trigger a parameter update on the UI side as well.
+    This function can fail, for example if the host is busy with the parameter for read-only automation.
+    Some hosts simply do not have this functionality, which can be verified with canRequestParameterValueChanges().
+    @note This function is only available if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST is enabled.
+*/
+extern bool plugin_requestParameterValueChange(void*, uint32_t index, float value);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
-   /**
-      Set state value and notify the host about the change.@n
-      This function will call `setState()` and also trigger an update on the UI side as necessary.@n
-      It must not be called during run.@n
-      The state must be host readable.
-      @note this function does nothing on DSSI plugin format, as DSSI only supports UI->DSP messages.
+/**
+    Set state value and notify the host about the change.@n
+    This function will call `setState()` and also trigger an update on the UI side as necessary.@n
+    It must not be called during run.@n
+    The state must be host readable.
+    @note this function does nothing on DSSI plugin format, as DSSI only supports UI->DSP messages.
 
-      TODO API under construction
-    */
-    bool updateStateValue(const char* key, const char* value) noexcept;
+    TODO API under construction
+*/
+extern bool plugin_updateStateValue(void*, const char* key, const char* value);
 #endif
 
-protected:
-   /* --------------------------------------------------------------------------------------------------------
-    * Information */
+/* --------------------------------------------------------------------------------------------------------
+* Information */
 
-   /**
-      Get the plugin name.@n
-      Returns DISTRHO_PLUGIN_NAME by default.
-    */
-    virtual const char* getName() const { return DISTRHO_PLUGIN_NAME; }
+/**
+    Get the plugin name.@n
+    Returns DISTRHO_PLUGIN_NAME by default.
+*/
+extern const char* plugin_getName(void*);
 
-   /**
-      Get the plugin label.@n
-      This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
-    */
-    virtual const char* getLabel() const = 0;
+/**
+    Get the plugin label.@n
+    This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
+*/
+extern const char* plugin_getLabel(void*);
 
-   /**
-      Get an extensive comment/description about the plugin.@n
-      Optional, returns nothing by default.
-    */
-    virtual const char* getDescription() const { return ""; }
+/**
+    Get an extensive comment/description about the plugin.@n
+    Optional, returns nothing by default.
+*/
+extern const char* plugin_getDescription(void*);
 
-   /**
-      Get the plugin author/maker.
-    */
-    virtual const char* getMaker() const = 0;
+/**
+    Get the plugin author/maker.
+*/
+extern const char* plugin_getMaker(void*);
 
-   /**
-      Get the plugin homepage.@n
-      Optional, returns nothing by default.
-    */
-    virtual const char* getHomePage() const { return ""; }
+/**
+    Get the plugin homepage.@n
+    Optional, returns nothing by default.
+*/
+extern const char* plugin_getHomePage(void*);
 
-   /**
-      Get the plugin license (a single line of text or a URL).@n
-      For commercial plugins this should return some short copyright information.
-    */
-    virtual const char* getLicense() const = 0;
+/**
+    Get the plugin license (a single line of text or a URL).@n
+    For commercial plugins this should return some short copyright information.
+*/
+extern const char* plugin_getLicense(void*);
 
-   /**
-      Get the plugin version, in hexadecimal.
-      @see d_version()
-    */
-    virtual uint32_t getVersion() const = 0;
+/**
+    Get the plugin version, in hexadecimal.
+    @see d_version()
+*/
+extern uint32_t plugin_getVersion(void*);
 
-   /**
-      Get the plugin unique Id.@n
-      This value is used by LADSPA, DSSI and VST plugin formats.
-      @see d_cconst()
-    */
-    virtual int64_t getUniqueId() const = 0;
+/**
+    Get the plugin unique Id.@n
+    This value is used by LADSPA, DSSI and VST plugin formats.
+    @see d_cconst()
+*/
+extern int64_t plugin_getUniqueId(void*);
 
-   /* --------------------------------------------------------------------------------------------------------
-    * Init */
+/* --------------------------------------------------------------------------------------------------------
+* Init */
 
-   /**
-      Initialize the audio port @a index.@n
-      This function will be called once, shortly after the plugin is created.
-    */
-    virtual void initAudioPort(bool input, uint32_t index, AudioPort& port);
+/**
+    Initialize the audio port @a index.@n
+    This function will be called once, shortly after the plugin is created.
+*/
+extern void plugin_initAudioPort(void*, bool input, uint32_t index, AudioPort& port);
 
-   /**
-      Initialize the parameter @a index.@n
-      This function will be called once, shortly after the plugin is created.
-    */
-    virtual void initParameter(uint32_t index, Parameter& parameter);
+/**
+    Initialize the parameter @a index.@n
+    This function will be called once, shortly after the plugin is created.
+*/
+extern void plugin_initParameter(void*, uint32_t index, Parameter& parameter);
 
-   /**
-      Initialize the port group @a groupId.@n
-      This function will be called once,
-      shortly after the plugin is created and all audio ports and parameters have been enumerated.
-    */
-    virtual void initPortGroup(uint32_t groupId, PortGroup& portGroup);
+/**
+    Initialize the port group @a groupId.@n
+    This function will be called once,
+    shortly after the plugin is created and all audio ports and parameters have been enumerated.
+*/
+extern void plugin_initPortGroup(void*, uint32_t groupId, PortGroup& portGroup);
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
-   /**
-      Set the name of the program @a index.@n
-      This function will be called once, shortly after the plugin is created.@n
-      Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_PROGRAMS is enabled.
-    */
-    virtual void initProgramName(uint32_t index, String& programName) = 0;
+/**
+    Set the name of the program @a index.@n
+    This function will be called once, shortly after the plugin is created.@n
+    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_PROGRAMS is enabled.
+*/
+extern void plugin_initProgramName(void*, uint32_t index, String& programName);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
-   /**
-      Initialize the state @a index.@n
-      This function will be called once, shortly after the plugin is created.@n
-      Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
-    */
-    virtual void initState(uint32_t index, State& state);
+/**
+    Initialize the state @a index.@n
+    This function will be called once, shortly after the plugin is created.@n
+    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
+*/
+extern void plugin_initState(void*, uint32_t index, State& state);
 
-    DISTRHO_DEPRECATED_BY("initState(uint32_t,State&)")
-    virtual void initState(uint32_t, String&, String&) {}
+DISTRHO_DEPRECATED_BY("initState(uint32_t,State&)")
+void plugin_initState(uint32_t, String&, String&) {}
 
-    DISTRHO_DEPRECATED_BY("initState(uint32_t,State&)")
-    virtual bool isStateFile(uint32_t) { return false; }
+DISTRHO_DEPRECATED_BY("initState(uint32_t,State&)")
+bool plugin_isStateFile(uint32_t) { return false; }
 #endif
 
-   /* --------------------------------------------------------------------------------------------------------
-    * Internal data */
+/* --------------------------------------------------------------------------------------------------------
+* Internal data */
 
-   /**
-      Get the current value of a parameter.@n
-      The host may call this function from any context, including realtime processing.
-    */
-    virtual float getParameterValue(uint32_t index) const;
+/**
+    Get the current value of a parameter.@n
+    The host may call this function from any context, including realtime processing.
+*/
+extern float plugin_getParameterValue(void*, uint32_t index);
 
-   /**
-      Change a parameter value.@n
-      The host may call this function from any context, including realtime processing.@n
-      When a parameter is marked as automatable, you must ensure no non-realtime operations are performed.
-      @note This function will only be called for parameter inputs.
-    */
-    virtual void setParameterValue(uint32_t index, float value);
+/**
+    Change a parameter value.@n
+    The host may call this function from any context, including realtime processing.@n
+    When a parameter is marked as automatable, you must ensure no non-realtime operations are performed.
+    @note This function will only be called for parameter inputs.
+*/
+extern void plugin_setParameterValue(void*, uint32_t index, float value);
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
-   /**
-      Load a program.@n
-      The host may call this function from any context, including realtime processing.@n
-      Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_PROGRAMS is enabled.
-    */
-    virtual void loadProgram(uint32_t index);
+/**
+    Load a program.@n
+    The host may call this function from any context, including realtime processing.@n
+    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_PROGRAMS is enabled.
+*/
+extern void plugin_loadProgram(void*, uint32_t index);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_FULL_STATE
-   /**
-      Get the value of an internal state.@n
-      The host may call this function from any non-realtime context.@n
-      Must be implemented by your plugin class if DISTRHO_PLUGIN_WANT_FULL_STATE is enabled.
-      @note The use of this function breaks compatibility with the DSSI format.
-    */
-    virtual String getState(const char* key) const;
+/**
+    Get the value of an internal state.@n
+    The host may call this function from any non-realtime context.@n
+    Must be implemented by your plugin class if DISTRHO_PLUGIN_WANT_FULL_STATE is enabled.
+    @note The use of this function breaks compatibility with the DSSI format.
+*/
+extern String plugin_getState(void*, const char* key);
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
-   /**
-      Change an internal state @a key to @a value.@n
-      Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
-    */
-    virtual void setState(const char* key, const char* value);
+/**
+    Change an internal state @a key to @a value.@n
+    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
+*/
+extern void plugin_setState(void*, const char* key, const char* value);
 #endif
 
-   /* --------------------------------------------------------------------------------------------------------
-    * Audio/MIDI Processing */
+/* --------------------------------------------------------------------------------------------------------
+* Audio/MIDI Processing */
 
-   /**
-      Activate this plugin.
-    */
-    virtual void activate() {}
+/**
+    Activate this plugin.
+*/
+extern void plugin_activate(void*);
 
-   /**
-      Deactivate this plugin.
-    */
-    virtual void deactivate() {}
+/**
+    Deactivate this plugin.
+*/
+extern void plugin_deactivate(void*);
 
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-   /**
-      Run/process function for plugins with MIDI input.
-      @note Some parameters might be null if there are no audio inputs/outputs or MIDI events.
-    */
-    virtual void run(const float** inputs, float** outputs, uint32_t frames,
-                     const MidiEvent* midiEvents, uint32_t midiEventCount) = 0;
+/**
+    Run/process function for plugins with MIDI input.
+    @note Some parameters might be null if there are no audio inputs/outputs or MIDI events.
+*/
+extern void plugin_run(void*, const float** inputs, float** outputs, uint32_t frames,
+                    const MidiEvent* midiEvents, uint32_t midiEventCount);
 #else
-   /**
-      Run/process function for plugins without MIDI input.
-      @note Some parameters might be null if there are no audio inputs or outputs.
-    */
-    virtual void run(const float** inputs, float** outputs, uint32_t frames) = 0;
+/**
+    Run/process function for plugins without MIDI input.
+    @note Some parameters might be null if there are no audio inputs or outputs.
+*/
+extern void plugin_run(void*, const float** inputs, float** outputs, uint32_t frames);
 #endif
 
-   /* --------------------------------------------------------------------------------------------------------
-    * Callbacks (optional) */
+/* --------------------------------------------------------------------------------------------------------
+* Callbacks (optional) */
 
-   /**
-      Optional callback to inform the plugin about a buffer size change.@n
-      This function will only be called when the plugin is deactivated.
-      @note This value is only a hint!@n
-            Hosts might call run() with a higher or lower number of frames.
-      @see getBufferSize()
-    */
-    virtual void bufferSizeChanged(uint32_t newBufferSize);
+/**
+    Optional callback to inform the plugin about a buffer size change.@n
+    This function will only be called when the plugin is deactivated.
+    @note This value is only a hint!@n
+        Hosts might call run() with a higher or lower number of frames.
+    @see getBufferSize()
+*/
+extern void plugin_bufferSizeChanged(void*, uint32_t newBufferSize);
 
-   /**
-      Optional callback to inform the plugin about a sample rate change.@n
-      This function will only be called when the plugin is deactivated.
-      @see getSampleRate()
-    */
-    virtual void sampleRateChanged(double newSampleRate);
-
-    // -------------------------------------------------------------------------------------------------------
-
-private:
-    struct PrivateData;
-    PrivateData* const pData;
-    friend class PluginExporter;
-
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Plugin)
-};
+/**
+    Optional callback to inform the plugin about a sample rate change.@n
+    This function will only be called when the plugin is deactivated.
+    @see getSampleRate()
+*/
+extern void plugin_sampleRateChanged(void*, double newSampleRate);
 
 /** @} */
 
@@ -390,7 +372,9 @@ private:
    DPF will call this to either create an instance of your plugin for the host
    or to fetch some initial information for internal caching.
  */
-extern Plugin* createPlugin();
+extern void* createPlugin();
+extern void destroyPlugin(void*);
+extern struct PluginPrivateData* getPluginPrivateData(void*);
 
 /** @} */
 
