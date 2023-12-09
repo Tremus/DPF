@@ -2595,22 +2595,16 @@ private:
                 {
                     const PortGroupWithId& group(fPlugin.getPortGroupById(port.groupId));
 
-                    switch (port.groupId)
+                    if ((port.groupId == kPortGroupStereo || port.groupId == kPortGroupMono) && busId == 0)
                     {
-                    case kPortGroupStereo:
-                    case kPortGroupMono:
-                        if (busId == 0)
-                        {
-                            strncpy_utf16(busName, isInput ? "Audio Input" : "Audio Output", 128);
-                            break;
-                        }
-                    // fall-through
-                    default:
+                        strncpy_utf16(busName, isInput ? "Audio Input" : "Audio Output", 128);
+                    }
+                    else
+                    {
                         if (group.name.isNotEmpty())
                             strncpy_utf16(busName, group.name, 128);
                         else
                             strncpy_utf16(busName, port.name, 128);
-                        break;
                     }
 
                     numChannels = fPlugin.getAudioPortCountWithGroupId(isInput, port.groupId);
@@ -2748,13 +2742,10 @@ private:
     template<bool isInput>
     v3_speaker_arrangement getSpeakerArrangementForAudioPort(const BusInfo& busInfo, const uint32_t portGroupId, const uint32_t busId) const noexcept
     {
-        switch (portGroupId)
-        {
-        case kPortGroupMono:
+        if (portGroupId == kPortGroupMono)
             return V3_SPEAKER_M;
-        case kPortGroupStereo:
+        if (portGroupId == kPortGroupStereo)
             return V3_SPEAKER_L | V3_SPEAKER_R;
-        }
 
         if (busId < busInfo.groups)
             return portCountToSpeaker(fPlugin.getAudioPortCountWithGroupId(isInput, portGroupId));

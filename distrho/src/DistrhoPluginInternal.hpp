@@ -71,20 +71,20 @@ struct PortGroupWithId : PortGroup {
 static inline
 void fillInPredefinedPortGroupData(const uint32_t groupId, PortGroup& portGroup)
 {
-    switch (groupId)
+    if (groupId == kPortGroupNone)
     {
-    case kPortGroupNone:
         portGroup.name.clear();
         portGroup.symbol.clear();
-        break;
-    case kPortGroupMono:
+    }
+    else if (groupId == kPortGroupMono)
+    {
         portGroup.name = "Mono";
         portGroup.symbol = "dpf_mono";
-        break;
-    case kPortGroupStereo:
+    }
+    else if (groupId == kPortGroupStereo)
+    {
         portGroup.name = "Stereo";
         portGroup.symbol = "dpf_stereo";
-        break;
     }
 }
 

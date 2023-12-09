@@ -64,7 +64,7 @@
 # endif
 # ifndef __GLEW_H__
 #  include <GL/gl.h>
-#  include <GL/glext.h>
+#  include "GL_glext.h"
 # endif
 #endif
 

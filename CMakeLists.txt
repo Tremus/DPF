@@ -14,6 +14,8 @@ endif()
 
 if (APPLE)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+elseif(WIN32)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
 # check if we are building from this project, or are imported by another
