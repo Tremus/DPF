@@ -15,235 +15,33 @@
  */
 
 #include "DistrhoPlugin.hpp"
-
-START_NAMESPACE_DISTRHO
-
-// -----------------------------------------------------------------------------------------------------------
+#include "src/DistrhoPluginInternal.hpp"
 
 /**
   Plugin that demonstrates the latency API in DPF.
  */
-class LatencyExamplePlugin : public Plugin
+struct LatencyExamplePlugin
 {
-public:
+    PluginPrivateData data;
+
     LatencyExamplePlugin()
-        : Plugin(1, 0, 0), // 1 parameter
+        : data(),
           fLatency(1.0f),
           fLatencyInFrames(0),
           fBuffer(nullptr),
           fBufferPos(0),
           fBufferSize(0)
     {
+        PluginPrivateData_init(&data, 1, 0, 0), // 1 parameter
         // allocates buffer
-        sampleRateChanged(getSampleRate());
+        plugin_sampleRateChanged(this, data.sampleRate);
     }
 
-    ~LatencyExamplePlugin() override
+    ~LatencyExamplePlugin()
     {
         delete[] fBuffer;
     }
 
-protected:
-   /* --------------------------------------------------------------------------------------------------------
-    * Information */
-
-   /**
-      Get the plugin label.
-      This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
-    */
-    const char* getLabel() const override
-    {
-        return "Latency";
-    }
-
-   /**
-      Get an extensive comment/description about the plugin.
-    */
-    const char* getDescription() const override
-    {
-        return "Plugin that demonstrates the latency API in DPF.";
-    }
-
-   /**
-      Get the plugin author/maker.
-    */
-    const char* getMaker() const override
-    {
-        return "DISTRHO";
-    }
-
-   /**
-      Get the plugin homepage.
-    */
-    const char* getHomePage() const override
-    {
-        return "https://github.com/DISTRHO/DPF";
-    }
-
-   /**
-      Get the plugin license name (a single line of text).
-      For commercial plugins this should return some short copyright information.
-    */
-    const char* getLicense() const override
-    {
-        return "ISC";
-    }
-
-   /**
-      Get the plugin version, in hexadecimal.
-    */
-    uint32_t getVersion() const override
-    {
-        return d_version(1, 0, 0);
-    }
-
-   /**
-      Get the plugin unique Id.
-      This value is used by LADSPA, DSSI and VST plugin formats.
-    */
-    int64_t getUniqueId() const override
-    {
-        return d_cconst('d', 'L', 'a', 't');
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Init */
-
-   /**
-      Initialize the audio port @a index.@n
-      This function will be called once, shortly after the plugin is created.
-    */
-    void initAudioPort(bool input, uint32_t index, AudioPort& port) override
-    {
-        // mark the (single) latency audio port as mono
-        port.groupId = kPortGroupMono;
-
-        // everything else is as default
-        Plugin::initAudioPort(input, index, port);
-    }
-
-   /**
-      Initialize the parameter @a index.
-      This function will be called once, shortly after the plugin is created.
-    */
-    void initParameter(uint32_t index, Parameter& parameter) override
-    {
-        if (index != 0)
-            return;
-
-        parameter.hints  = kParameterIsAutomatable;
-        parameter.name   = "Latency";
-        parameter.symbol = "latency";
-        parameter.unit   = "s";
-        parameter.ranges.def = 1.0f;
-        parameter.ranges.min = 0.0f;
-        parameter.ranges.max = 5.0f;
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Internal data */
-
-   /**
-      Get the current value of a parameter.
-      The host may call this function from any context, including realtime processing.
-    */
-    float getParameterValue(uint32_t index) const override
-    {
-        if (index != 0)
-            return 0.0f;
-
-        return fLatency;
-    }
-
-   /**
-      Change a parameter value.
-      The host may call this function from any context, including realtime processing.
-      When a parameter is marked as automatable, you must ensure no non-realtime operations are performed.
-      @note This function will only be called for parameter inputs.
-    */
-    void setParameterValue(uint32_t index, float value) override
-    {
-        if (index != 0)
-            return;
-
-        fLatency = value;
-        fLatencyInFrames = value*getSampleRate();
-        setLatency(fLatencyInFrames);
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Audio/MIDI Processing */
-
-   /**
-      Activate this plugin.
-    */
-    void activate() override
-    {
-        fBufferPos = 0;
-        std::memset(fBuffer, 0, sizeof(float)*fBufferSize);
-    }
-
-   /**
-      Run/process function for plugins without MIDI input.
-      @note Some parameters might be null if there are no audio inputs or outputs.
-    */
-    void run(const float** inputs, float** outputs, uint32_t frames) override
-    {
-        const float* const in  = inputs[0];
-        /* */ float* const out = outputs[0];
-
-        if (fLatencyInFrames == 0)
-        {
-            if (out != in)
-                std::memcpy(out, in, sizeof(float)*frames);
-            return;
-        }
-
-        // Put the new audio in the buffer.
-        std::memcpy(fBuffer+fBufferPos, in, sizeof(float)*frames);
-        fBufferPos += frames;
-
-        // buffer is not filled enough yet
-        if (fBufferPos < fLatencyInFrames+frames)
-        {
-            // silence output
-            std::memset(out, 0, sizeof(float)*frames);
-        }
-        // buffer is ready to copy
-        else
-        {
-            // copy latency buffer to output
-            const uint32_t readPos = fBufferPos-fLatencyInFrames-frames;
-            std::memcpy(out, fBuffer+readPos, sizeof(float)*frames);
-
-            // move latency buffer back by some frames
-            std::memmove(fBuffer, fBuffer+frames, sizeof(float)*fBufferPos);
-            fBufferPos -= frames;
-        }
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Callbacks (optional) */
-
-   /**
-      Optional callback to inform the plugin about a sample rate change.
-      This function will only be called when the plugin is deactivated.
-    */
-    void sampleRateChanged(double newSampleRate) override
-    {
-        fBufferSize = newSampleRate*6; // 6 seconds
-
-        delete[] fBuffer;
-        fBuffer = new float[fBufferSize];
-        // buffer reset is done during activate()
-
-        fLatencyInFrames = fLatency*newSampleRate;
-        setLatency(fLatencyInFrames);
-    }
-
-    // -------------------------------------------------------------------------------------------------------
-
-private:
     // Parameters
     float fLatency;
     uint32_t fLatencyInFrames;
@@ -252,20 +50,195 @@ private:
     float* fBuffer;
     uint32_t fBufferPos, fBufferSize;
 
-   /**
-      Set our plugin class as non-copyable and add a leak detector just in case.
-    */
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LatencyExamplePlugin)
+    DISTRHO_DECLARE_NON_COPYABLE(LatencyExamplePlugin)
 };
+
+/* --------------------------------------------------------------------------------------------------------
+* Information */
+
+const char* plugin_getName(void* ptr)
+{
+    return DISTRHO_PLUGIN_NAME;
+}
+
+const char* plugin_getLabel(void* ptr)
+{
+    return "Latency";
+}
+
+const char* plugin_getDescription(void* ptr)
+{
+    return "Plugin that demonstrates the latency API in DPF.";
+}
+
+const char* plugin_getMaker(void* ptr)
+{
+    return "DISTRHO";
+}
+
+const char* plugin_getHomePage(void* ptr)
+{
+    return "https://github.com/DISTRHO/DPF";
+}
+
+const char* plugin_getLicense(void* ptr)
+{
+    return "ISC";
+}
+
+uint32_t plugin_getVersion(void* ptr)
+{
+    return d_version(1, 0, 0);
+}
+
+int64_t plugin_getUniqueId(void* ptr)
+{
+    return d_cconst('d', 'L', 'a', 't');
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Init */
+
+void plugin_initAudioPort(void* ptr, bool input, uint32_t index, AudioPort& port)
+{
+    // mark the (single) latency audio port as mono
+    port.groupId = kPortGroupMono;
+
+    // everything else is as default
+    plugin_default_initAudioPort(input, index, port);
+}
+
+void plugin_initParameter(void*, uint32_t index, Parameter& parameter)
+{
+    if (index != 0)
+        return;
+
+    parameter.hints  = kParameterIsAutomatable;
+    parameter.name   = "Latency";
+    parameter.symbol = "latency";
+    parameter.unit   = "s";
+    parameter.ranges.def = 1.0f;
+    parameter.ranges.min = 0.0f;
+    parameter.ranges.max = 5.0f;
+}
+
+void plugin_initPortGroup(void*, const uint32_t groupId, PortGroup& portGroup)
+{
+    fillInPredefinedPortGroupData(groupId, portGroup);
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Internal data */
+
+float plugin_getParameterValue(void* ptr, uint32_t index)
+{
+    LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
+    if (index != 0)
+        return 0.0f;
+
+    return plugin->fLatency;
+}
+
+
+void plugin_setParameterValue(void* ptr, uint32_t index, float value)
+{
+    LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
+    if (index != 0)
+        return;
+
+    plugin->fLatency = value;
+    plugin->fLatencyInFrames = value * plugin->data.sampleRate;
+    plugin_setLatency(ptr, plugin->fLatencyInFrames);
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Audio/MIDI Processing */
+
+/**
+    Activate this plugin.
+*/
+void plugin_activate(void* ptr)
+{
+    LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
+    plugin->fBufferPos = 0;
+    std::memset(plugin->fBuffer, 0, sizeof(float) * plugin->fBufferSize);
+}
+
+void plugin_deactivate(void*) {}
+
+
+void plugin_run(void* ptr, const float** inputs, float** outputs, uint32_t frames)
+{
+    LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
+    const float* const in  = inputs[0];
+    float* const       out = outputs[0];
+
+    if (plugin->fLatencyInFrames == 0)
+    {
+        if (out != in)
+            std::memcpy(out, in, sizeof(float)*frames);
+        return;
+    }
+
+    // Put the new audio in the buffer.
+    std::memcpy(plugin->fBuffer + plugin->fBufferPos, in, sizeof(float)*frames);
+    plugin->fBufferPos += frames;
+
+    // buffer is not filled enough yet
+    if (plugin->fBufferPos < plugin->fLatencyInFrames+frames)
+    {
+        // silence output
+        std::memset(out, 0, sizeof(float)*frames);
+    }
+    // buffer is ready to copy
+    else
+    {
+        // copy latency buffer to output
+        const uint32_t readPos = plugin->fBufferPos - plugin->fLatencyInFrames-frames;
+        std::memcpy(out, plugin->fBuffer+readPos, sizeof(float) * frames);
+
+        // move latency buffer back by some frames
+        std::memmove(plugin->fBuffer, plugin->fBuffer+frames, sizeof(float) * plugin->fBufferPos);
+        plugin->fBufferPos -= frames;
+    }
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Callbacks (optional) */
+
+void plugin_bufferSizeChanged(void* ptr, uint32_t newBufferSize) {}
+
+void plugin_sampleRateChanged(void* ptr, double newSampleRate)
+{
+    LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
+    plugin->fBufferSize = newSampleRate * 6; // 6 seconds
+
+    delete[] plugin->fBuffer;
+    plugin->fBuffer = new float[plugin->fBufferSize];
+    // buffer reset is done during activate()
+
+    plugin->fLatencyInFrames = plugin->fLatency * newSampleRate;
+    plugin_setLatency(ptr, plugin->fLatencyInFrames);
+}
+
+// -------------------------------------------------------------------------------------------------------
 
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin entry point, called by DPF to create a new plugin instance. */
 
-Plugin* createPlugin()
+void* createPlugin()
 {
     return new LatencyExamplePlugin();
 }
 
-// -----------------------------------------------------------------------------------------------------------
+void destroyPlugin(void* ptr)
+{
+    LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
+    delete plugin;
+}
 
-END_NAMESPACE_DISTRHO
+PluginPrivateData* getPluginPrivateData(void* ptr)
+{
+    LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
+    return &plugin->data;
+}

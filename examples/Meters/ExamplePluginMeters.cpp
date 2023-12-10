@@ -50,7 +50,7 @@ struct ExamplePluginMeters
 };
 
 /* --------------------------------------------------------------------------------------------------------
-    * Information */
+* Information */
 
 const char* plugin_getName(void* ptr)
 {
