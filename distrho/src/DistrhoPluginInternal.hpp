@@ -142,7 +142,22 @@ void snprintf_u32(char* const dst, const uint32_t value, const size_t size)
 
 struct PluginPrivateData {
     const bool canRequestParameterValueChanges;
+
+    /**
+    Check if this plugin instance is a "dummy" one used for plugin meta-data/information export.@n
+    When true no processing will be done, the plugin is created only to extract information.@n
+    In DPF, LADSPA/DSSI, VST2 and VST3 formats create one global instance per plugin binary
+    while LV2 creates one when generating turtle meta-data.
+    */
     const bool isDummy;
+    /**
+    Check if this plugin instance is a "selftest" one used for automated plugin tests.@n
+    To enable this mode build with `DPF_RUNTIME_TESTING` macro defined (i.e. set as compiler build flag),
+    and run the JACK/Standalone executable with "selftest" as its only and single argument.
+
+    A few basic DSP and UI tests will run in self-test mode, with once instance having this function returning true.@n
+    You can use this chance to do a few tests of your own as well.
+    */
     const bool isSelfTest;
     bool isProcessing;
 
@@ -181,8 +196,12 @@ struct PluginPrivateData {
     requestParameterValueChangeFunc requestParameterValueChangeCallbackFunc;
     updateStateValueFunc updateStateValueCallbackFunc;
 
+    // Host state
+    // These values will remain constant between plugin_activate() and plugin_deactivate().
     uint32_t bufferSize;
     double   sampleRate;
+    // Get the bundle path where the plugin resides.
+    // Can be set to null if the plugin is not available in a bundle (if it is a single binary).
     char*    bundlePath;
 
     PluginPrivateData() noexcept

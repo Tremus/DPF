@@ -86,36 +86,6 @@ void PluginPrivateData_init(PluginPrivateData* pData, uint32_t parameterCount, u
 /* ------------------------------------------------------------------------------------------------------------
  * Host state */
 
-uint32_t plugin_getBufferSize(void* ptr)
-{
-    PluginPrivateData* pData = getPluginPrivateData(ptr);
-    return pData->bufferSize;
-}
-
-double plugin_getSampleRate(void* ptr)
-{
-    PluginPrivateData* pData = getPluginPrivateData(ptr);
-    return pData->sampleRate;
-}
-
-const char* plugin_getBundlePath(void* ptr)
-{
-    PluginPrivateData* pData = getPluginPrivateData(ptr);
-    return pData->bundlePath;
-}
-
-bool plugin_isDummyInstance(void* ptr)
-{
-    PluginPrivateData* pData = getPluginPrivateData(ptr);
-    return pData->isDummy;
-}
-
-bool plugin_isSelfTestInstance(void* ptr)
-{
-    PluginPrivateData* pData = getPluginPrivateData(ptr);
-    return pData->isSelfTest;
-}
-
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
 const TimePosition& plugin_getTimePosition(void* ptr)
 {

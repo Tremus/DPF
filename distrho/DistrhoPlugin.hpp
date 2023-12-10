@@ -61,48 +61,6 @@ START_NAMESPACE_DISTRHO
 /* --------------------------------------------------------------------------------------------------------
 * Host state */
 
-/**
-    Get the current buffer size that will probably be used during processing, in frames.@n
-    This value will remain constant between activate and deactivate.
-    @note This value is only a hint!@n
-        Hosts might call run() with a higher or lower number of frames.
-    @see bufferSizeChanged(uint32_t)
-*/
-extern uint32_t plugin_getBufferSize(void*);
-
-/**
-    Get the current sample rate that will be used during processing.@n
-    This value will remain constant between activate and deactivate.
-    @see sampleRateChanged(double)
-*/
-extern double plugin_getSampleRate(void*);
-
-/**
-    Get the bundle path where the plugin resides.
-    Can return null if the plugin is not available in a bundle (if it is a single binary).
-    @see getBinaryFilename
-    @see getResourcePath
-*/
-extern const char* plugin_getBundlePath(void*);
-
-/**
-    Check if this plugin instance is a "dummy" one used for plugin meta-data/information export.@n
-    When true no processing will be done, the plugin is created only to extract information.@n
-    In DPF, LADSPA/DSSI, VST2 and VST3 formats create one global instance per plugin binary
-    while LV2 creates one when generating turtle meta-data.
-*/
-extern bool plugin_isDummyInstance(void*);
-
-/**
-    Check if this plugin instance is a "selftest" one used for automated plugin tests.@n
-    To enable this mode build with `DPF_RUNTIME_TESTING` macro defined (i.e. set as compiler build flag),
-    and run the JACK/Standalone executable with "selftest" as its only and single argument.
-
-    A few basic DSP and UI tests will run in self-test mode, with once instance having this function returning true.@n
-    You can use this chance to do a few tests of your own as well.
-*/
-extern bool plugin_isSelfTestInstance(void*);
-
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
 /**
     Get the current host transport time position.@n
