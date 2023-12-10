@@ -153,9 +153,6 @@ void plugin_setParameterValue(void* ptr, uint32_t index, float value)
 /* --------------------------------------------------------------------------------------------------------
 * Audio/MIDI Processing */
 
-/**
-    Activate this plugin.
-*/
 void plugin_activate(void* ptr)
 {
     LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;

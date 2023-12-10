@@ -15,210 +15,188 @@
  */
 
 #include "DistrhoPlugin.hpp"
-
-START_NAMESPACE_DISTRHO
-
-// -----------------------------------------------------------------------------------------------------------
+#include "src/DistrhoPluginInternal.hpp"
 
 /**
   Plugin to show how to get some basic information sent to the UI.
  */
-class EmbedExternalExamplePlugin : public Plugin
+struct EmbedExternalExamplePlugin
 {
-public:
+    PluginPrivateData data;
+
     EmbedExternalExamplePlugin()
-        : Plugin(kParameterCount, 0, 0),
+        : data(),
           fWidth(512.0f),
           fHeight(256.0f)
     {
+        PluginPrivateData_init(&data, kParameterCount, 0, 0);
     }
 
-protected:
-   /* --------------------------------------------------------------------------------------------------------
-    * Information */
-
-   /**
-      Get the plugin label.
-      This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
-    */
-    const char* getLabel() const override
-    {
-        return "EmbedExternalUI";
-    }
-
-   /**
-      Get an extensive comment/description about the plugin.
-    */
-    const char* getDescription() const override
-    {
-        return "Plugin to show how to use an embedable dpf-external UI.";
-    }
-
-   /**
-      Get the plugin author/maker.
-    */
-    const char* getMaker() const override
-    {
-        return "DISTRHO";
-    }
-
-   /**
-      Get the plugin homepage.
-    */
-    const char* getHomePage() const override
-    {
-        return "https://github.com/DISTRHO/DPF";
-    }
-
-   /**
-      Get the plugin license name (a single line of text).
-      For commercial plugins this should return some short copyright information.
-    */
-    const char* getLicense() const override
-    {
-        return "ISC";
-    }
-
-   /**
-      Get the plugin version, in hexadecimal.
-    */
-    uint32_t getVersion() const override
-    {
-        return d_version(1, 0, 0);
-    }
-
-   /**
-      Get the plugin unique Id.
-      This value is used by LADSPA, DSSI and VST plugin formats.
-    */
-    int64_t getUniqueId() const override
-    {
-        return d_cconst('d', 'b', 'x', 't');
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Init */
-
-   /**
-      Initialize the audio port @a index.@n
-      This function will be called once, shortly after the plugin is created.
-    */
-    void initAudioPort(bool input, uint32_t index, AudioPort& port) override
-    {
-        // treat meter audio ports as stereo
-        port.groupId = kPortGroupStereo;
-
-        // everything else is as default
-        Plugin::initAudioPort(input, index, port);
-    }
-
-   /**
-      Initialize the parameter @a index.
-      This function will be called once, shortly after the plugin is created.
-    */
-    void initParameter(uint32_t index, Parameter& parameter) override
-    {
-        switch (index)
-        {
-        case kParameterWidth:
-            parameter.hints      = kParameterIsAutomatable|kParameterIsInteger;
-            parameter.ranges.def = 512.0f;
-            parameter.ranges.min = 256.0f;
-            parameter.ranges.max = 4096.0f;
-            parameter.name   = "Width";
-            parameter.symbol = "width";
-            parameter.unit   = "px";
-            break;
-        case kParameterHeight:
-            parameter.hints      = kParameterIsAutomatable|kParameterIsInteger;
-            parameter.ranges.def = 256.0f;
-            parameter.ranges.min = 256.0f;
-            parameter.ranges.max = 4096.0f;
-            parameter.name   = "Height";
-            parameter.symbol = "height";
-            parameter.unit   = "px";
-            break;
-        }
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Internal data */
-
-   /**
-      Get the current value of a parameter.
-      The host may call this function from any context, including realtime processing.
-    */
-    float getParameterValue(uint32_t index) const override
-    {
-        switch (index)
-        {
-        case kParameterWidth:
-            return fWidth;
-        case kParameterHeight:
-            return fHeight;
-        }
-
-        return 0.0f;
-
-    }
-
-   /**
-      Change a parameter value.
-      The host may call this function from any context, including realtime processing.
-      When a parameter is marked as automatable, you must ensure no non-realtime operations are performed.
-      @note This function will only be called for parameter inputs.
-    */
-    void setParameterValue(uint32_t index, float value) override
-    {
-        switch (index)
-        {
-        case kParameterWidth:
-            fWidth = value;
-            break;
-        case kParameterHeight:
-            fHeight = value;
-            break;
-        }
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Audio/MIDI Processing */
-
-   /**
-      Run/process function for plugins without MIDI input.
-      @note Some parameters might be null if there are no audio inputs or outputs.
-    */
-    void run(const float** inputs, float** outputs, uint32_t frames) override
-    {
-       /**
-          This plugin does nothing, it just demonstrates information usage.
-          So here we directly copy inputs over outputs, leaving the audio untouched.
-          We need to be careful in case the host re-uses the same buffer for both inputs and outputs.
-        */
-        if (outputs[0] != inputs[0])
-            std::memcpy(outputs[0], inputs[0], sizeof(float)*frames);
-        if (outputs[1] != inputs[1])
-            std::memcpy(outputs[1], inputs[1], sizeof(float)*frames);
-    }
-
-    // -------------------------------------------------------------------------------------------------------
-
-private:
     // Parameters
     float fWidth, fHeight;
 
-   /**
-      Set our plugin class as non-copyable and add a leak detector just in case.
-    */
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EmbedExternalExamplePlugin)
+    DISTRHO_DECLARE_NON_COPYABLE(EmbedExternalExamplePlugin)
 };
+
+/* --------------------------------------------------------------------------------------------------------
+ * Information */
+
+const char* plugin_getName(void* ptr)
+{
+    return DISTRHO_PLUGIN_NAME;
+}
+
+const char* plugin_getLabel(void* ptr)
+{
+    return "EmbedExternalUI";
+}
+
+const char* plugin_getDescription(void* ptr)
+{
+    return "Plugin to show how to use an embedable dpf-external UI.";
+}
+
+const char* plugin_getMaker(void* ptr)
+{
+    return "DISTRHO";
+}
+
+const char* plugin_getHomePage(void* ptr)
+{
+    return "https://github.com/DISTRHO/DPF";
+}
+
+const char* plugin_getLicense(void* ptr)
+{
+    return "ISC";
+}
+
+uint32_t plugin_getVersion(void* ptr)
+{
+    return d_version(1, 0, 0);
+}
+
+int64_t plugin_getUniqueId(void* ptr)
+{
+    return d_cconst('d', 'b', 'x', 't');
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Init */
+
+void plugin_initAudioPort(void* ptr, bool input, uint32_t index, AudioPort& port)
+{
+    // treat meter audio ports as stereo
+    port.groupId = kPortGroupStereo;
+
+    // everything else is as default
+    plugin_default_initAudioPort(input, index, port);
+}
+
+void plugin_initParameter(void*, uint32_t index, Parameter& parameter)
+{
+    switch (index)
+    {
+    case kParameterWidth:
+        parameter.hints      = kParameterIsAutomatable|kParameterIsInteger;
+        parameter.ranges.def = 512.0f;
+        parameter.ranges.min = 256.0f;
+        parameter.ranges.max = 4096.0f;
+        parameter.name   = "Width";
+        parameter.symbol = "width";
+        parameter.unit   = "px";
+        break;
+    case kParameterHeight:
+        parameter.hints      = kParameterIsAutomatable|kParameterIsInteger;
+        parameter.ranges.def = 256.0f;
+        parameter.ranges.min = 256.0f;
+        parameter.ranges.max = 4096.0f;
+        parameter.name   = "Height";
+        parameter.symbol = "height";
+        parameter.unit   = "px";
+        break;
+    }
+}
+
+void plugin_initPortGroup(void*, const uint32_t groupId, PortGroup& portGroup)
+{
+    fillInPredefinedPortGroupData(groupId, portGroup);
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Internal data */
+
+float plugin_getParameterValue(void* ptr, uint32_t index)
+{
+    EmbedExternalExamplePlugin* plugin = (EmbedExternalExamplePlugin*)ptr;
+    switch (index)
+    {
+    case kParameterWidth:
+        return plugin->fWidth;
+    case kParameterHeight:
+        return plugin->fHeight;
+    }
+
+    return 0.0f;
+
+}
+
+void plugin_setParameterValue(void* ptr, uint32_t index, float value)
+{
+    EmbedExternalExamplePlugin* plugin = (EmbedExternalExamplePlugin*)ptr;
+    switch (index)
+    {
+    case kParameterWidth:
+        plugin->fWidth = value;
+        break;
+    case kParameterHeight:
+        plugin->fHeight = value;
+        break;
+    }
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Audio/MIDI Processing */
+
+void plugin_activate(void* ptr) {}
+void plugin_deactivate(void*) {}
+
+void plugin_run(void* ptr, const float** inputs, float** outputs, uint32_t frames)
+{
+    /**
+        This plugin does nothing, it just demonstrates information usage.
+        So here we directly copy inputs over outputs, leaving the audio untouched.
+        We need to be careful in case the host re-uses the same buffer for both inputs and outputs.
+    */
+    if (outputs[0] != inputs[0])
+        std::memcpy(outputs[0], inputs[0], sizeof(float)*frames);
+    if (outputs[1] != inputs[1])
+        std::memcpy(outputs[1], inputs[1], sizeof(float)*frames);
+}
+
+void plugin_bufferSizeChanged(void* ptr, uint32_t newBufferSize) {}
+void plugin_sampleRateChanged(void* ptr, double newSampleRate) {}
+
+// -------------------------------------------------------------------------------------------------------
 
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin entry point, called by DPF to create a new plugin instance. */
 
-Plugin* createPlugin()
+void* createPlugin()
 {
     return new EmbedExternalExamplePlugin();
+}
+
+void destroyPlugin(void* ptr)
+{
+    EmbedExternalExamplePlugin* plugin = (EmbedExternalExamplePlugin*)ptr;
+    delete plugin;
+}
+
+PluginPrivateData* getPluginPrivateData(void* ptr)
+{
+    EmbedExternalExamplePlugin* plugin = (EmbedExternalExamplePlugin*)ptr;
+    return &plugin->data;
 }
 
 // -----------------------------------------------------------------------------------------------------------
