@@ -128,11 +128,6 @@ void plugin_initProgramName(void* ptr, uint32_t index, String& programName)
     }
 }
 
-/**
-    Initialize the state @a index.@n
-    This function will be called once, shortly after the plugin is created.@n
-    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
-*/
 void plugin_initState(void* ptr, uint32_t index, State& state)
 {
     switch (index)
@@ -296,9 +291,6 @@ void plugin_deactivate(void*) {}
 /* --------------------------------------------------------------------------------------------------------
 * Process */
 
-/**
-    Run/process function for plugins without MIDI input.
-*/
 void plugin_run(void*, const float** inputs, float** outputs, uint32_t frames)
 {
     /**

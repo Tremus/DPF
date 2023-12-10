@@ -17,10 +17,6 @@
 #include "DistrhoPlugin.hpp"
 #include "src/DistrhoPluginInternal.hpp"
 
-START_NAMESPACE_DISTRHO
-
-// -----------------------------------------------------------------------------------------------------------
-
 /**
   Plugin that demonstrates MIDI output in DPF.
  */
@@ -33,12 +29,7 @@ struct MidiThroughExamplePlugin
         PluginPrivateData_init(&data, 0, 0, 0);
     }
 
-private:
-    // nothing here :)
-   /**
-      Set our plugin class as non-copyable and add a leak detector just in case.
-    */
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MidiThroughExamplePlugin)
+    DISTRHO_DECLARE_NON_COPYABLE(MidiThroughExamplePlugin)
 };
 
 /* --------------------------------------------------------------------------------------------------------
@@ -133,7 +124,3 @@ PluginPrivateData* getPluginPrivateData(void* ptr)
     MidiThroughExamplePlugin* plugin = (MidiThroughExamplePlugin*)ptr;
     return &plugin->data;
 }
-
-// -----------------------------------------------------------------------------------------------------------
-
-END_NAMESPACE_DISTRHO

@@ -17,8 +17,6 @@
 #include "DistrhoPlugin.hpp"
 #include "src/DistrhoPluginInternal.hpp"
 
-START_NAMESPACE_DISTRHO
-
 // -----------------------------------------------------------------------------------------------------------
 
 /**
@@ -313,7 +311,3 @@ PluginPrivateData* getPluginPrivateData(void* ptr)
     ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
     return &plugin->data;
 }
-
-// -----------------------------------------------------------------------------------------------------------
-
-END_NAMESPACE_DISTRHO
