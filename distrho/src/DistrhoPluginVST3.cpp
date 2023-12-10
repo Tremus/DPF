@@ -4589,7 +4589,13 @@ static const char* getPluginVersion()
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_factory
 
-struct dpf_factory : v3_plugin_factory_cpp {
+struct dpf_factory {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_plugin_factory   v1;
+	v3_plugin_factory_2 v2;
+	v3_plugin_factory_3 v3;
+
     std::atomic_int refcounter;
 
     // cached values
@@ -4599,10 +4605,11 @@ struct dpf_factory : v3_plugin_factory_cpp {
         : refcounter(1),
           hostContext(nullptr)
     {
-        // v3_funknown, static
-        query_interface = query_interface_factory;
-        ref = ref_factory;
-        unref = unref_factory;
+        lpVtbl = &com;
+        // v3_funknown
+        com.query_interface = query_interface_factory;
+        com.ref = ref_factory;
+        com.unref = unref_factory;
 
         // v3_plugin_factory
         v1.get_factory_info = get_factory_info;
@@ -4664,7 +4671,7 @@ struct dpf_factory : v3_plugin_factory_cpp {
 
     static v3_result V3_API query_interface_factory(void* const self, const v3_tuid iid, void** const iface)
     {
-        dpf_factory* const factory = *static_cast<dpf_factory**>(self);
+        dpf_factory* const factory = (dpf_factory*)(self);
 
         if (tuid_match(iid, v3_funknown_iid) ||
             tuid_match(iid, v3_plugin_factory_iid) ||
@@ -4685,7 +4692,7 @@ struct dpf_factory : v3_plugin_factory_cpp {
 
     static uint32_t V3_API ref_factory(void* const self)
     {
-        dpf_factory* const factory = *static_cast<dpf_factory**>(self);
+        dpf_factory* const factory = (dpf_factory*)(self);
         const int refcount = ++factory->refcounter;
         d_debug("ref_factory::ref => %p | refcount %i", self, refcount);
         return refcount;
@@ -4693,8 +4700,7 @@ struct dpf_factory : v3_plugin_factory_cpp {
 
     static uint32_t V3_API unref_factory(void* const self)
     {
-        dpf_factory** const factoryptr = static_cast<dpf_factory**>(self);
-        dpf_factory* const factory = *factoryptr;
+        dpf_factory* const factory = (dpf_factory*)(self);
 
         if (const int refcount = --factory->refcounter)
         {
@@ -4705,7 +4711,6 @@ struct dpf_factory : v3_plugin_factory_cpp {
         d_debug("unref_factory::unref => %p | refcount is zero, deleting factory", self);
 
         delete factory;
-        delete factoryptr;
         return 0;
     }
 
@@ -4760,7 +4765,7 @@ struct dpf_factory : v3_plugin_factory_cpp {
     static v3_result V3_API create_instance(void* self, const v3_tuid class_id, const v3_tuid iid, void** const instance)
     {
         d_debug("dpf_factory::create_instance => %p %s %s %p", self, tuid2str(class_id), tuid2str(iid), instance);
-        dpf_factory* const factory = *static_cast<dpf_factory**>(self);
+        dpf_factory* const factory = (dpf_factory*)(self);
 
         // query for host application
         v3_host_application** hostApplication = nullptr;
@@ -4892,10 +4897,7 @@ const void* GetPluginFactory(void);
 
 const void* GetPluginFactory(void)
 {
-    USE_NAMESPACE_DISTRHO;
-    dpf_factory** const factoryptr = new dpf_factory*;
-    *factoryptr = new dpf_factory;
-    return static_cast<void*>(factoryptr);
+    return new dpf_factory();
 }
 
 // --------------------------------------------------------------------------------------------------------------------
