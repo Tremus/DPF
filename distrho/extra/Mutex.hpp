@@ -45,16 +45,15 @@ class Signal;
 class Mutex
 {
 public:
-    /*
-     * Constructor.
-     */
     Mutex(const bool inheritPriority = true) noexcept
        #ifdef DISTRHO_OS_WINDOWS__TODO
+        : fSection()
        #else
         : fMutex()
        #endif
     {
        #ifdef DISTRHO_OS_WINDOWS__TODO
+        InitializeCriticalSection(&fSection);
        #else
         pthread_mutexattr_t attr;
         pthread_mutexattr_init(&attr);
@@ -65,46 +64,38 @@ public:
        #endif
     }
 
-    /*
-     * Destructor.
-     */
     ~Mutex() noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS__TODO
+        DeleteCriticalSection(&fSection);
        #else
         pthread_mutex_destroy(&fMutex);
        #endif
     }
 
-    /*
-     * Lock the mutex.
-     */
-    bool lock() const noexcept
+    bool lock() noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS__TODO
+        EnterCriticalSection(&fSection);
+        return true;
        #else
         return (pthread_mutex_lock(&fMutex) == 0);
        #endif
     }
 
-    /*
-     * Try to lock the mutex.
-     * Returns true if successful.
-     */
-    bool tryLock() const noexcept
+    bool tryLock() noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS__TODO
+        return (TryEnterCriticalSection(&fSection) != FALSE);
        #else
         return (pthread_mutex_trylock(&fMutex) == 0);
        #endif
     }
 
-    /*
-     * Unlock the mutex.
-     */
-    void unlock() const noexcept
+    void unlock() noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS__TODO
+        LeaveCriticalSection(&fSection);
        #else
         pthread_mutex_unlock(&fMutex);
        #endif
@@ -112,6 +103,7 @@ public:
 
 private:
    #ifdef DISTRHO_OS_WINDOWS__TODO
+    CRITICAL_SECTION fSection;
    #else
     mutable pthread_mutex_t fMutex;
    #endif
@@ -125,9 +117,6 @@ private:
 class RecursiveMutex
 {
 public:
-    /*
-     * Constructor.
-     */
     RecursiveMutex() noexcept
        #ifdef DISTRHO_OS_WINDOWS
         : fSection()
@@ -147,9 +136,6 @@ public:
        #endif
     }
 
-    /*
-     * Destructor.
-     */
     ~RecursiveMutex() noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS
@@ -159,9 +145,6 @@ public:
        #endif
     }
 
-    /*
-     * Lock the mutex.
-     */
     bool lock() const noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS
@@ -172,10 +155,6 @@ public:
        #endif
     }
 
-    /*
-     * Try to lock the mutex.
-     * Returns true if successful.
-     */
     bool tryLock() const noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS
@@ -185,9 +164,6 @@ public:
        #endif
     }
 
-    /*
-     * Unlock the mutex.
-     */
     void unlock() const noexcept
     {
        #ifdef DISTRHO_OS_WINDOWS

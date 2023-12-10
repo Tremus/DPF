@@ -498,17 +498,14 @@ void lv2_generate_ttl(const char* const basename)
                     pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                     + plugin.getPortGroupSymbolForId(port.groupId) + "> ;\n";
 
-                    switch (port.groupId)
-                    {
-                    case kPortGroupMono:
+                    if (port.groupId == kPortGroupMono)
                         pluginString += "        lv2:designation pg:center ;\n";
-                        break;
-                    case kPortGroupStereo:
+                    else if (port.groupId == kPortGroupStereo)
+                    {
                         if (i == 1)
                             pluginString += "        lv2:designation pg:right ;\n";
                         else
                             pluginString += "        lv2:designation pg:left ;\n";
-                        break;
                     }
                 }
 
@@ -594,17 +591,14 @@ void lv2_generate_ttl(const char* const basename)
                     pluginString += "        pg:group <" DISTRHO_PLUGIN_URI "#portGroup_"
                                     + plugin.getPortGroupSymbolForId(port.groupId) + "> ;\n";
 
-                    switch (port.groupId)
-                    {
-                    case kPortGroupMono:
+                    if (port.groupId == kPortGroupMono)
                         pluginString += "        lv2:designation pg:center ;\n";
-                        break;
-                    case kPortGroupStereo:
+                    else if (port.groupId == kPortGroupStereo)
+                    {
                         if (i == 1)
                             pluginString += "        lv2:designation pg:right ;\n";
                         else
                             pluginString += "        lv2:designation pg:left ;\n";
-                        break;
                     }
                 }
 
@@ -1227,15 +1221,10 @@ void lv2_generate_ttl(const char* const basename)
                 else
                     pluginString += "pg:Group";
 
-                switch (portGroup.groupId)
-                {
-                case kPortGroupMono:
+                if (portGroup.groupId == kPortGroupMono)
                     pluginString += " , pg:MonoGroup";
-                    break;
-                case kPortGroupStereo:
+                else if (portGroup.groupId == kPortGroupStereo)
                     pluginString += " , pg:StereoGroup";
-                    break;
-                }
 
                 pluginString += " ;\n";
 

@@ -1339,18 +1339,12 @@ public:
         info->flags = busInfo.isMain ? CLAP_AUDIO_PORT_IS_MAIN : 0x0;
         info->channel_count = busInfo.numChannels;
 
-        switch (busInfo.groupId)
-        {
-        case kPortGroupMono:
+        if (busInfo.groupId == kPortGroupMono)
             info->port_type = CLAP_PORT_MONO;
-            break;
-        case kPortGroupStereo:
+        else if (busInfo.groupId == kPortGroupStereo)
             info->port_type = CLAP_PORT_STEREO;
-            break;
-        default:
+        else
             info->port_type = nullptr;
-            break;
-        }
 
         info->in_place_pair = busInfo.hasPair ? busInfo.groupId : CLAP_INVALID_ID;
         return true;
@@ -1903,22 +1897,14 @@ private:
 
                     const PortGroupWithId& group(fPlugin.getPortGroupById(port.groupId));
 
-                    switch (port.groupId)
+                    if ((port.groupId == kPortGroupStereo || port.groupId == kPortGroupMono) && busInfo.isMain)
+                        d_strncpy(busInfo.name, isInput ? "Audio Input" : "Audio Output", CLAP_NAME_SIZE);
+                    else
                     {
-                    case kPortGroupStereo:
-                    case kPortGroupMono:
-                        if (busInfo.isMain)
-                        {
-                            d_strncpy(busInfo.name, isInput ? "Audio Input" : "Audio Output", CLAP_NAME_SIZE);
-                            break;
-                        }
-                    // fall-through
-                    default:
                         if (group.name.isNotEmpty())
                             d_strncpy(busInfo.name, group.name, CLAP_NAME_SIZE);
                         else
                             d_strncpy(busInfo.name, port.name, CLAP_NAME_SIZE);
-                        break;
                     }
 
                     busInfos.push_back(busInfo);
