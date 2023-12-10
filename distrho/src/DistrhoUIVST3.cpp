@@ -312,7 +312,7 @@ class UIVst3
 #endif
 {
 public:
-    UIVst3(v3_plugin_view** const view,
+    UIVst3(v3_plugin_view* const view,
            v3_host_application** const host,
            v3_connection_point** const connection,
            v3_plugin_frame** const frame,
@@ -730,7 +730,7 @@ public:
 
 private:
     // VST3 stuff
-    v3_plugin_view** const fView;
+    v3_plugin_view* const fView;
     v3_host_application** const fHostApplication;
     v3_connection_point** fConnection;
     v3_plugin_frame** fFrame;
@@ -920,7 +920,7 @@ private:
         rect.right = width;
         rect.bottom = height;
         fNextPluginRect = rect;
-        v3_cpp_obj(fFrame)->resize_view(fFrame, fView, &rect);
+        v3_cpp_obj(fFrame)->resize_view(fFrame, (v3_plugin_view**)fView, &rect);
     }
 
     static void setSizeCallback(void* const ptr, const uint width, const uint height)
@@ -1175,7 +1175,10 @@ static const char* const kSupportedPlatforms[] = {
 #endif
 };
 
-struct dpf_plugin_view : v3_plugin_view_cpp {
+struct dpf_plugin_view {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_plugin_view view;
     std::atomic_int refcounter;
     ScopedPointer<dpf_ui_connection_point> connection;
     ScopedPointer<dpf_plugin_view_content_scale> scale;
@@ -1193,7 +1196,8 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     bool sizeRequestedBeforeBeingAttached;
 
     dpf_plugin_view(v3_host_application** const host, void* const instance, const double sr)
-        : refcounter(1),
+        : lpVtbl(&com),
+          refcounter(1),
           hostApplication(host),
           instancePointer(instance),
           sampleRate(sr),
@@ -1210,9 +1214,9 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
             v3_cpp_obj_ref(hostApplication);
 
         // v3_funknown, everything custom
-        query_interface = query_interface_view;
-        ref = ref_view;
-        unref = unref_view;
+        com.query_interface = query_interface_view;
+        com.ref = ref_view;
+        com.unref = unref_view;
 
         // v3_plugin_view
         view.is_platform_type_supported = is_platform_type_supported;
@@ -1249,7 +1253,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
 
     static v3_result V3_API query_interface_view(void* self, const v3_tuid iid, void** iface)
     {
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         if (v3_tuid_match(iid, v3_funknown_iid) ||
             v3_tuid_match(iid, v3_plugin_view_iid))
@@ -1296,7 +1300,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
 
     static uint32_t V3_API ref_view(void* self)
     {
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
         const int refcount = ++view->refcounter;
         d_debug("dpf_plugin_view::ref => %p | refcount %i", self, refcount);
         return refcount;
@@ -1304,8 +1308,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
 
     static uint32_t V3_API unref_view(void* self)
     {
-        dpf_plugin_view** const viewptr = static_cast<dpf_plugin_view**>(self);
-        dpf_plugin_view* const view = *viewptr;
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         if (const int refcount = --view->refcounter)
         {
@@ -1351,7 +1354,6 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
         d_debug("dpf_plugin_view::unref => %p | refcount is zero, deleting everything now!", self);
 
         delete view;
-        delete viewptr;
         return 0;
     }
 
@@ -1377,7 +1379,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     static v3_result V3_API attached(void* const self, void* const parent, const char* const platform_type)
     {
         d_debug("dpf_plugin_view::attached => %p %p %s", self, parent, platform_type);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
         DISTRHO_SAFE_ASSERT_RETURN(view->uivst3 == nullptr, V3_INVALID_ARG);
 
         for (size_t i=0; i<ARRAY_SIZE(kSupportedPlatforms); ++i)
@@ -1396,7 +1398,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
                #endif
 
                 const float lastScaleFactor = view->scale != nullptr ? view->scale->scaleFactor : 0.0f;
-                view->uivst3 = new UIVst3((v3_plugin_view**)self,
+                view->uivst3 = new UIVst3((v3_plugin_view*)self,
                                           view->hostApplication,
                                           view->connection != nullptr ? view->connection->other : nullptr,
                                           view->frame,
@@ -1430,7 +1432,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     static v3_result V3_API removed(void* const self)
     {
         d_debug("dpf_plugin_view::removed => %p", self);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
         DISTRHO_SAFE_ASSERT_RETURN(view->uivst3 != nullptr, V3_INVALID_ARG);
 
        #if DPF_VST3_USING_HOST_RUN_LOOP
@@ -1465,7 +1467,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_wheel => %p %f", self, distance);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
         DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
@@ -1482,7 +1484,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_key_down => %p %i %i %i", self, key_char, key_code, modifiers);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
         DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
@@ -1499,7 +1501,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_key_up => %p %i %i %i", self, key_char, key_code, modifiers);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
         DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
@@ -1515,7 +1517,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     static v3_result V3_API get_size(void* const self, v3_view_rect* const rect)
     {
         d_debug("dpf_plugin_view::get_size => %p", self);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         if (UIVst3* const uivst3 = view->uivst3)
             return uivst3->getSize(rect);
@@ -1555,7 +1557,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
         DISTRHO_SAFE_ASSERT_INT2_RETURN(rect->right > rect->left, rect->right, rect->left, V3_INVALID_ARG);
         DISTRHO_SAFE_ASSERT_INT2_RETURN(rect->bottom > rect->top, rect->bottom, rect->top, V3_INVALID_ARG);
 
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         if (UIVst3* const uivst3 = view->uivst3)
             return uivst3->onSize(rect);
@@ -1569,7 +1571,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_focus => %p %u", self, state);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
         DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
@@ -1585,7 +1587,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     static v3_result V3_API set_frame(void* const self, v3_plugin_frame** const frame)
     {
         d_debug("dpf_plugin_view::set_frame => %p %p", self, frame);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         view->frame = frame;
 
@@ -1598,7 +1600,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     static v3_result V3_API can_resize(void* const self)
     {
 #if DISTRHO_UI_USER_RESIZABLE
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         if (UIVst3* const uivst3 = view->uivst3)
             return uivst3->canResize();
@@ -1616,7 +1618,7 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
     {
         d_debug("dpf_plugin_view::check_size_constraint => %p {%d,%d,%d,%d}",
                 self, rect->top, rect->left, rect->right, rect->bottom);
-        dpf_plugin_view* const view = *static_cast<dpf_plugin_view**>(self);
+        dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         if (UIVst3* const uivst3 = view->uivst3)
             return uivst3->checkSizeConstraint(rect);
@@ -1628,15 +1630,13 @@ struct dpf_plugin_view : v3_plugin_view_cpp {
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_plugin_view_create (called from plugin side)
 
-v3_plugin_view** dpf_plugin_view_create(v3_host_application** host, void* instancePointer, double sampleRate);
+v3_plugin_view* dpf_plugin_view_create(v3_host_application** host, void* instancePointer, double sampleRate);
 
-v3_plugin_view** dpf_plugin_view_create(v3_host_application** const host,
+v3_plugin_view* dpf_plugin_view_create(v3_host_application** const host,
                                         void* const instancePointer,
                                         const double sampleRate)
 {
-    dpf_plugin_view** const viewptr = new dpf_plugin_view*;
-    *viewptr = new dpf_plugin_view(host, instancePointer, sampleRate);
-    return static_cast<v3_plugin_view**>(static_cast<void*>(viewptr));
+    return (v3_plugin_view*)new dpf_plugin_view(host, instancePointer, sampleRate);
 }
 
 // --------------------------------------------------------------------------------------------------------------------
