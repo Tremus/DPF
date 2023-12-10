@@ -3150,11 +3150,11 @@ static uint32_t V3_API dpf_single_instance_unref(void* const self)
 
 struct dpf_component;
 
-static std::vector<dpf_component**> gComponentGarbage;
+static std::vector<dpf_component*> gComponentGarbage;
 
-static uint32_t handleUncleanComponent(dpf_component** const componentptr)
+static uint32_t handleUncleanComponent(dpf_component* const component)
 {
-    gComponentGarbage.push_back(componentptr);
+    gComponentGarbage.push_back(component);
     return 0;
 }
 
@@ -3977,18 +3977,22 @@ struct dpf_process_context_requirements : v3_process_context_requirements_cpp {
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_audio_processor
 
-struct dpf_audio_processor : v3_audio_processor_cpp {
+struct dpf_audio_processor {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_audio_processor proc;
     std::atomic_int refcounter;
     ScopedPointer<PluginVst3>& vst3;
 
     dpf_audio_processor(ScopedPointer<PluginVst3>& v)
-        : refcounter(1),
+        : lpVtbl(&com),
+          refcounter(1),
           vst3(v)
     {
         // v3_funknown, single instance
-        query_interface = query_interface_audio_processor;
-        ref = dpf_single_instance_ref<dpf_audio_processor>;
-        unref = dpf_single_instance_unref<dpf_audio_processor>;
+        com.query_interface = query_interface_audio_processor;
+        com.ref = dpf_single_instance_ref<dpf_audio_processor>;
+        com.unref = dpf_single_instance_unref<dpf_audio_processor>;
 
         // v3_audio_processor
         proc.set_bus_arrangements = set_bus_arrangements;
@@ -4006,7 +4010,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
 
     static v3_result V3_API query_interface_audio_processor(void* const self, const v3_tuid iid, void** const iface)
     {
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         if (tuid_match(iid, v3_funknown_iid) ||
             tuid_match(iid, v3_audio_processor_iid))
@@ -4042,7 +4046,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
         // NOTE this is called a bunch of times in JUCE hosts
         d_debug("dpf_audio_processor::set_bus_arrangements => %p %p %i %p %i",
                 self, inputs, num_inputs, outputs, num_outputs);
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4055,7 +4059,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
     {
         d_debug("dpf_audio_processor::get_bus_arrangement => %p %s %i %p",
                 self, v3_bus_direction_str(bus_direction), idx, arr);
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4073,7 +4077,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
     static uint32_t V3_API get_latency_samples(void* const self)
     {
         d_debug("dpf_audio_processor::get_latency_samples => %p", self);
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, 0);
@@ -4084,7 +4088,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
     static v3_result V3_API setup_processing(void* const self, v3_process_setup* const setup)
     {
         d_debug("dpf_audio_processor::setup_processing => %p %p", self, setup);
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4099,7 +4103,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
     static v3_result V3_API set_processing(void* const self, const v3_bool state)
     {
         d_debug("dpf_audio_processor::set_processing => %p %u", self, state);
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4111,7 +4115,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
     {
         // NOTE runs during RT
         // d_debug("dpf_audio_processor::process => %p", self);
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4122,7 +4126,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
     static uint32_t V3_API get_tail_samples(void* const self)
     {
         d_debug("dpf_audio_processor::get_tail_samples => %p", self);
-        dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, 0);
@@ -4134,7 +4138,11 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_component
 
-struct dpf_component : v3_component_cpp {
+struct dpf_component {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_plugin_base base;
+	v3_component comp;
     std::atomic_int refcounter;
     ScopedPointer<dpf_audio_processor> processor;
    #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -4147,7 +4155,8 @@ struct dpf_component : v3_component_cpp {
     v3_host_application** hostApplicationFromInitialize;
 
     dpf_component(v3_host_application** const host)
-        : refcounter(1),
+        : lpVtbl(&com),
+          refcounter(1),
           hostApplicationFromFactory(host),
           hostApplicationFromInitialize(nullptr)
     {
@@ -4158,9 +4167,9 @@ struct dpf_component : v3_component_cpp {
             v3_cpp_obj_ref(hostApplicationFromFactory);
 
         // v3_funknown, everything custom
-        query_interface = query_interface_component;
-        ref = ref_component;
-        unref = unref_component;
+        com.query_interface = query_interface_component;
+        com.ref = ref_component;
+        com.unref = unref_component;
 
         // v3_plugin_base
         base.initialize = initialize;
@@ -4198,7 +4207,7 @@ struct dpf_component : v3_component_cpp {
 
     static v3_result V3_API query_interface_component(void* const self, const v3_tuid iid, void** const iface)
     {
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         if (tuid_match(iid, v3_funknown_iid) ||
             tuid_match(iid, v3_plugin_base_iid) ||
@@ -4234,7 +4243,7 @@ struct dpf_component : v3_component_cpp {
                 component->processor = new dpf_audio_processor(component->vst3);
             else
                 ++component->processor->refcounter;
-            *iface = &component->processor;
+            *iface = component->processor;
             return V3_OK;
         }
 
@@ -4285,7 +4294,7 @@ struct dpf_component : v3_component_cpp {
 
     static uint32_t V3_API ref_component(void* const self)
     {
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
         const int refcount = ++component->refcounter;
         d_debug("dpf_component::ref => %p | refcount %i", self, refcount);
         return refcount;
@@ -4293,8 +4302,7 @@ struct dpf_component : v3_component_cpp {
 
     static uint32_t V3_API unref_component(void* const self)
     {
-        dpf_component** const componentptr = static_cast<dpf_component**>(self);
-        dpf_component* const component = *componentptr;
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         if (const int refcount = --component->refcounter)
         {
@@ -4312,7 +4320,7 @@ struct dpf_component : v3_component_cpp {
 
         if (dpf_audio_processor* const proc = component->processor)
         {
-            if (const int refcount = proc->refcounter)
+            if (const int refcount = proc->refcounter.load())
             {
                 unclean = true;
                 d_stderr("DPF warning: asked to delete component while audio processor still active (refcount %d)", refcount);
@@ -4340,12 +4348,11 @@ struct dpf_component : v3_component_cpp {
        #endif
 
         if (unclean)
-            return handleUncleanComponent(componentptr);
+            return handleUncleanComponent(component);
 
         d_debug("dpf_component::unref => %p | refcount is zero, deleting everything now!", self);
 
         delete component;
-        delete componentptr;
         return 0;
     }
 
@@ -4354,7 +4361,7 @@ struct dpf_component : v3_component_cpp {
 
     static v3_result V3_API initialize(void* const self, v3_funknown** const context)
     {
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         // check if already initialized
         DISTRHO_SAFE_ASSERT_RETURN(component->vst3 == nullptr, V3_INVALID_ARG);
@@ -4405,7 +4412,7 @@ struct dpf_component : v3_component_cpp {
     static v3_result V3_API terminate(void* const self)
     {
         d_debug("dpf_component::terminate => %p", self);
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         // check if already terminated
         DISTRHO_SAFE_ASSERT_RETURN(component->vst3 != nullptr, V3_INVALID_ARG);
@@ -4444,7 +4451,7 @@ struct dpf_component : v3_component_cpp {
     {
         d_debug("dpf_component::set_io_mode => %p %i", self, io_mode);
 
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4461,7 +4468,7 @@ struct dpf_component : v3_component_cpp {
         // NOTE runs during RT
         // d_debug("dpf_component::get_bus_count => %p %s %s",
         //          self, v3_media_type_str(media_type), v3_bus_direction_str(bus_direction));
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4476,7 +4483,7 @@ struct dpf_component : v3_component_cpp {
     {
         d_debug("dpf_component::get_bus_info => %p %s %s %i %p",
                 self, v3_media_type_str(media_type), v3_bus_direction_str(bus_direction), bus_idx, info);
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4487,7 +4494,7 @@ struct dpf_component : v3_component_cpp {
     static v3_result V3_API get_routing_info(void* const self, v3_routing_info* const input, v3_routing_info* const output)
     {
         d_debug("dpf_component::get_routing_info => %p %p %p", self, input, output);
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4501,7 +4508,7 @@ struct dpf_component : v3_component_cpp {
         // NOTE this is called a bunch of times
         // d_debug("dpf_component::activate_bus => %p %s %s %i %u",
         //         self, v3_media_type_str(media_type), v3_bus_direction_str(bus_direction), bus_idx, state);
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4512,7 +4519,7 @@ struct dpf_component : v3_component_cpp {
     static v3_result V3_API set_active(void* const self, const v3_bool state)
     {
         d_debug("dpf_component::set_active => %p %u", self, state);
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4523,7 +4530,7 @@ struct dpf_component : v3_component_cpp {
     static v3_result V3_API set_state(void* const self, v3_bstream** const stream)
     {
         d_debug("dpf_component::set_state => %p", self);
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4534,7 +4541,7 @@ struct dpf_component : v3_component_cpp {
     static v3_result V3_API get_state(void* const self, v3_bstream** const stream)
     {
         d_debug("dpf_component::get_state => %p %p", self, stream);
-        dpf_component* const component = *static_cast<dpf_component**>(self);
+        dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -4653,13 +4660,11 @@ struct dpf_factory {
         {
             d_debug("DPF notice: cleaning up previously undeleted components now");
 
-            for (std::vector<dpf_component**>::iterator it = gComponentGarbage.begin();
+            for (std::vector<dpf_component*>::iterator it = gComponentGarbage.begin();
                 it != gComponentGarbage.end(); ++it)
             {
-                dpf_component** const componentptr = *it;
-                dpf_component* const component = *componentptr;
+                dpf_component* const component = *it;
                 delete component;
-                delete componentptr;
             }
 
             gComponentGarbage.clear();
@@ -4776,9 +4781,7 @@ struct dpf_factory {
         if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_class) && (tuid_match(iid, v3_component_iid) ||
                                                                           tuid_match(iid, v3_funknown_iid)))
         {
-            dpf_component** const componentptr = new dpf_component*;
-            *componentptr = new dpf_component(hostApplication);
-            *instance = static_cast<void*>(componentptr);
+            *instance = (void*)(new dpf_component(hostApplication));
             return V3_OK;
         }
 
