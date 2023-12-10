@@ -185,11 +185,11 @@ private:                                         \
 
 /* Define namespace */
 #ifndef DISTRHO_NAMESPACE
-# define DISTRHO_NAMESPACE DISTRHO
+# define DISTRHO_NAMESPACE
 #endif
-#define START_NAMESPACE_DISTRHO namespace DISTRHO_NAMESPACE {
-#define END_NAMESPACE_DISTRHO }
-#define USE_NAMESPACE_DISTRHO using namespace DISTRHO_NAMESPACE;
+#define START_NAMESPACE_DISTRHO
+#define END_NAMESPACE_DISTRHO
+#define USE_NAMESPACE_DISTRHO
 
 /* Define DISTRHO_OS_SEP and DISTRHO_OS_SPLIT */
 #ifdef DISTRHO_OS_WINDOWS

@@ -58,12 +58,6 @@ START_NAMESPACE_DISTRHO
    When enabled it provides midi input events.
  */
 
-/**
-    Plugin class constructor.@n
-    You must set all parameter values to their defaults, matching ParameterRanges::def.
-*/
-extern void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount, uint32_t stateCount);
-
 /* --------------------------------------------------------------------------------------------------------
 * Host state */
 
@@ -357,6 +351,19 @@ extern void plugin_bufferSizeChanged(void*, uint32_t newBufferSize);
 extern void plugin_sampleRateChanged(void*, double newSampleRate);
 
 /** @} */
+
+/**
+    Plugin class constructor.@n
+    You must set all parameter values to their defaults, matching ParameterRanges::def.
+*/
+void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount, uint32_t stateCount);
+
+void plugin_default_initAudioPort(bool input, uint32_t index, AudioPort& port);
+void plugin_default_initPortGroup(uint32_t groupId, PortGroup& portGroup);
+#if DISTRHO_PLUGIN_WANT_STATE
+void plugin_default_initState(const uint32_t index, State& state);
+#endif
+
 
 /* ------------------------------------------------------------------------------------------------------------
  * Create plugin, entry point */

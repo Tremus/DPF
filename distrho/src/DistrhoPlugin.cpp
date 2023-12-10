@@ -117,41 +117,47 @@ bool plugin_isSelfTestInstance(void* ptr)
 }
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
-const TimePosition& plugin_getTimePosition()
+const TimePosition& plugin_getTimePosition(void* ptr)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->timePosition;
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_LATENCY
-void plugin_setLatency(const uint32_t frames) noexcept
+void plugin_setLatency(void* ptr, const uint32_t frames)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     pData->latency = frames;
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-bool plugin_writeMidiEvent(const MidiEvent& midiEvent) noexcept
+bool plugin_writeMidiEvent(void* ptr, const MidiEvent& midiEvent)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->writeMidiCallback(midiEvent);
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
-bool plugin_canRequestParameterValueChanges()
+bool plugin_canRequestParameterValueChanges(void* ptr)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->canRequestParameterValueChanges;
 }
 
-bool plugin_requestParameterValueChange(const uint32_t index, const float value) noexcept
+bool plugin_requestParameterValueChange(void* ptr, const uint32_t index, const float value)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->requestParameterValueChangeCallback(index, value);
 }
 #endif
 
 #if DISTRHO_PLUGIN_WANT_STATE
-bool plugin_updateStateValue(const char* const key, const char* const value) noexcept
+bool plugin_updateStateValue(void* ptr, const char* const key, const char* const value)
 {
+    PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->updateStateValueCallback(key, value);
 }
 #endif
@@ -159,7 +165,7 @@ bool plugin_updateStateValue(const char* const key, const char* const value) noe
 /* ------------------------------------------------------------------------------------------------------------
  * Init */
 
-void plugin_initAudioPort(bool input, uint32_t index, AudioPort& port)
+void plugin_default_initAudioPort(bool input, uint32_t index, AudioPort& port)
 {
     if (port.hints & kAudioPortIsCV)
     {
@@ -177,19 +183,13 @@ void plugin_initAudioPort(bool input, uint32_t index, AudioPort& port)
     }
 }
 
-void plugin_initParameter(uint32_t, Parameter&) {}
-
-void plugin_initPortGroup(const uint32_t groupId, PortGroup& portGroup)
+void plugin_default_initPortGroup(const uint32_t groupId, PortGroup& portGroup)
 {
     fillInPredefinedPortGroupData(groupId, portGroup);
 }
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-void plugin_initProgramName(uint32_t, String&) {}
-#endif
-
 #if DISTRHO_PLUGIN_WANT_STATE
-void plugin_initState(const uint32_t index, State& state)
+void plugin_default_initState(const uint32_t index, State& state)
 {
     uint hints = 0x0;
     String stateKey, defaultStateValue;
@@ -221,30 +221,6 @@ void plugin_initState(const uint32_t index, State& state)
     state.defaultValue = defaultStateValue;
 }
 #endif
-
-/* ------------------------------------------------------------------------------------------------------------
- * Init */
-
-float plugin_getParameterValue(void* ptr, uint32_t) { return 0.0f; }
-void plugin_setParameterValue(void* ptr, uint32_t, float) {}
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-void plugin_loadProgram(uint32_t) {}
-#endif
-
-#if DISTRHO_PLUGIN_WANT_FULL_STATE
-String plugin_getState(const char*) { return String(); }
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-void plugin_setState(const char*, const char*) {}
-#endif
-
-/* ------------------------------------------------------------------------------------------------------------
- * Callbacks (optional) */
-
-void plugin_bufferSizeChanged(void* ptr, uint32_t) {}
-void plugin_sampleRateChanged(void* ptr, double) {}
 
 // -----------------------------------------------------------------------------------------------------------
 

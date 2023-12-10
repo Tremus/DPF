@@ -143,20 +143,7 @@ void plugin_initAudioPort(void* ptr, bool input, uint32_t index, AudioPort& port
     port.groupId = kPortGroupStereo;
 
     // Set defaults
-    if (port.hints & kAudioPortIsCV)
-    {
-        port.name    = input ? "CV Input " : "CV Output ";
-        port.name   += String(index+1);
-        port.symbol  = input ? "cv_in_" : "cv_out_";
-        port.symbol += String(index+1);
-    }
-    else
-    {
-        port.name    = input ? "Audio Input " : "Audio Output ";
-        port.name   += String(index+1);
-        port.symbol  = input ? "audio_in_" : "audio_out_";
-        port.symbol += String(index+1);
-    }
+    plugin_default_initAudioPort(input, index, port);
 }
 
 /**
@@ -174,7 +161,7 @@ void plugin_initParameter(void* ptr, uint32_t index, Parameter& parameter)
         Changing parameters does not cause any realtime-unsafe operations, so we can mark them as automatable.
         Also set as boolean because they work as on/off switches.
     */
-    parameter.hints = kParameterIsAutomatable|kParameterIsBoolean;
+    parameter.hints = kParameterIsAutomatable | kParameterIsBoolean;
 
     /**
         Minimum 0 (off), maximum 1 (on).
@@ -281,7 +268,7 @@ void plugin_initProgramName(void* ptr, uint32_t index, String& programName)
 /**
     Get the current value of a parameter.
 */
-float plugin_plugin_getParameterValue(void* ptr, uint32_t index)
+float plugin_getParameterValue(void* ptr, uint32_t index)
 {
     ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
 
@@ -291,7 +278,7 @@ float plugin_plugin_getParameterValue(void* ptr, uint32_t index)
 /**
     Change a parameter value.
 */
-void plugin_plugin_setParameterValue(void* ptr, uint32_t index, float value)
+void plugin_setParameterValue(void* ptr, uint32_t index, float value)
 {
     ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
     plugin->fParamGrid[index] = value;
@@ -364,6 +351,9 @@ void plugin_run(void* ptr, const float** inputs, float** outputs, uint32_t frame
     if (outputs[1] != inputs[1])
         std::memcpy(outputs[1], inputs[1], sizeof(float)*frames);
 }
+
+void plugin_bufferSizeChanged(void* ptr, uint32_t newBufferSize) {}
+void plugin_sampleRateChanged(void* ptr, double newSampleRate) {}
 
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin entry point, called by DPF to create a new plugin instance. */
