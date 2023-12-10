@@ -1,3 +1,6 @@
 [submodule "dgl/src/pugl-upstream"]
 	path = dgl/src/pugl-upstream
 	url = https://github.com/DISTRHO/pugl.git
+[submodule "distrho/src/vst3_c_api"]
+	path = distrho/src/vst3_c_api
+	url = https://github.com/steinbergmedia/vst3_c_api

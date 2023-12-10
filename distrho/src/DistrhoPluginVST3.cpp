@@ -54,6 +54,7 @@
 #include "travesty/edit_controller.h"
 #include "travesty/factory.h"
 #include "travesty/host.h"
+#include "vst3_c_api/vst3_c_api.h"
 
 #include <map>
 #include <string>
@@ -77,8 +78,10 @@ typedef std::map<const String, String> StringMap;
 
 typedef uint32_t dpf_tuid[4];
 #ifdef DISTRHO_PROPER_CPP11_SUPPORT
-static_assert(sizeof(v3_tuid) == sizeof(dpf_tuid), "uid size mismatch");
+static_assert(sizeof(Steinberg_TUID) == sizeof(dpf_tuid), "uid size mismatch");
 #endif
+
+#define tuid_match(a, b) memcmp(a, b, sizeof(Steinberg_TUID)) == 0
 
 // --------------------------------------------------------------------------------------------------------------------
 // custom, constant uids related to DPF
@@ -102,118 +105,120 @@ static dpf_tuid dpf_tuid_view = { dpf_id_entry, dpf_id_view, 0, 0 };
 // --------------------------------------------------------------------------------------------------------------------
 // Utility functions
 
-const char* tuid2str(const v3_tuid iid)
+const char* tuid2str(const Steinberg_TUID iid)
 {
     static constexpr const struct {
-        v3_tuid iid;
+        Steinberg_TUID iid;
         const char* name;
     } extra_known_iids[] = {
-        { V3_ID(0x00000000,0x00000000,0x00000000,0x00000000), "(nil)" },
+        { SMTG_INLINE_UID(0x00000000,0x00000000,0x00000000,0x00000000), "(nil)" },
         // edit-controller
-        { V3_ID(0xF040B4B3,0xA36045EC,0xABCDC045,0xB4D5A2CC), "{v3_component_handler2|NOT}" },
-        { V3_ID(0x7F4EFE59,0xF3204967,0xAC27A3AE,0xAFB63038), "{v3_edit_controller2|NOT}" },
-        { V3_ID(0x067D02C1,0x5B4E274D,0xA92D90FD,0x6EAF7240), "{v3_component_handler_bus_activation|NOT}" },
-        { V3_ID(0xC1271208,0x70594098,0xB9DD34B3,0x6BB0195E), "{v3_edit_controller_host_editing|NOT}" },
-        { V3_ID(0xB7F8F859,0x41234872,0x91169581,0x4F3721A3), "{v3_edit_controller_note_expression_controller|NOT}" },
+        { SMTG_INLINE_UID(0xF040B4B3,0xA36045EC,0xABCDC045,0xB4D5A2CC), "{Steinberg_Vst_IComponentHandler2_iid|NOT}" },
+        { SMTG_INLINE_UID(0x7F4EFE59,0xF3204967,0xAC27A3AE,0xAFB63038), "{Steinberg_Vst_IEditController2_iid|NOT}" },
+        { SMTG_INLINE_UID(0x067D02C1,0x5B4E274D,0xA92D90FD,0x6EAF7240), "{Steinberg_Vst_IComponentHandlerBusActivation_iid|NOT}" },
+        { SMTG_INLINE_UID(0xC1271208,0x70594098,0xB9DD34B3,0x6BB0195E), "{Steinberg_Vst_IEditControllerHostEditing_iid|NOT}" },
+        { SMTG_INLINE_UID(0xB7F8F859,0x41234872,0x91169581,0x4F3721A3), "{Steinberg_Vst_INoteExpressionController_iid|NOT}" },
+        { SMTG_INLINE_UID(0x1F2F76D3,0xBFFB4B96,0xB99527A5,0x5EBCCEF4), "{Steinberg_Vst_IKeyswitchController_iid|NOT}" },
+        { SMTG_INLINE_UID(0x6B2449CC,0x419740B5,0xAB3C79DA,0xC5FE5C86), "{Steinberg_Vst_IMidiLearn_iid|NOT}" },
         // units
-        { V3_ID(0x8683B01F,0x7B354F70,0xA2651DEC,0x353AF4FF), "{v3_program_list_data|NOT}" },
-        { V3_ID(0x6C389611,0xD391455D,0xB870B833,0x94A0EFDD), "{v3_unit_data|NOT}" },
-        { V3_ID(0x4B5147F8,0x4654486B,0x8DAB30BA,0x163A3C56), "{v3_unit_handler|NOT}" },
-        { V3_ID(0xF89F8CDF,0x699E4BA5,0x96AAC9A4,0x81452B01), "{v3_unit_handler2|NOT}" },
-        { V3_ID(0x3D4BD6B5,0x913A4FD2,0xA886E768,0xA5EB92C1), "{v3_unit_info|NOT}" },
+        { SMTG_INLINE_UID(0x8683B01F,0x7B354F70,0xA2651DEC,0x353AF4FF), "{Steinberg_Vst_IProgramListData_iid|NOT}" },
+        { SMTG_INLINE_UID(0x6C389611,0xD391455D,0xB870B833,0x94A0EFDD), "{Steinberg_Vst_IUnitData_iid|NOT}" },
+        { SMTG_INLINE_UID(0x4B5147F8,0x4654486B,0x8DAB30BA,0x163A3C56), "{Steinberg_Vst_IUnitHandler_iid|NOT}" },
+        { SMTG_INLINE_UID(0xF89F8CDF,0x699E4BA5,0x96AAC9A4,0x81452B01), "{Steinberg_Vst_IUnitHandler2_iid|NOT}" },
+        { SMTG_INLINE_UID(0x3D4BD6B5,0x913A4FD2,0xA886E768,0xA5EB92C1), "{Steinberg_Vst_IUnitInfo_iid|NOT}" },
         // misc
-        { V3_ID(0x309ECE78,0xEB7D4FAE,0x8B2225D9,0x09FD08B6), "{v3_audio_presentation_latency|NOT}" },
-        { V3_ID(0xB4E8287F,0x1BB346AA,0x83A46667,0x68937BAB), "{v3_automation_state|NOT}" },
-        { V3_ID(0x0F194781,0x8D984ADA,0xBBA0C1EF,0xC011D8D0), "{v3_info_listener|NOT}" },
-        { V3_ID(0x6D21E1DC,0x91199D4B,0xA2A02FEF,0x6C1AE55C), "{v3_parameter_function_name|NOT}" },
-        { V3_ID(0x8AE54FDA,0xE93046B9,0xA28555BC,0xDC98E21E), "{v3_prefetchable_support|NOT}" },
-        { V3_ID(0xA81A0471,0x48C34DC4,0xAC30C9E1,0x3C8393D5), "{v3_xml_representation_stream|NOT}" },
+        { SMTG_INLINE_UID(0x309ECE78,0xEB7D4FAE,0x8B2225D9,0x09FD08B6), "{Steinberg_Vst_IAudioPresentationLatency_iid|NOT}" },
+        { SMTG_INLINE_UID(0xB4E8287F,0x1BB346AA,0x83A46667,0x68937BAB), "{Steinberg_Vst_IAutomationState_iid|NOT}" },
+        { SMTG_INLINE_UID(0x0F194781,0x8D984ADA,0xBBA0C1EF,0xC011D8D0), "{Steinberg_Vst_ChannelContext_IInfoListener_iid|NOT}" },
+        { SMTG_INLINE_UID(0x6D21E1DC,0x91199D4B,0xA2A02FEF,0x6C1AE55C), "{Steinberg_Vst_IParameterFunctionName_iid|NOT}" },
+        { SMTG_INLINE_UID(0x8AE54FDA,0xE93046B9,0xA28555BC,0xDC98E21E), "{Steinberg_Vst_IPrefetchableSupport_iid|NOT}" },
+        { SMTG_INLINE_UID(0xA81A0471,0x48C34DC4,0xAC30C9E1,0x3C8393D5), "{Steinberg_Vst_IXmlRepresentationController_iid|NOT}" },
         /*
         // seen in the wild but unknown, related to component
-        { V3_ID(0x6548D671,0x997A4EA5,0x9B336A6F,0xB3E93B50), "{v3_|NOT}" },
-        { V3_ID(0xC2B7896B,0x069844D5,0x8F06E937,0x33A35FF7), "{v3_|NOT}" },
-        { V3_ID(0xE123DE93,0xE0F642A4,0xAE53867E,0x53F059EE), "{v3_|NOT}" },
-        { V3_ID(0x83850D7B,0xC12011D8,0xA143000A,0x959B31C6), "{v3_|NOT}" },
-        { V3_ID(0x9598D418,0xA00448AC,0x9C6D8248,0x065B2E5C), "{v3_|NOT}" },
-        { V3_ID(0xBD386132,0x45174BAD,0xA324390B,0xFD297506), "{v3_|NOT}" },
-        { V3_ID(0xD7296A84,0x23B1419C,0xAAD0FAA3,0x53BB16B7), "{v3_|NOT}" },
-        { V3_ID(0x181A0AF6,0xA10947BA,0x8A6F7C7C,0x3FF37129), "{v3_|NOT}" },
-        { V3_ID(0xC2B7896B,0x69A844D5,0x8F06E937,0x33A35FF7), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x6548D671,0x997A4EA5,0x9B336A6F,0xB3E93B50), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xC2B7896B,0x069844D5,0x8F06E937,0x33A35FF7), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xE123DE93,0xE0F642A4,0xAE53867E,0x53F059EE), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x83850D7B,0xC12011D8,0xA143000A,0x959B31C6), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x9598D418,0xA00448AC,0x9C6D8248,0x065B2E5C), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xBD386132,0x45174BAD,0xA324390B,0xFD297506), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xD7296A84,0x23B1419C,0xAAD0FAA3,0x53BB16B7), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x181A0AF6,0xA10947BA,0x8A6F7C7C,0x3FF37129), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xC2B7896B,0x69A844D5,0x8F06E937,0x33A35FF7), "{v3_|NOT}" },
         // seen in the wild but unknown, related to edit controller
-        { V3_ID(0x1F2F76D3,0xBFFB4B96,0xB99527A5,0x5EBCCEF4), "{v3_|NOT}" },
-        { V3_ID(0x6B2449CC,0x419740B5,0xAB3C79DA,0xC5FE5C86), "{v3_|NOT}" },
-        { V3_ID(0x67800560,0x5E784D90,0xB97BAB4C,0x8DC5BAA3), "{v3_|NOT}" },
-        { V3_ID(0xDB51DA00,0x8FD5416D,0xB84894D8,0x7FDE73E4), "{v3_|NOT}" },
-        { V3_ID(0xE90FC54F,0x76F24235,0x8AF8BD15,0x68C663D6), "{v3_|NOT}" },
-        { V3_ID(0x07938E89,0xBA0D4CA8,0x8C7286AB,0xA9DDA95B), "{v3_|NOT}" },
-        { V3_ID(0x42879094,0xA2F145ED,0xAC90E82A,0x99458870), "{v3_|NOT}" },
-        { V3_ID(0xC3B17BC0,0x2C174494,0x80293402,0xFBC4BBF8), "{v3_|NOT}" },
-        { V3_ID(0x31E29A7A,0xE55043AD,0x8B95B9B8,0xDA1FBE1E), "{v3_|NOT}" },
-        { V3_ID(0x8E3C292C,0x95924F9D,0xB2590B1E,0x100E4198), "{v3_|NOT}" },
-        { V3_ID(0x50553FD9,0x1D2C4C24,0xB410F484,0xC5FB9F3F), "{v3_|NOT}" },
-        { V3_ID(0xF185556C,0x5EE24FC7,0x92F28754,0xB7759EA8), "{v3_|NOT}" },
-        { V3_ID(0xD2CE9317,0xF24942C9,0x9742E82D,0xB10CCC52), "{v3_|NOT}" },
-        { V3_ID(0xDA57E6D1,0x1F3242D1,0xAD9C1A82,0xFDB95695), "{v3_|NOT}" },
-        { V3_ID(0x3ABDFC3E,0x4B964A66,0xFCD86F10,0x0D554023), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x67800560,0x5E784D90,0xB97BAB4C,0x8DC5BAA3), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xDB51DA00,0x8FD5416D,0xB84894D8,0x7FDE73E4), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xE90FC54F,0x76F24235,0x8AF8BD15,0x68C663D6), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x07938E89,0xBA0D4CA8,0x8C7286AB,0xA9DDA95B), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x42879094,0xA2F145ED,0xAC90E82A,0x99458870), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xC3B17BC0,0x2C174494,0x80293402,0xFBC4BBF8), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x31E29A7A,0xE55043AD,0x8B95B9B8,0xDA1FBE1E), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x8E3C292C,0x95924F9D,0xB2590B1E,0x100E4198), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x50553FD9,0x1D2C4C24,0xB410F484,0xC5FB9F3F), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xF185556C,0x5EE24FC7,0x92F28754,0xB7759EA8), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xD2CE9317,0xF24942C9,0x9742E82D,0xB10CCC52), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xDA57E6D1,0x1F3242D1,0xAD9C1A82,0xFDB95695), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x3ABDFC3E,0x4B964A66,0xFCD86F10,0x0D554023), "{v3_|NOT}" },
         // seen in the wild but unknown, related to view
-        { V3_ID(0xAA3E50FF,0xB78840EE,0xADCD48E8,0x094CEDB7), "{v3_|NOT}" },
-        { V3_ID(0x2CAE14DB,0x4DE04C6E,0x8BD2E611,0x1B31A9C2), "{v3_|NOT}" },
-        { V3_ID(0xD868D61D,0x20F445F4,0x947D069E,0xC811D1E4), "{v3_|NOT}" },
-        { V3_ID(0xEE49E3CA,0x6FCB44FB,0xAEBEE6C3,0x48625122), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xAA3E50FF,0xB78840EE,0xADCD48E8,0x094CEDB7), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0x2CAE14DB,0x4DE04C6E,0x8BD2E611,0x1B31A9C2), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xD868D61D,0x20F445F4,0x947D069E,0xC811D1E4), "{v3_|NOT}" },
+        { SMTG_INLINE_UID(0xEE49E3CA,0x6FCB44FB,0xAEBEE6C3,0x48625122), "{v3_|NOT}" },
         */
     };
 
-    if (v3_tuid_match(iid, v3_audio_processor_iid))
-        return "{v3_audio_processor}";
-    if (v3_tuid_match(iid, v3_attribute_list_iid))
-        return "{v3_attribute_list_iid}";
-    if (v3_tuid_match(iid, v3_bstream_iid))
-        return "{v3_bstream}";
-    if (v3_tuid_match(iid, v3_component_iid))
-        return "{v3_component}";
-    if (v3_tuid_match(iid, v3_component_handler_iid))
-        return "{v3_component_handler}";
-    if (v3_tuid_match(iid, v3_connection_point_iid))
-        return "{v3_connection_point_iid}";
-    if (v3_tuid_match(iid, v3_edit_controller_iid))
-        return "{v3_edit_controller}";
-    if (v3_tuid_match(iid, v3_event_handler_iid))
+    if (tuid_match(iid, Steinberg_Vst_IAudioProcessor_iid))
+        return "{Steinberg_Vst_IAudioProcessor_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IAttributeList_iid))
+        return "{Steinberg_Vst_IComponent_iid}";
+    if (tuid_match(iid, Steinberg_IBStream_iid))
+        return "{Steinberg_IBStream_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IComponent_iid))
+        return "{Steinberg_Vst_IComponent_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IComponentHandler_iid))
+        return "{Steinberg_Vst_IComponentHandler_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
+        return "{Steinberg_Vst_IConnectionPoint_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IEditController_iid))
+        return "{Steinberg_Vst_IEditController_iid}";
+    // Not in official SDK? Also not used by DPF...
+    if (memcmp(iid, v3_event_handler_iid, sizeof(Steinberg_TUID)) == 0)
         return "{v3_event_handler_iid}";
-    if (v3_tuid_match(iid, v3_event_list_iid))
-        return "{v3_event_list}";
-    if (v3_tuid_match(iid, v3_funknown_iid))
-        return "{v3_funknown}";
-    if (v3_tuid_match(iid, v3_host_application_iid))
-        return "{v3_host_application_iid}";
-    if (v3_tuid_match(iid, v3_message_iid))
-        return "{v3_message_iid}";
-    if (v3_tuid_match(iid, v3_midi_mapping_iid))
-        return "{v3_midi_mapping_iid}";
-    if (v3_tuid_match(iid, v3_param_value_queue_iid))
-        return "{v3_param_value_queue}";
-    if (v3_tuid_match(iid, v3_param_changes_iid))
-        return "{v3_param_changes}";
-    if (v3_tuid_match(iid, v3_plugin_base_iid))
-        return "{v3_plugin_base}";
-    if (v3_tuid_match(iid, v3_plugin_factory_iid))
-        return "{v3_plugin_factory}";
-    if (v3_tuid_match(iid, v3_plugin_factory_2_iid))
-        return "{v3_plugin_factory_2}";
-    if (v3_tuid_match(iid, v3_plugin_factory_3_iid))
-        return "{v3_plugin_factory_3}";
-    if (v3_tuid_match(iid, v3_plugin_frame_iid))
-        return "{v3_plugin_frame}";
-    if (v3_tuid_match(iid, v3_plugin_view_iid))
-        return "{v3_plugin_view}";
-    if (v3_tuid_match(iid, v3_plugin_view_content_scale_iid))
-        return "{v3_plugin_view_content_scale_iid}";
-    if (v3_tuid_match(iid, v3_plugin_view_parameter_finder_iid))
-        return "{v3_plugin_view_parameter_finder}";
-    if (v3_tuid_match(iid, v3_process_context_requirements_iid))
-        return "{v3_process_context_requirements}";
-    if (v3_tuid_match(iid, v3_run_loop_iid))
+    if (tuid_match(iid, Steinberg_Vst_IEventList_iid))
+        return "{Steinberg_Vst_IEventList_iid}";
+    if (tuid_match(iid, Steinberg_FUnknown_iid))
+        return "{Steinberg_FUnknown_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IHostApplication_iid))
+        return "{Steinberg_Vst_IHostApplication_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IMessage_iid))
+        return "{Steinberg_Vst_IMessage_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
+        return "{Steinberg_Vst_IMidiMapping_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IParamValueQueue_iid))
+        return "{Steinberg_Vst_IParamValueQueue_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IParameterChanges_iid))
+        return "{Steinberg_Vst_IParameterChanges_iid}";
+    if (tuid_match(iid, Steinberg_IPluginBase_iid))
+        return "{Steinberg_IPluginBase_iid}";
+    if (tuid_match(iid, Steinberg_IPluginFactory_iid))
+        return "{Steinberg_IPluginFactory_iid}";
+    if (tuid_match(iid, Steinberg_IPluginFactory2_iid))
+        return "{Steinberg_IPluginFactory2_iid}";
+    if (tuid_match(iid, Steinberg_IPluginFactory3_iid))
+        return "{Steinberg_IPluginFactory3_iid}";
+    if (tuid_match(iid, Steinberg_IPlugFrame_iid))
+        return "{Steinberg_IPlugFrame_iid}";
+    if (tuid_match(iid, Steinberg_IPlugView_iid))
+        return "{Steinberg_IPlugView_iid}";
+    if (tuid_match(iid, Steinberg_IPlugViewContentScaleSupport_iid))
+        return "{Steinberg_IPlugViewContentScaleSupport_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IParameterFinder_iid))
+        return "{Steinberg_Vst_IParameterFinder_iid}";
+    if (tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
+        return "{Steinberg_Vst_IProcessContextRequirements_iid}";
+    // These aren't in the C SDK for some reason...
+    if (memcmp(iid, v3_run_loop_iid, sizeof(Steinberg_TUID)) == 0)
         return "{v3_run_loop_iid}";
-    if (v3_tuid_match(iid, v3_timer_handler_iid))
+    if (memcmp(iid, v3_timer_handler_iid, sizeof(Steinberg_TUID)) == 0)
         return "{v3_timer_handler_iid}";
 
     if (std::memcmp(iid, dpf_tuid_class, sizeof(dpf_tuid)) == 0)
@@ -229,7 +234,7 @@ const char* tuid2str(const v3_tuid iid)
 
     for (size_t i=0; i<ARRAY_SIZE(extra_known_iids); ++i)
     {
-        if (v3_tuid_match(iid, extra_known_iids[i].iid))
+        if (tuid_match(iid, extra_known_iids[i].iid))
             return extra_known_iids[i].name;
     }
 
@@ -3198,8 +3203,8 @@ struct dpf_comp2ctrl_connection_point : v3_connection_point_cpp {
     {
         dpf_comp2ctrl_connection_point* const point = *static_cast<dpf_comp2ctrl_connection_point**>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_connection_point_iid))
+        if (tuid_match(iid, v3_funknown_iid) ||
+            tuid_match(iid, v3_connection_point_iid))
         {
             d_debug("dpf_comp2ctrl_connection_point => %p %s %p | OK", self, tuid2str(iid), iface);
             ++point->refcounter;
@@ -3380,8 +3385,8 @@ struct dpf_midi_mapping : v3_midi_mapping_cpp {
 
     static v3_result V3_API query_interface_midi_mapping(void* const self, const v3_tuid iid, void** const iface)
     {
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_midi_mapping_iid))
+        if (tuid_match(iid, v3_funknown_iid) ||
+            tuid_match(iid, v3_midi_mapping_iid))
         {
             d_debug("query_interface_midi_mapping => %p %s %p | OK", self, tuid2str(iid), iface);
             *iface = self;
@@ -3514,9 +3519,9 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
     {
         dpf_edit_controller* const controller = *static_cast<dpf_edit_controller**>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_plugin_base_iid) ||
-            v3_tuid_match(iid, v3_edit_controller_iid))
+        if (tuid_match(iid, v3_funknown_iid) ||
+            tuid_match(iid, v3_plugin_base_iid) ||
+            tuid_match(iid, v3_edit_controller_iid))
         {
             d_debug("query_interface_edit_controller => %p %s %p | OK", self, tuid2str(iid), iface);
             ++controller->refcounter;
@@ -3524,7 +3529,7 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
             return V3_OK;
         }
 
-        if (v3_tuid_match(iid, v3_midi_mapping_iid))
+        if (tuid_match(iid, v3_midi_mapping_iid))
         {
            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             d_debug("query_interface_edit_controller => %p %s %p | OK convert static", self, tuid2str(iid), iface);
@@ -3539,7 +3544,7 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
            #endif
         }
 
-        if (v3_tuid_match(iid, v3_connection_point_iid))
+        if (tuid_match(iid, v3_connection_point_iid))
         {
            #if DPF_VST3_USES_SEPARATE_CONTROLLER
             d_debug("query_interface_edit_controller => %p %s %p | OK convert %p",
@@ -3935,8 +3940,8 @@ struct dpf_process_context_requirements : v3_process_context_requirements_cpp {
 
     static v3_result V3_API query_interface_process_context_requirements(void* const self, const v3_tuid iid, void** const iface)
     {
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_process_context_requirements_iid))
+        if (tuid_match(iid, v3_funknown_iid) ||
+            tuid_match(iid, v3_process_context_requirements_iid))
         {
             d_debug("query_interface_process_context_requirements => %p %s %p | OK", self, tuid2str(iid), iface);
             *iface = self;
@@ -4003,8 +4008,8 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
     {
         dpf_audio_processor* const processor = *static_cast<dpf_audio_processor**>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_audio_processor_iid))
+        if (tuid_match(iid, v3_funknown_iid) ||
+            tuid_match(iid, v3_audio_processor_iid))
         {
             d_debug("query_interface_audio_processor => %p %s %p | OK", self, tuid2str(iid), iface);
             ++processor->refcounter;
@@ -4012,7 +4017,7 @@ struct dpf_audio_processor : v3_audio_processor_cpp {
             return V3_OK;
         }
 
-        if (v3_tuid_match(iid, v3_process_context_requirements_iid))
+        if (tuid_match(iid, v3_process_context_requirements_iid))
         {
             d_debug("query_interface_audio_processor => %p %s %p | OK convert static", self, tuid2str(iid), iface);
             static dpf_process_context_requirements context_req;
@@ -4195,9 +4200,9 @@ struct dpf_component : v3_component_cpp {
     {
         dpf_component* const component = *static_cast<dpf_component**>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_plugin_base_iid) ||
-            v3_tuid_match(iid, v3_component_iid))
+        if (tuid_match(iid, v3_funknown_iid) ||
+            tuid_match(iid, v3_plugin_base_iid) ||
+            tuid_match(iid, v3_component_iid))
         {
             d_debug("query_interface_component => %p %s %p | OK", self, tuid2str(iid), iface);
             ++component->refcounter;
@@ -4205,7 +4210,7 @@ struct dpf_component : v3_component_cpp {
             return V3_OK;
         }
 
-        if (v3_tuid_match(iid, v3_midi_mapping_iid))
+        if (tuid_match(iid, v3_midi_mapping_iid))
         {
            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             d_debug("query_interface_component => %p %s %p | OK convert static", self, tuid2str(iid), iface);
@@ -4220,7 +4225,7 @@ struct dpf_component : v3_component_cpp {
            #endif
         }
 
-        if (v3_tuid_match(iid, v3_audio_processor_iid))
+        if (tuid_match(iid, v3_audio_processor_iid))
         {
             d_debug("query_interface_component => %p %s %p | OK convert %p",
                     self, tuid2str(iid), iface, component->processor.get());
@@ -4233,7 +4238,7 @@ struct dpf_component : v3_component_cpp {
             return V3_OK;
         }
 
-        if (v3_tuid_match(iid, v3_connection_point_iid))
+        if (tuid_match(iid, v3_connection_point_iid))
         {
            #if DPF_VST3_USES_SEPARATE_CONTROLLER
             d_debug("query_interface_component => %p %s %p | OK convert %p",
@@ -4252,7 +4257,7 @@ struct dpf_component : v3_component_cpp {
            #endif
         }
 
-        if (v3_tuid_match(iid, v3_edit_controller_iid))
+        if (tuid_match(iid, v3_edit_controller_iid))
         {
            #if !DPF_VST3_USES_SEPARATE_CONTROLLER
             d_debug("query_interface_component => %p %s %p | OK convert %p",
@@ -4661,10 +4666,10 @@ struct dpf_factory : v3_plugin_factory_cpp {
     {
         dpf_factory* const factory = *static_cast<dpf_factory**>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_plugin_factory_iid) ||
-            v3_tuid_match(iid, v3_plugin_factory_2_iid) ||
-            v3_tuid_match(iid, v3_plugin_factory_3_iid))
+        if (tuid_match(iid, v3_funknown_iid) ||
+            tuid_match(iid, v3_plugin_factory_iid) ||
+            tuid_match(iid, v3_plugin_factory_2_iid) ||
+            tuid_match(iid, v3_plugin_factory_3_iid))
         {
             d_debug("query_interface_factory => %p %s %p | OK", self, tuid2str(iid), iface);
             ++factory->refcounter;
@@ -4763,8 +4768,8 @@ struct dpf_factory : v3_plugin_factory_cpp {
             v3_cpp_obj_query_interface(factory->hostContext, v3_host_application_iid, &hostApplication);
 
         // create component
-        if (v3_tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_class) && (v3_tuid_match(iid, v3_component_iid) ||
-                                                                          v3_tuid_match(iid, v3_funknown_iid)))
+        if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_class) && (tuid_match(iid, v3_component_iid) ||
+                                                                          tuid_match(iid, v3_funknown_iid)))
         {
             dpf_component** const componentptr = new dpf_component*;
             *componentptr = new dpf_component(hostApplication);
@@ -4774,8 +4779,8 @@ struct dpf_factory : v3_plugin_factory_cpp {
 
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
         // create edit controller
-        if (v3_tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_controller) && (v3_tuid_match(iid, v3_edit_controller_iid) ||
-                                                                               v3_tuid_match(iid, v3_funknown_iid)))
+        if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_controller) && (tuid_match(iid, v3_edit_controller_iid) ||
+                                                                               tuid_match(iid, v3_funknown_iid)))
         {
             dpf_edit_controller** const controllerptr = new dpf_edit_controller*;
             *controllerptr = new dpf_edit_controller(hostApplication);
