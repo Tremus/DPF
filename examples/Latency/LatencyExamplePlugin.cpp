@@ -139,7 +139,6 @@ float plugin_getParameterValue(void* ptr, uint32_t index)
     return plugin->fLatency;
 }
 
-
 void plugin_setParameterValue(void* ptr, uint32_t index, float value)
 {
     LatencyExamplePlugin* plugin = (LatencyExamplePlugin*)ptr;
