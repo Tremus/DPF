@@ -22,6 +22,7 @@
 #define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/examples/MidiThrough"
 #define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.examples.midi-through"
 
+// NOTE: plugins without UIs aren't well supported by hosts such as Abelton Live, FL Studio and possibly others
 #define DISTRHO_PLUGIN_HAS_UI           0
 #define DISTRHO_PLUGIN_IS_RT_SAFE       1
 #define DISTRHO_PLUGIN_NUM_INPUTS       0

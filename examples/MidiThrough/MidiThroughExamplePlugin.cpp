@@ -15,6 +15,7 @@
  */
 
 #include "DistrhoPlugin.hpp"
+#include "src/DistrhoPluginInternal.hpp"
 
 START_NAMESPACE_DISTRHO
 
@@ -23,113 +24,114 @@ START_NAMESPACE_DISTRHO
 /**
   Plugin that demonstrates MIDI output in DPF.
  */
-class MidiThroughExamplePlugin : public Plugin
+struct MidiThroughExamplePlugin
 {
-public:
+    PluginPrivateData data;
+
     MidiThroughExamplePlugin()
-        : Plugin(0, 0, 0) {}
-
-protected:
-   /* --------------------------------------------------------------------------------------------------------
-    * Information */
-
-   /**
-      Get the plugin label.
-      This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
-    */
-    const char* getLabel() const override
     {
-        return "MidiThrough";
+        PluginPrivateData_init(&data, 0, 0, 0);
     }
-
-   /**
-      Get an extensive comment/description about the plugin.
-    */
-    const char* getDescription() const override
-    {
-        return "Plugin that demonstrates MIDI output in DPF.";
-    }
-
-   /**
-      Get the plugin author/maker.
-    */
-    const char* getMaker() const override
-    {
-        return "DISTRHO";
-    }
-
-   /**
-      Get the plugin homepage.
-    */
-    const char* getHomePage() const override
-    {
-        return "https://github.com/DISTRHO/DPF";
-    }
-
-   /**
-      Get the plugin license name (a single line of text).
-      For commercial plugins this should return some short copyright information.
-    */
-    const char* getLicense() const override
-    {
-        return "ISC";
-    }
-
-   /**
-      Get the plugin version, in hexadecimal.
-    */
-    uint32_t getVersion() const override
-    {
-        return d_version(1, 0, 0);
-    }
-
-   /**
-      Get the plugin unique Id.
-      This value is used by LADSPA, DSSI and VST plugin formats.
-    */
-    int64_t getUniqueId() const override
-    {
-        return d_cconst('d', 'M', 'T', 'r');
-    }
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Init and Internal data, unused in this plugin */
-
-    void  initParameter(uint32_t, Parameter&) override {}
-    float getParameterValue(uint32_t) const   override { return 0.0f;}
-    void  setParameterValue(uint32_t, float)  override {}
-
-   /* --------------------------------------------------------------------------------------------------------
-    * Audio/MIDI Processing */
-
-   /**
-      Run/process function for plugins with MIDI input.
-      In this case we just pass-through all MIDI events.
-    */
-    void run(const float**, float**, uint32_t,
-             const MidiEvent* midiEvents, uint32_t midiEventCount) override
-    {
-        for (uint32_t i=0; i<midiEventCount; ++i)
-            writeMidiEvent(midiEvents[i]);
-    }
-
-    // -------------------------------------------------------------------------------------------------------
 
 private:
     // nothing here :)
-
    /**
       Set our plugin class as non-copyable and add a leak detector just in case.
     */
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MidiThroughExamplePlugin)
 };
 
+/* --------------------------------------------------------------------------------------------------------
+* Information */
+
+const char* plugin_getName(void* ptr)
+{
+    return DISTRHO_PLUGIN_NAME;
+}
+
+const char* plugin_getLabel(void* ptr)
+{
+    return "MidiThrough";
+}
+
+const char* plugin_getDescription(void* ptr)
+{
+    return "Plugin that demonstrates MIDI output in DPF.";
+}
+
+const char* plugin_getMaker(void* ptr)
+{
+    return "DISTRHO";
+}
+
+const char* plugin_getHomePage(void* ptr)
+{
+    return "https://github.com/DISTRHO/DPF";
+}
+
+const char* plugin_getLicense(void* ptr)
+{
+    return "ISC";
+}
+
+uint32_t plugin_getVersion(void* ptr)
+{
+    return d_version(1, 0, 0);
+}
+
+int64_t plugin_getUniqueId(void* ptr)
+{
+    return d_cconst('d', 'M', 'T', 'r');
+}
+
+/* --------------------------------------------------------------------------------------------------------
+* Init and Internal data, unused in this plugin */
+
+void plugin_initParameter(void*, uint32_t, Parameter&) {}
+void plugin_initPortGroup(void*, const uint32_t groupId, PortGroup& portGroup)
+{
+    fillInPredefinedPortGroupData(groupId, portGroup);
+}
+float plugin_getParameterValue(void* ptr, uint32_t index) { return 0; }
+void plugin_setParameterValue(void* ptr, uint32_t index, float value) {}
+
+/* --------------------------------------------------------------------------------------------------------
+* Audio/MIDI Processing */
+
+void plugin_activate(void*) {}
+void plugin_deactivate(void*) {}
+
+/**
+    Run/process function for plugins with MIDI input.
+    In this case we just pass-through all MIDI events.
+*/
+void plugin_run(void* ptr, const float**, float**, uint32_t, const MidiEvent* midiEvents, uint32_t midiEventCount)
+{
+    for (uint32_t i=0; i<midiEventCount; ++i)
+        plugin_writeMidiEvent(ptr, midiEvents[i]);
+}
+
+void plugin_bufferSizeChanged(void* ptr, uint32_t newBufferSize) {}
+void plugin_sampleRateChanged(void* ptr, double newSampleRate) {}
+
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin entry point, called by DPF to create a new plugin instance. */
 
-Plugin* createPlugin()
+void* createPlugin()
 {
     return new MidiThroughExamplePlugin();
+}
+
+void destroyPlugin(void* ptr)
+{
+    MidiThroughExamplePlugin* plugin = (MidiThroughExamplePlugin*)ptr;
+    delete plugin;
+}
+
+PluginPrivateData* getPluginPrivateData(void* ptr)
+{
+    MidiThroughExamplePlugin* plugin = (MidiThroughExamplePlugin*)ptr;
+    return &plugin->data;
 }
 
 // -----------------------------------------------------------------------------------------------------------
