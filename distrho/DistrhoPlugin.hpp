@@ -132,6 +132,7 @@ extern const char* plugin_getName(void*);
 /**
     Get the plugin label.@n
     This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
+    A plugin label follows the same rules as Parameter::symbol, with the exception that it can start with numbers.
 */
 extern const char* plugin_getLabel(void*);
 
@@ -209,12 +210,6 @@ extern void plugin_initProgramName(void*, uint32_t index, String& programName);
     Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
 */
 extern void plugin_initState(void*, uint32_t index, State& state);
-
-DISTRHO_DEPRECATED_BY("initState(uint32_t,State&)")
-void plugin_initState(uint32_t, String&, String&) {}
-
-DISTRHO_DEPRECATED_BY("initState(uint32_t,State&)")
-bool plugin_isStateFile(uint32_t) { return false; }
 #endif
 
 /* --------------------------------------------------------------------------------------------------------
@@ -318,10 +313,6 @@ void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t parameterC
 
 void plugin_default_initAudioPort(bool input, uint32_t index, AudioPort& port);
 void plugin_default_initPortGroup(uint32_t groupId, PortGroup& portGroup);
-#if DISTRHO_PLUGIN_WANT_STATE
-void plugin_default_initState(const uint32_t index, State& state);
-#endif
-
 
 /* ------------------------------------------------------------------------------------------------------------
  * Create plugin, entry point */

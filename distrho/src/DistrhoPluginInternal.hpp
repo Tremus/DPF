@@ -893,7 +893,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, sFallbackString);
         DISTRHO_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0', sFallbackString);
 
-        return fPlugin->getState(key);
+        return plugin_getState(fPlugin, key);
     }
 # endif
 
@@ -903,7 +903,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0',);
         DISTRHO_SAFE_ASSERT_RETURN(value != nullptr,);
 
-        fPlugin->setState(key, value);
+        plugin_setState(fPlugin, key, value);
     }
 
     bool wantStateKey(const char* const key) const noexcept

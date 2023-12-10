@@ -59,66 +59,42 @@ struct ExamplePluginParameters
 /* --------------------------------------------------------------------------------------------------------
 * Information */
 
-extern const char* plugin_getName(void* ptr)
+const char* plugin_getName(void* ptr)
 {
     return DISTRHO_PLUGIN_NAME;
 }
 
-/**
-    Get the plugin label.
-    A plugin label follows the same rules as Parameter::symbol, with the exception that it can start with numbers.
-*/
 const char* plugin_getLabel(void* ptr)
 {
     return "parameters";
 }
 
-/**
-    Get an extensive comment/description about the plugin.
-*/
 const char* plugin_getDescription(void* ptr)
 {
     return "Simple plugin to demonstrate parameter usage (including UI).\n\
 The plugin will be treated as an effect, but it will not change the host audio.";
 }
 
-/**
-    Get the plugin author/maker.
-*/
 const char* plugin_getMaker(void* ptr)
 {
     return "DISTRHO";
 }
 
-/**
-    Get the plugin homepage.
-*/
 const char* plugin_getHomePage(void* ptr)
 {
     return "https://github.com/DISTRHO/DPF";
 }
 
-/**
-    Get the plugin license name (a single line of text).
-    For commercial plugins this should return some short copyright information.
-*/
 const char* plugin_getLicense(void* ptr)
 {
     return "ISC";
 }
 
-/**
-    Get the plugin version, in hexadecimal.
-*/
 uint32_t plugin_getVersion(void* ptr)
 {
     return d_version(1, 0, 0);
 }
 
-/**
-    Get the plugin unique Id.
-    This value is used by LADSPA, DSSI and VST plugin formats.
-*/
 int64_t plugin_getUniqueId(void* ptr)
 {
     return d_cconst('d', 'P', 'r', 'm');
@@ -133,23 +109,16 @@ enum {
     kPortGroupBottom
 };
 
-/**
-    Initialize the audio port @a index.@n
-    This function will be called once, shortly after the plugin is created.
-*/
+
 void plugin_initAudioPort(void* ptr, bool input, uint32_t index, AudioPort& port)
 {
     // treat meter audio ports as stereo
     port.groupId = kPortGroupStereo;
 
-    // Set defaults
+    // everything else is as default
     plugin_default_initAudioPort(input, index, port);
 }
 
-/**
-    Initialize the parameter @a index.
-    This function will be called once, shortly after the plugin is created.
-*/
 void plugin_initParameter(void* ptr, uint32_t index, Parameter& parameter)
 {
     /**
@@ -222,11 +191,6 @@ void plugin_initParameter(void* ptr, uint32_t index, Parameter& parameter)
     parameter.symbol.replace('-', '_');
 }
 
-/**
-    Initialize the port group @a groupId.@n
-    This function will be called once,
-    shortly after the plugin is created and all audio ports and parameters have been enumerated.
-*/
 void plugin_initPortGroup(void* ptr, uint32_t groupId, PortGroup& portGroup)
 {
     switch (groupId) {
@@ -245,10 +209,6 @@ void plugin_initPortGroup(void* ptr, uint32_t groupId, PortGroup& portGroup)
     }
 }
 
-/**
-    Set the name of the program @a index.
-    This function will be called once, shortly after the plugin is created.
-*/
 void plugin_initProgramName(void* ptr, uint32_t index, String& programName)
 {
     switch (index)
@@ -265,29 +225,18 @@ void plugin_initProgramName(void* ptr, uint32_t index, String& programName)
 /* --------------------------------------------------------------------------------------------------------
 * Internal data */
 
-/**
-    Get the current value of a parameter.
-*/
 float plugin_getParameterValue(void* ptr, uint32_t index)
 {
     ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
-
     return plugin->fParamGrid[index];
 }
 
-/**
-    Change a parameter value.
-*/
 void plugin_setParameterValue(void* ptr, uint32_t index, float value)
 {
     ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
     plugin->fParamGrid[index] = value;
 }
 
-/**
-    Load a program.
-    The host may call this function from any context, including realtime processing.
-*/
 void plugin_loadProgram(void* ptr, uint32_t index)
 {
     ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
@@ -322,22 +271,12 @@ void plugin_loadProgram(void* ptr, uint32_t index)
 /* --------------------------------------------------------------------------------------------------------
 * Audio/MIDI Processing */
 
-/**
-    Activate this plugin.
-*/
 void plugin_activate(void*) {}
-
-/**
-    Deactivate this plugin.
-*/
 void plugin_deactivate(void*) {}
 
 /* --------------------------------------------------------------------------------------------------------
 * Process */
 
-/**
-    Run/process function for plugins without MIDI input.
-*/
 void plugin_run(void* ptr, const float** inputs, float** outputs, uint32_t frames)
 {
     /**

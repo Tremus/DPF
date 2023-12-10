@@ -158,40 +158,6 @@ void plugin_default_initPortGroup(const uint32_t groupId, PortGroup& portGroup)
     fillInPredefinedPortGroupData(groupId, portGroup);
 }
 
-#if DISTRHO_PLUGIN_WANT_STATE
-void plugin_default_initState(const uint32_t index, State& state)
-{
-    uint hints = 0x0;
-    String stateKey, defaultStateValue;
-
-   #if defined(_MSC_VER)
-    #pragma warning(push)
-    #pragma warning(disable:4996)
-   #elif defined(__clang__)
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-   #elif defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-   #endif
-    initState(index, stateKey, defaultStateValue);
-    if (isStateFile(index))
-        hints = kStateIsFilenamePath;
-   #if defined(_MSC_VER)
-    #pragma warning(pop)
-   #elif defined(__clang__)
-    #pragma clang diagnostic pop
-   #elif defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
-    #pragma GCC diagnostic pop
-   #endif
-
-    state.hints = hints;
-    state.key = stateKey;
-    state.label = stateKey;
-    state.defaultValue = defaultStateValue;
-}
-#endif
-
 // -----------------------------------------------------------------------------------------------------------
 
 END_NAMESPACE_DISTRHO
