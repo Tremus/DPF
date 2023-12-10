@@ -352,10 +352,6 @@ endif
 # ---------------------------------------------------------------------------------------------------------------------
 # Check for required libraries
 
-ifneq ($(HAIKU)$(WASM),true)
-HAVE_CAIRO = $(shell $(PKG_CONFIG) --exists cairo && echo true)
-endif
-
 ifeq ($(HAIKU_OR_MACOS_OR_WASM_OR_WINDOWS),true)
 HAVE_OPENGL = true
 else
@@ -457,20 +453,6 @@ endif # HAVE_X11
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Set Cairo specific stuff
-
-ifeq ($(HAVE_CAIRO),true)
-
-DGL_FLAGS   += -DHAVE_CAIRO
-
-CAIRO_FLAGS  = $(shell $(PKG_CONFIG) --cflags cairo)
-CAIRO_LIBS   = $(shell $(PKG_CONFIG) --libs cairo)
-
-HAVE_CAIRO_OR_OPENGL = true
-
-endif # HAVE_CAIRO
-
-# ---------------------------------------------------------------------------------------------------------------------
 # Set OpenGL specific stuff
 
 ifeq ($(HAVE_OPENGL),true)
@@ -497,8 +479,6 @@ else
 OPENGL_FLAGS = $(shell $(PKG_CONFIG) --cflags gl x11)
 OPENGL_LIBS  = $(shell $(PKG_CONFIG) --libs gl x11)
 endif
-
-HAVE_CAIRO_OR_OPENGL = true
 
 endif # HAVE_OPENGL
 
@@ -745,7 +725,6 @@ features:
 	@echo === Detected features
 	$(call print_available,HAVE_ALSA)
 	$(call print_available,HAVE_DBUS)
-	$(call print_available,HAVE_CAIRO)
 	$(call print_available,HAVE_DGL)
 	$(call print_available,HAVE_JACK)
 	$(call print_available,HAVE_LIBLO)
@@ -779,7 +758,6 @@ MOD_ENVIRONMENT = \
 	CXXFLAGS="-I${1}/staging/usr/include $(EXTRA_MOD_FLAGS)" \
 	LDFLAGS="-L${1}/staging/usr/lib $(EXTRA_MOD_FLAGS)" \
 	EXE_WRAPPER="qemu-${3}-static -L ${1}/target" \
-	HAVE_CAIRO=false \
 	HAVE_OPENGL=false \
 	MOD_BUILD=true \
 	NOOPT=true

@@ -18,7 +18,7 @@ The following tests are present:
 
  - Demo
  A full window with widgets to verify that contents are being drawn correctly, window can be resized and events work.
- Can be used in both Cairo and OpenGL modes, the Vulkan variant does not work right now.
+ Can be used in OpenGL mode, the Vulkan variant does not work right now.
 
  - Line
  TODO

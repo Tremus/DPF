@@ -239,10 +239,7 @@ struct ImageBaseKnob<ImageType>::PrivateData : public KnobEventHandler::Callback
     uint imgLayerCount;
     bool isReady;
 
-    union {
-        uint glTextureId;
-        void* cairoSurface;
-    };
+    uint glTextureId;
 
     explicit PrivateData(const ImageType& img)
         : callback(nullptr),

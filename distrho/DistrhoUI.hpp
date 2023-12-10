@@ -21,9 +21,6 @@
 #include "extra/LeakDetector.hpp"
 #include "src/DistrhoPluginChecks.h"
 
-#ifdef DGL_CAIRO
-# include "Cairo.hpp"
-#endif
 #ifdef DGL_OPENGL
 # include "OpenGL.hpp"
 #endif
@@ -38,9 +35,6 @@ typedef DISTRHO_NAMESPACE::ExternalWindow UIWidget;
 #elif DISTRHO_UI_USE_CUSTOM
 # include DISTRHO_UI_CUSTOM_INCLUDE_PATH
 typedef DISTRHO_UI_CUSTOM_WIDGET_TYPE UIWidget;
-#elif DISTRHO_UI_USE_CAIRO
-# include "../dgl/Cairo.hpp"
-typedef DGL_NAMESPACE::CairoTopLevelWidget UIWidget;
 #elif DISTRHO_UI_USE_NANOVG
 # include "../dgl/NanoVG.hpp"
 typedef DGL_NAMESPACE::NanoTopLevelWidget UIWidget;

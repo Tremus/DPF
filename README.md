@@ -1,6 +1,6 @@
 ## NOTE
 
-This is an in progress hard fork of DPF. The goal is to create a C friendly interface for building plugins across multiple formats. The API will undergo radical changes, and a few things will likely be broken or deprecated (cairo, opengl, linux support)
+This is an in progress hard fork of DPF. The goal is to create a C friendly interface for building plugins across multiple formats. The API will undergo radical changes, and a few things will likely be broken or deprecated (State API, cairo, opengl, linux support)
 
 Eventually I will add support for standalone builds and possibly the FL Studio plugin format.
 

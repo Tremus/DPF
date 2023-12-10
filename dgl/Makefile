@@ -55,17 +55,6 @@ OBJS_common = \
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-OBJS_cairo = $(OBJS_common) \
-	$(BUILD_DIR)/dgl/Cairo.cpp.cairo.o
-
-ifeq ($(MACOS),true)
-OBJS_cairo += $(BUILD_DIR)/dgl/pugl.mm.cairo.o
-else
-OBJS_cairo += $(BUILD_DIR)/dgl/pugl.cpp.cairo.o
-endif
-
-# ---------------------------------------------------------------------------------------------------------------------
-
 OBJS_opengl = $(OBJS_common) \
 	$(BUILD_DIR)/dgl/OpenGL.cpp.opengl.o \
 	$(BUILD_DIR)/dgl/NanoVG.cpp.opengl.o
@@ -111,10 +100,6 @@ endif
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-ifeq ($(HAVE_CAIRO),true)
-TARGETS += $(BUILD_DIR)/libdgl-cairo.a
-endif
-
 ifeq ($(HAVE_OPENGL),true)
 TARGETS += $(BUILD_DIR)/libdgl-opengl.a
 # Compat name, to be removed soon
@@ -133,19 +118,12 @@ endif
 
 all: $(TARGETS)
 
-cairo:   $(BUILD_DIR)/libdgl-cairo.a
 opengl:  $(BUILD_DIR)/libdgl-opengl.a
 opengl3: $(BUILD_DIR)/libdgl-opengl3.a
 stub:    $(BUILD_DIR)/libdgl-stub.a
 vulkan:  $(BUILD_DIR)/libdgl-vulkan.a
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-$(BUILD_DIR)/libdgl-cairo.a: $(OBJS_cairo)
-	-@mkdir -p $(BUILD_DIR)
-	@echo "Creating libdgl-cairo.a"
-	$(SILENT)rm -f $@
-	$(SILENT)$(AR) crs $@ $^
 
 $(BUILD_DIR)/libdgl-opengl.a: $(OBJS_opengl)
 	-@mkdir -p $(BUILD_DIR)
@@ -207,18 +185,6 @@ $(BUILD_DIR)/dgl/pugl.mm.o: src/pugl.mm
 
 # ---------------------------------------------------------------------------------------------------------------------
 
-$(BUILD_DIR)/dgl/%.cpp.cairo.o: src/%.cpp
-	-@mkdir -p $(BUILD_DIR)/dgl
-	@echo "Compiling $< (Cairo variant)"
-	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) $(PUGL_EXTRA_FLAGS) $(CAIRO_FLAGS) -DDGL_CAIRO -c -o $@
-
-$(BUILD_DIR)/dgl/%.mm.cairo.o: src/%.mm
-	-@mkdir -p $(BUILD_DIR)/dgl
-	@echo "Compiling $< (Cairo variant)"
-	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) $(PUGL_EXTRA_FLAGS) $(CAIRO_FLAGS) -DDGL_CAIRO -c -ObjC++ -o $@
-
-# ---------------------------------------------------------------------------------------------------------------------
-
 $(BUILD_DIR)/dgl/%.cpp.opengl.o: src/%.cpp
 	-@mkdir -p $(BUILD_DIR)/dgl
 	@echo "Compiling $< (OpenGL variant)"
@@ -264,7 +230,6 @@ debug:
 # ---------------------------------------------------------------------------------------------------------------------
 
 -include $(OBJS_common:%.o=%.d)
--include $(OBJS_cairo:%.o=%.d)
 -include $(OBJS_opengl:%.o=%.d)
 -include $(OBJS_opengl3:%.o=%.d)
 -include $(OBJS_stub:%.o=%.d)

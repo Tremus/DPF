@@ -19,9 +19,6 @@
 // --------------------------------------------------------------------------------------------------------------------
 // include base headers
 
-#ifdef DGL_CAIRO
-# include <cairo.h>
-#endif
 #ifdef DGL_OPENGL
 # include "../OpenGL-include.hpp"
 #endif
@@ -48,9 +45,6 @@
 # import <Cocoa/Cocoa.h>
 # include <dlfcn.h>
 # include <mach/mach_time.h>
-# ifdef DGL_CAIRO
-#  include <cairo-quartz.h>
-# endif
 # ifdef DGL_VULKAN
 #  import <QuartzCore/CAMetalLayer.h>
 #  include <vulkan/vulkan_macos.h>
@@ -66,9 +60,6 @@
 # include <winsock2.h>
 # include <windows.h>
 # include <windowsx.h>
-# ifdef DGL_CAIRO
-#  include <cairo-win32.h>
-# endif
 # ifdef DGL_OPENGL
 #  include <GL/gl.h>
 # endif
@@ -98,9 +89,6 @@
 # ifdef HAVE_XSYNC
 #  include <X11/extensions/sync.h>
 #  include <X11/extensions/syncconst.h>
-# endif
-# ifdef DGL_CAIRO
-#  include <cairo-xlib.h>
 # endif
 # ifdef DGL_OPENGL
 #  include <GL/glx.h>
@@ -136,7 +124,6 @@ START_NAMESPACE_DGL
 # ifndef DISTRHO_MACOS_NAMESPACE_MACRO
 #  define DISTRHO_MACOS_NAMESPACE_MACRO_HELPER(NS, SEP, INTERFACE) NS ## SEP ## INTERFACE
 #  define DISTRHO_MACOS_NAMESPACE_MACRO(NS, INTERFACE) DISTRHO_MACOS_NAMESPACE_MACRO_HELPER(NS, _, INTERFACE)
-#  define PuglCairoView      DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglCairoView)
 #  define PuglOpenGLView     DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglOpenGLView)
 #  define PuglStubView       DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglStubView)
 #  define PuglVulkanView     DISTRHO_MACOS_NAMESPACE_MACRO(DGL_NAMESPACE, PuglVulkanView)
@@ -148,9 +135,6 @@ START_NAMESPACE_DGL
 # pragma clang diagnostic ignored "-Wdeprecated-declarations"
 # import "pugl-upstream/src/mac.m"
 # import "pugl-upstream/src/mac_stub.m"
-# ifdef DGL_CAIRO
-#  import "pugl-upstream/src/mac_cairo.m"
-# endif
 # ifdef DGL_OPENGL
 #  import "pugl-upstream/src/mac_gl.m"
 # endif
@@ -167,9 +151,6 @@ START_NAMESPACE_DGL
 #elif defined(DISTRHO_OS_WINDOWS)
 # include "pugl-upstream/src/win.c"
 # include "pugl-upstream/src/win_stub.c"
-# ifdef DGL_CAIRO
-#  include "pugl-upstream/src/win_cairo.c"
-# endif
 # ifdef DGL_OPENGL
 #  include "pugl-upstream/src/win_gl.c"
 # endif
@@ -179,9 +160,6 @@ START_NAMESPACE_DGL
 #elif defined(HAVE_X11)
 # include "pugl-upstream/src/x11.c"
 # include "pugl-upstream/src/x11_stub.c"
-# ifdef DGL_CAIRO
-#  include "pugl-upstream/src/x11_cairo.c"
-# endif
 # ifdef DGL_OPENGL
 #  include "pugl-upstream/src/x11_gl.c"
 # endif
@@ -214,9 +192,6 @@ bool puglBackendLeave(PuglView* const view)
 
 void puglSetMatchingBackendForCurrentBuild(PuglView* const view)
 {
-   #ifdef DGL_CAIRO
-    puglSetBackend(view, puglCairoBackend());
-   #endif
    #ifdef DGL_OPENGL
     puglSetBackend(view, puglGlBackend());
    #endif

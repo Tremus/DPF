@@ -28,10 +28,6 @@
 #include "demo_res/DemoArtwork.cpp"
 #include "images_res/CatPics.cpp"
 
-#ifdef DGL_CAIRO
-#include "../dgl/Cairo.hpp"
-typedef DGL_NAMESPACE::CairoImage DemoImage;
-#endif
 #ifdef DGL_OPENGL
 #include "../dgl/OpenGL.hpp"
 typedef DGL_NAMESPACE::OpenGLImage DemoImage;
@@ -260,9 +256,6 @@ class DemoWindow : public StandaloneWindow,
     static const int kSidebarWidth = 81;
 
 public:
-#ifdef DGL_CAIRO
-    static constexpr const char* const kExampleWidgetName = "Demo - Cairo";
-#endif
 #ifdef DGL_OPENGL
     static constexpr const char* const kExampleWidgetName = "Demo - OpenGL";
 #endif

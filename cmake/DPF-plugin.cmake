@@ -75,7 +75,7 @@ include(CMakeParseArguments)
 #       `jack`, `ladspa`, `dssi`, `lv2`, `vst2`, `vst3`, `clap`
 #
 #   `UI_TYPE` <type>
-#       the user interface type: `opengl` (default), `cairo`, `external`
+#       the user interface type: `opengl` (default), `external`
 #
 #   `FILES_COMMON` <file1>...<fileN>
 #       list of sources which are part of both DSP and UI
@@ -109,10 +109,7 @@ function(dpf_add_plugin NAME)
   set(_dgl_library)
   set(_dgl_external OFF)
   if(_dpf_plugin_FILES_UI)
-    if(_dpf_plugin_UI_TYPE STREQUAL "cairo")
-      dpf__add_dgl_cairo("${_dpf_plugin_NO_SHARED_RESOURCES}")
-      set(_dgl_library dgl-cairo)
-    elseif(_dpf_plugin_UI_TYPE STREQUAL "opengl")
+    if(_dpf_plugin_UI_TYPE STREQUAL "opengl")
       dpf__add_dgl_opengl("${_dpf_plugin_NO_SHARED_RESOURCES}")
       set(_dgl_library dgl-opengl)
     elseif(_dpf_plugin_UI_TYPE STREQUAL "external")
@@ -570,71 +567,6 @@ function(dpf__build_static NAME HAS_UI)
     ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<0:>"
     OUTPUT_NAME "${NAME}"
     PREFIX "")
-endfunction()
-
-# dpf__add_dgl_cairo
-# ------------------------------------------------------------------------------
-#
-# Add the Cairo variant of DGL, if not already available.
-#
-function(dpf__add_dgl_cairo NO_SHARED_RESOURCES)
-  if(TARGET dgl-cairo)
-    return()
-  endif()
-
-  find_package(PkgConfig)
-  pkg_check_modules(CAIRO "cairo" REQUIRED)
-
-  link_directories(${CAIRO_LIBRARY_DIRS})
-
-  dpf__add_static_library(dgl-cairo STATIC
-    "${DPF_ROOT_DIR}/dgl/src/Application.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/ApplicationPrivateData.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Color.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/EventHandlers.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Geometry.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/ImageBase.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/ImageBaseWidgets.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Layout.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/SubWidget.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/SubWidgetPrivateData.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidget.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/TopLevelWidgetPrivateData.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Widget.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/WidgetPrivateData.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Window.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/WindowPrivateData.cpp"
-    "${DPF_ROOT_DIR}/dgl/src/Cairo.cpp")
-  if(NO_SHARED_RESOURCES)
-    target_compile_definitions(dgl-cairo PUBLIC "DGL_NO_SHARED_RESOURCES")
-  else()
-    target_sources(dgl-cairo PRIVATE "${DPF_ROOT_DIR}/dgl/src/Resources.cpp")
-  endif()
-  if(NOT APPLE)
-    target_sources(dgl-cairo PRIVATE
-      "${DPF_ROOT_DIR}/dgl/src/pugl.cpp")
-  else()
-    target_sources(dgl-cairo PRIVATE
-      "${DPF_ROOT_DIR}/dgl/src/pugl.mm")
-  endif()
-  target_include_directories(dgl-cairo PUBLIC
-    "${DPF_ROOT_DIR}/dgl")
-  target_include_directories(dgl-cairo PUBLIC
-    "${DPF_ROOT_DIR}/dgl/src/pugl-upstream/include")
-
-  dpf__add_dgl_system_libs()
-  target_link_libraries(dgl-cairo PRIVATE dgl-system-libs)
-
-  add_library(dgl-cairo-definitions INTERFACE)
-  target_compile_definitions(dgl-cairo-definitions INTERFACE "DGL_CAIRO" "HAVE_CAIRO" "HAVE_DGL")
-
-  target_include_directories(dgl-cairo PUBLIC ${CAIRO_INCLUDE_DIRS})
-  if(MINGW)
-    target_link_libraries(dgl-cairo PRIVATE ${CAIRO_STATIC_LIBRARIES})
-  else()
-    target_link_libraries(dgl-cairo PRIVATE ${CAIRO_LIBRARIES})
-  endif()
-  target_link_libraries(dgl-cairo PRIVATE dgl-cairo-definitions)
 endfunction()
 
 # dpf__add_dgl_opengl

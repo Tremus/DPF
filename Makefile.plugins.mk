@@ -157,20 +157,6 @@ endif
 ifeq ($(UI_TYPE),generic)
 ifeq ($(HAVE_OPENGL),true)
 UI_TYPE = opengl
-else ifeq ($(HAVE_CAIRO),true)
-UI_TYPE = cairo
-endif
-endif
-
-ifeq ($(UI_TYPE),cairo)
-ifeq ($(HAVE_CAIRO),true)
-DGL_FLAGS += -DDGL_CAIRO -DHAVE_DGL
-DGL_FLAGS += $(CAIRO_FLAGS)
-DGL_LIBS  += $(CAIRO_LIBS)
-DGL_LIB    = $(DGL_BUILD_DIR)/libdgl-cairo.a
-HAVE_DGL   = true
-else
-HAVE_DGL   = false
 endif
 endif
 
@@ -425,9 +411,6 @@ DGL_POSSIBLE_DEPS = \
 	$(DPF_PATH)/dgl/src/pugl-extra/*.* \
 	$(DPF_PATH)/dgl/src/pugl-upstream/include/pugl/*.* \
 	$(DPF_PATH)/dgl/src/pugl-upstream/src/*.*
-
-$(DGL_BUILD_DIR)/libdgl-cairo.a: $(DGL_POSSIBLE_DEPS)
-	$(MAKE) -C $(DPF_PATH)/dgl cairo
 
 $(DGL_BUILD_DIR)/libdgl-opengl.a: $(DGL_POSSIBLE_DEPS)
 	$(MAKE) -C $(DPF_PATH)/dgl opengl

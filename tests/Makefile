@@ -24,10 +24,6 @@ endif
 MANUAL_TESTS  =
 UNIT_TESTS    = Color Point
 
-ifeq ($(HAVE_CAIRO),true)
-MANUAL_TESTS += Demo.cairo
-endif
-
 ifeq ($(HAVE_OPENGL),true)
 MANUAL_TESTS += Demo.opengl
 MANUAL_TESTS += FileBrowserDialog
@@ -37,9 +33,6 @@ endif
 
 ifneq ($(WASM),true)
 UNIT_TESTS   += Application
-ifeq ($(HAVE_CAIRO),true)
-UNIT_TESTS   += Window.cairo
-endif
 ifeq ($(HAVE_OPENGL),true)
 UNIT_TESTS   += Window.opengl
 endif
@@ -98,11 +91,6 @@ clean:
 	@echo "Compiling $<"
 	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) -c -o $@
 
-../build/tests/%.cpp.cairo.o: %.cpp
-	-@mkdir -p ../build/tests
-	@echo "Compiling $< (Cairo)"
-	$(SILENT)$(CXX) $< $(BUILD_CXX_FLAGS) $(CAIRO_FLAGS) -DDGL_CAIRO -c -o $@
-
 ../build/tests/%.cpp.opengl.o: %.cpp
 	-@mkdir -p ../build/tests
 	@echo "Compiling $< (OpenGL)"
@@ -125,10 +113,6 @@ clean:
 	@echo "Linking $*"
 	$(SILENT)$(CXX) $< $(LINK_FLAGS) $(DGL_SYSTEM_LIBS) -o $@
 
-../build/tests/%.cairo$(APP_EXT): ../build/tests/%.cpp.cairo.o
-	@echo "Linking $*"
-	$(SILENT)$(CXX) $< $(LINK_FLAGS) $(DGL_SYSTEM_LIBS) $(CAIRO_LIBS) -o $@
-
 ../build/tests/%.opengl$(APP_EXT): ../build/tests/%.cpp.opengl.o
 	@echo "Linking $*"
 	$(SILENT)$(CXX) $< $(LINK_FLAGS) $(DGL_SYSTEM_LIBS) $(OPENGL_LIBS) -o $@
@@ -143,10 +127,6 @@ clean:
 
 # ---------------------------------------------------------------------------------------------------------------------
 # linking steps (special, links against DGL static lib)
-
-../build/tests/Demo.cairo$(APP_EXT): ../build/tests/Demo.cpp.cairo.o ../build/libdgl-cairo.a
-	@echo "Linking Demo (Cairo)"
-	$(SILENT)$(CXX) $^ $(LINK_FLAGS) $(DGL_SYSTEM_LIBS) $(CAIRO_LIBS) -o $@
 
 ../build/tests/Demo.opengl$(APP_EXT): ../build/tests/Demo.cpp.opengl.o ../build/libdgl-opengl.a
 	@echo "Linking Demo (OpenGL)"

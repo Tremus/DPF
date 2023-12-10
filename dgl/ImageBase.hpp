@@ -37,9 +37,9 @@ enum ImageFormat {
 
    This is an Image class that handles raw image data in pixels.
    It is an abstract class that provides the common methods to build on top.
-   Cairo and OpenGL Image classes are based upon this one.
+   OpenGL Image classes are based upon this one.
 
-   @see CairoImage, OpenGLImage
+   @see OpenGLImage
  */
 class ImageBase
 {

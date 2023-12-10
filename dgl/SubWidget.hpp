@@ -33,8 +33,6 @@ START_NAMESPACE_DGL
    It is subwidgets all the way down.
 
    TODO check absolute vs relative position and see what makes more sense.
-
-   @see CairoSubWidget
  */
 class SubWidget : public Widget
 {

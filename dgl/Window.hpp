@@ -365,7 +365,6 @@ public:
       Get the graphics context associated with this window.
       GraphicsContext is an empty struct and needs to be casted into a different type in order to be usable,
       for example GraphicsContext.
-      @see CairoSubWidget, CairoTopLevelWidget
     */
     const GraphicsContext& getGraphicsContext() const noexcept;
 

@@ -33,7 +33,7 @@ START_NAMESPACE_DGL
 
    Pressing 'Esc' or clicking anywhere on the window will automatically close it.
 
-   @see CairoImageAboutWindow, OpenGLImageAboutWindow, Window::runAsModal(bool)
+   @see OpenGLImageAboutWindow, Window::runAsModal(bool)
  */
 template <class ImageType>
 class ImageBaseAboutWindow : public StandaloneWindow
@@ -78,7 +78,7 @@ private:
 
    The event logic for this button comes from the ButtonEventHandler class.
 
-   @see CairoImageButton, OpenGLImageButton
+   @see OpenGLImageButton
  */
 template <class ImageType>
 class ImageBaseButton : public SubWidget,
@@ -124,7 +124,7 @@ private:
 
    The event logic for this knob comes from the KnobEventHandler class.
 
-   @see CairoImageKnob, OpenGLImageKnob
+   @see OpenGLImageKnob
  */
 template <class ImageType>
 class ImageBaseKnob : public SubWidget,

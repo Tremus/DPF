@@ -22,19 +22,11 @@
 
 START_NAMESPACE_DGL
 
-#ifdef DGL_CAIRO
-typedef CairoImageAboutWindow ImageAboutWindow;
-typedef CairoImageButton ImageButton;
-typedef CairoImageKnob ImageKnob;
-typedef CairoImageSlider ImageSlider;
-typedef CairoImageSwitch ImageSwitch;
-#else
 typedef OpenGLImageAboutWindow ImageAboutWindow;
 typedef OpenGLImageButton ImageButton;
 typedef OpenGLImageKnob ImageKnob;
 typedef OpenGLImageSlider ImageSlider;
 typedef OpenGLImageSwitch ImageSwitch;
-#endif
 
 END_NAMESPACE_DGL
 

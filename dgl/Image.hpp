@@ -17,19 +17,11 @@
 #ifndef DGL_IMAGE_HPP_INCLUDED
 #define DGL_IMAGE_HPP_INCLUDED
 
-#ifdef DGL_CAIRO
-#include "Cairo.hpp"
-#else
 #include "OpenGL.hpp"
-#endif
 
 START_NAMESPACE_DGL
 
-#ifdef DGL_CAIRO
-typedef CairoImage Image;
-#else
 typedef OpenGLImage Image;
-#endif
 
 END_NAMESPACE_DGL
 
