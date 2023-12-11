@@ -252,7 +252,7 @@ const char* tuid2str(const Steinberg_TUID iid)
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_plugin_view_create (implemented on UI side)
 
-v3_plugin_view* dpf_plugin_view_create(v3_host_application** host, void* instancePointer, double sampleRate);
+Steinberg_IPlugView* dpf_plugin_view_create(Steinberg_Vst_IHostApplication* host, void* instancePointer, double sampleRate);
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -3913,13 +3913,13 @@ struct dpf_edit_controller {
             v3_plugin_view view;
         };
 
-        vst3_view_t* const view = (vst3_view_t*)(void*)dpf_plugin_view_create(host,
+        Steinberg_IPlugView* const view = dpf_plugin_view_create((Steinberg_Vst_IHostApplication*)host,
                                                              vst3->getInstancePointer(),
                                                              vst3->getSampleRate());
         DISTRHO_SAFE_ASSERT_RETURN(view != nullptr, nullptr);
 
         v3_connection_point** uiconn = nullptr;
-        if (view->com.query_interface(view, v3_connection_point_iid, (void**)&uiconn) == V3_OK)
+        if (view->lpVtbl->queryInterface(view, Steinberg_Vst_IConnectionPoint_iid, (void**)&uiconn) == V3_OK)
         {
             d_debug("view connection query ok %p", uiconn);
             controller->connectionCtrl2View = new dpf_ctrl2view_connection_point(controller->vst3);

@@ -18,10 +18,8 @@
 #include "DistrhoPluginVST.hpp"
 #include "DistrhoUIInternal.hpp"
 
-#include "travesty/base.h"
-#include "travesty/edit_controller.h"
-#include "travesty/host.h"
 #include "travesty/view.h"
+#include "vst3_c_api/vst3_c_api.h"
 
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 # if defined(DISTRHO_OS_MAC)
@@ -49,6 +47,8 @@
 # define DPF_VST3_TIMER_INTERVAL 16 /* ~60 fps */
 #endif
 
+#define tuid_match(a, b) memcmp(a, b, sizeof(Steinberg_TUID)) == 0
+
 START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -68,14 +68,14 @@ extern const char* d_nextBundlePath;
 // --------------------------------------------------------------------------------------------------------------------
 // Utility functions (defined on plugin side)
 
-const char* tuid2str(const v3_tuid iid);
+extern const char* tuid2str(const Steinberg_TUID iid);
 
 // --------------------------------------------------------------------------------------------------------------------
 
 static void applyGeometryConstraints(const uint minimumWidth,
                                      const uint minimumHeight,
                                      const bool keepAspectRatio,
-                                     v3_view_rect* const rect)
+                                     Steinberg_ViewRect* const rect)
 {
     d_debug("applyGeometryConstraints %u %u %d {%d,%d,%d,%d} | BEFORE",
             minimumWidth, minimumHeight, keepAspectRatio, rect->top, rect->left, rect->right, rect->bottom);
@@ -316,10 +316,10 @@ class UIVst3
 #endif
 {
 public:
-    UIVst3(v3_plugin_view* const view,
-           v3_host_application** const host,
-           v3_connection_point** const connection,
-           v3_plugin_frame** const frame,
+    UIVst3(Steinberg_IPlugView* const view,
+           Steinberg_Vst_IHostApplication* const host,
+           Steinberg_Vst_IConnectionPoint* const connection,
+           Steinberg_IPlugFrame* const frame,
            const intptr_t winId,
            const float scaleFactor,
            const double sampleRate,
@@ -394,18 +394,18 @@ public:
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_view interface calls
+    // Steinberg_IPlugView interface calls
 
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    v3_result onWheel(float /*distance*/)
+    Steinberg_tresult onWheel(float /*distance*/)
     {
         // TODO
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
     }
 
-    v3_result onKeyDown(const int16_t keychar, const int16_t keycode, const int16_t modifiers)
+    Steinberg_tresult onKeyDown(const int16_t keychar, const int16_t keycode, const int16_t modifiers)
     {
-        DISTRHO_SAFE_ASSERT_INT_RETURN(keychar >= 0 && keychar < 0x7f, keychar, V3_FALSE);
+        DISTRHO_SAFE_ASSERT_INT_RETURN(keychar >= 0 && keychar < 0x7f, keychar, Steinberg_kResultFalse);
 
         bool special;
         const uint key = translateVstKeyCode(special, keychar, keycode);
@@ -413,12 +413,12 @@ public:
 
         return fUI.handlePluginKeyboardVST(true, special, key,
                                            keycode >= 0 ? static_cast<uint>(keycode) : 0,
-                                           translateVST3Modifiers(modifiers)) ? V3_TRUE : V3_FALSE;
+                                           translateVST3Modifiers(modifiers)) ? Steinberg_kResultTrue : Steinberg_kResultFalse;
     }
 
-    v3_result onKeyUp(const int16_t keychar, const int16_t keycode, const int16_t modifiers)
+    Steinberg_tresult onKeyUp(const int16_t keychar, const int16_t keycode, const int16_t modifiers)
     {
-        DISTRHO_SAFE_ASSERT_INT_RETURN(keychar >= 0 && keychar < 0x7f, keychar, V3_FALSE);
+        DISTRHO_SAFE_ASSERT_INT_RETURN(keychar >= 0 && keychar < 0x7f, keychar, Steinberg_kResultFalse);
 
         bool special;
         const uint key = translateVstKeyCode(special, keychar, keycode);
@@ -426,19 +426,19 @@ public:
 
         return fUI.handlePluginKeyboardVST(false, special, key,
                                            keycode >= 0 ? static_cast<uint>(keycode) : 0,
-                                           translateVST3Modifiers(modifiers)) ? V3_TRUE : V3_FALSE;
+                                           translateVST3Modifiers(modifiers)) ? Steinberg_kResultTrue : Steinberg_kResultFalse;
     }
 
-    v3_result onFocus(const bool state)
+    Steinberg_tresult onFocus(const bool state)
     {
         if (state)
             fUI.focus();
         fUI.notifyFocusChanged(state);
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 #endif
 
-    v3_result getSize(v3_view_rect* const rect) const noexcept
+    Steinberg_tresult getSize(Steinberg_ViewRect* const rect) const noexcept
     {
         if (fIsResizingFromPlugin)
         {
@@ -457,12 +457,12 @@ public:
         }
 
         d_debug("getSize request returning %i %i", rect->right, rect->bottom);
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
-    v3_result onSize(v3_view_rect* const orect)
+    Steinberg_tresult onSize(Steinberg_ViewRect* const orect)
     {
-        v3_view_rect rect = *orect;
+        Steinberg_ViewRect rect = *orect;
 
        #ifdef DISTRHO_OS_MAC
         const double scaleFactor = fUI.getScaleFactor();
@@ -485,21 +485,21 @@ public:
 
         fIsResizingFromHost = true;
         fUI.setWindowSizeFromHost(rect.right - rect.left, rect.bottom - rect.top);
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
-    v3_result setFrame(v3_plugin_frame** const frame) noexcept
+    Steinberg_tresult setFrame(Steinberg_IPlugFrame* const frame) noexcept
     {
         fFrame = frame;
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
-    v3_result canResize() noexcept
+    Steinberg_tresult canResize() noexcept
     {
-        return fUI.isResizable() ? V3_TRUE : V3_FALSE;
+        return fUI.isResizable() ? Steinberg_kResultTrue : Steinberg_kResultFalse;
     }
 
-    v3_result checkSizeConstraint(v3_view_rect* const rect)
+    Steinberg_tresult checkSizeConstraint(Steinberg_ViewRect* const rect)
     {
         uint minimumWidth, minimumHeight;
         bool keepAspectRatio;
@@ -512,13 +512,13 @@ public:
        #endif
 
         applyGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio, rect);
-        return V3_TRUE;
+        return Steinberg_kResultTrue;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_connection_point interface calls
+    // Steinberg_Vst_IConnectionPoint interface calls
 
-    void connect(v3_connection_point** const point) noexcept
+    void connect(Steinberg_Vst_IConnectionPoint* const point) noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(point != nullptr,);
 
@@ -526,16 +526,15 @@ public:
 
         d_debug("requesting current plugin state");
 
-        v3_message** const message = createMessage("init");
+        Steinberg_Vst_IMessage* const message = createMessage("init");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
-        v3_cpp_obj(fConnection)->notify(fConnection, message);
-
-        v3_cpp_obj_unref(message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
+        fConnection->lpVtbl->notify(fConnection, message);
+        message->lpVtbl->release(message);
     }
 
     void disconnect() noexcept
@@ -545,46 +544,45 @@ public:
         d_debug("reporting UI closed");
         fReadyForPluginData = false;
 
-        v3_message** const message = createMessage("close");
+        Steinberg_Vst_IMessage* const message = createMessage("close");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
-        v3_cpp_obj(fConnection)->notify(fConnection, message);
-
-        v3_cpp_obj_unref(message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
+        fConnection->lpVtbl->notify(fConnection, message);
+        message->lpVtbl->release(message);
 
         fConnection = nullptr;
     }
 
-    v3_result notify(v3_message** const message)
+    Steinberg_tresult notify(Steinberg_Vst_IMessage* const message)
     {
-        const char* const msgid = v3_cpp_obj(message)->get_message_id(message);
-        DISTRHO_SAFE_ASSERT_RETURN(msgid != nullptr, V3_INVALID_ARG);
+        const char* const msgid = message->lpVtbl->getMessageID(message);
+        DISTRHO_SAFE_ASSERT_RETURN(msgid != nullptr, Steinberg_kInvalidArgument);
 
-        v3_attribute_list** const attrs = v3_cpp_obj(message)->get_attributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrs != nullptr, V3_INVALID_ARG);
+        Steinberg_Vst_IAttributeList* const attrs = message->lpVtbl->getAttributes(message);
+        DISTRHO_SAFE_ASSERT_RETURN(attrs != nullptr, Steinberg_kInvalidArgument);
 
         if (std::strcmp(msgid, "ready") == 0)
         {
-            DISTRHO_SAFE_ASSERT_RETURN(! fReadyForPluginData, V3_INTERNAL_ERR);
+            DISTRHO_SAFE_ASSERT_RETURN(! fReadyForPluginData, Steinberg_kInternalError);
             fReadyForPluginData = true;
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
 
         if (std::strcmp(msgid, "parameter-set") == 0)
         {
             int64_t rindex;
             double value;
-            v3_result res;
+            Steinberg_tresult res;
 
-            res = v3_cpp_obj(attrs)->get_int(attrs, "rindex", &rindex);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
+            res = attrs->lpVtbl->getInt(attrs, "rindex", &rindex);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
 
-            res = v3_cpp_obj(attrs)->get_float(attrs, "value", &value);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
+            res = attrs->lpVtbl->getFloat(attrs, "value", &value);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
 
             if (rindex < kVst3InternalParameterBaseCount)
             {
@@ -592,27 +590,27 @@ public:
                 {
                #if DPF_VST3_USES_SEPARATE_CONTROLLER
                 case kVst3InternalParameterSampleRate:
-                    DISTRHO_SAFE_ASSERT_RETURN(value >= 0.0, V3_INVALID_ARG);
+                    DISTRHO_SAFE_ASSERT_RETURN(value >= 0.0, Steinberg_kInvalidArgument);
                     fUI.setSampleRate(value, true);
                     break;
                #endif
                #if DISTRHO_PLUGIN_WANT_PROGRAMS
                 case kVst3InternalParameterProgram:
-                    DISTRHO_SAFE_ASSERT_RETURN(value >= 0.0, V3_INVALID_ARG);
+                    DISTRHO_SAFE_ASSERT_RETURN(value >= 0.0, Steinberg_kInvalidArgument);
                     fUI.programLoaded(static_cast<uint32_t>(value + 0.5));
                     break;
                #endif
                 }
 
                 // others like latency and buffer-size do not matter on UI side
-                return V3_OK;
+                return Steinberg_kResultOk;
             }
 
-            DISTRHO_SAFE_ASSERT_UINT2_RETURN(rindex >= kVst3InternalParameterCount, rindex, kVst3InternalParameterCount, V3_INVALID_ARG);
+            DISTRHO_SAFE_ASSERT_UINT2_RETURN(rindex >= kVst3InternalParameterCount, rindex, kVst3InternalParameterCount, Steinberg_kInvalidArgument);
             const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
 
             fUI.parameterChanged(index, value);
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
 
        #if DISTRHO_PLUGIN_WANT_STATE
@@ -620,29 +618,29 @@ public:
         {
             int64_t keyLength = -1;
             int64_t valueLength = -1;
-            v3_result res;
+            Steinberg_tresult res;
 
             res = v3_cpp_obj(attrs)->get_int(attrs, "key:length", &keyLength);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(keyLength >= 0, keyLength, V3_INTERNAL_ERR);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(keyLength >= 0, keyLength, Steinberg_kInternalError);
 
             res = v3_cpp_obj(attrs)->get_int(attrs, "value:length", &valueLength);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(valueLength >= 0, valueLength, V3_INTERNAL_ERR);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
+            DISTRHO_SAFE_ASSERT_INT_RETURN(valueLength >= 0, valueLength, Steinberg_kInternalError);
 
             int16_t* const key16 = (int16_t*)std::malloc(sizeof(int16_t)*(keyLength + 1));
-            DISTRHO_SAFE_ASSERT_RETURN(key16 != nullptr, V3_NOMEM);
+            DISTRHO_SAFE_ASSERT_RETURN(key16 != nullptr, Steinberg_kOutOfMemory);
 
             int16_t* const value16 = (int16_t*)std::malloc(sizeof(int16_t)*(valueLength + 1));
-            DISTRHO_SAFE_ASSERT_RETURN(value16 != nullptr, V3_NOMEM);
+            DISTRHO_SAFE_ASSERT_RETURN(value16 != nullptr, Steinberg_kOutOfMemory);
 
             res = v3_cpp_obj(attrs)->get_string(attrs, "key", key16, sizeof(int16_t)*(keyLength+1));
-            DISTRHO_SAFE_ASSERT_INT2_RETURN(res == V3_OK, res, keyLength, res);
+            DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, keyLength, res);
 
             if (valueLength != 0)
             {
                 res = v3_cpp_obj(attrs)->get_string(attrs, "value", value16, sizeof(int16_t)*(valueLength+1));
-                DISTRHO_SAFE_ASSERT_INT2_RETURN(res == V3_OK, res, valueLength, res);
+                DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, valueLength, res);
             }
 
             // do cheap inline conversion
@@ -661,26 +659,26 @@ public:
 
             std::free(key16);
             std::free(value16);
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
        #endif
 
         d_stderr("UIVst3 received unknown msg '%s'", msgid);
 
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_plugin_view_content_scale_steinberg interface calls
 
-    v3_result setContentScaleFactor(const float factor)
+    Steinberg_tresult setContentScaleFactor(const float factor)
     {
         if (d_isEqual(fScaleFactor, factor))
-            return V3_OK;
+            return Steinberg_kResultOk;
 
         fScaleFactor = factor;
         fUI.notifyScaleFactorChanged(factor);
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
    #if DPF_VST3_USING_HOST_RUN_LOOP
@@ -734,10 +732,10 @@ public:
 
 private:
     // VST3 stuff
-    v3_plugin_view* const fView;
-    v3_host_application** const fHostApplication;
-    v3_connection_point** fConnection;
-    v3_plugin_frame** fFrame;
+    Steinberg_IPlugView* const fView;
+    Steinberg_Vst_IHostApplication* const fHostApplication;
+    Steinberg_Vst_IConnectionPoint* fConnection;
+    Steinberg_IPlugFrame* fFrame;
 
     // Temporary data
     float fScaleFactor;
@@ -745,7 +743,7 @@ private:
     bool fIsResizingFromPlugin;
     bool fIsResizingFromHost;
     bool fNeedsResizeFromPlugin;
-    v3_view_rect fNextPluginRect; // for when plugin requests a new size
+    Steinberg_ViewRect fNextPluginRect; // for when plugin requests a new size
 
     // Plugin UI (after VST3 stuff so the UI can call into us during its constructor)
     UIExporter fUI;
@@ -753,18 +751,18 @@ private:
     // ----------------------------------------------------------------------------------------------------------------
     // helper functions called during message passing
 
-    v3_message** createMessage(const char* const id) const
+    Steinberg_Vst_IMessage* createMessage(const char* const id) const
     {
         DISTRHO_SAFE_ASSERT_RETURN(fHostApplication != nullptr, nullptr);
 
-        v3_tuid iid;
-        std::memcpy(iid, v3_message_iid, sizeof(v3_tuid));
-        v3_message** msg = nullptr;
-        const v3_result res = v3_cpp_obj(fHostApplication)->create_instance(fHostApplication, iid, iid, (void**)&msg);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_TRUE, res, nullptr);
+        Steinberg_TUID iid;
+        std::memcpy(iid, &Steinberg_Vst_IMessage_iid, sizeof(iid));
+        Steinberg_Vst_IMessage* msg = nullptr;
+        const Steinberg_tresult res = fHostApplication->lpVtbl->createInstance(fHostApplication, iid, iid, (void**)&msg);
+        DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultTrue, res, nullptr);
         DISTRHO_SAFE_ASSERT_RETURN(msg != nullptr, nullptr);
 
-        v3_cpp_obj(msg)->set_message_id(msg, id);
+        msg->lpVtbl->setMessageID(msg, id);
         return msg;
     }
 
@@ -772,16 +770,16 @@ private:
     {
         DISTRHO_SAFE_ASSERT_RETURN(fConnection != nullptr,);
 
-        v3_message** const message = createMessage("idle");
+        Steinberg_Vst_IMessage* const message = createMessage("idle");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
-        v3_cpp_obj(fConnection)->notify(fConnection, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
+        fConnection->lpVtbl->notify(fConnection, message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -791,18 +789,18 @@ private:
     {
         DISTRHO_SAFE_ASSERT_RETURN(fConnection != nullptr,);
 
-        v3_message** const message = createMessage("parameter-edit");
+        Steinberg_Vst_IMessage* const message = createMessage("parameter-edit");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
-        v3_cpp_obj(attrlist)->set_int(attrlist, "rindex", rindex);
-        v3_cpp_obj(attrlist)->set_int(attrlist, "started", started ? 1 : 0);
-        v3_cpp_obj(fConnection)->notify(fConnection, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
+        attrlist->lpVtbl->setInt(attrlist, "rindex", rindex);
+        attrlist->lpVtbl->setInt(attrlist, "started", started ? 1 : 0);
+        fConnection->lpVtbl->notify(fConnection, message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
 
     static void editParameterCallback(void* const ptr, const uint32_t rindex, const bool started)
@@ -814,18 +812,18 @@ private:
     {
         DISTRHO_SAFE_ASSERT_RETURN(fConnection != nullptr,);
 
-        v3_message** const message = createMessage("parameter-set");
+        Steinberg_Vst_IMessage* const message = createMessage("parameter-set");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
-        v3_cpp_obj(attrlist)->set_int(attrlist, "rindex", rindex);
-        v3_cpp_obj(attrlist)->set_float(attrlist, "value", realValue);
-        v3_cpp_obj(fConnection)->notify(fConnection, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
+        attrlist->lpVtbl->setInt(attrlist, "rindex", rindex);
+        attrlist->lpVtbl->setFloat(attrlist, "value", realValue);
+        fConnection->lpVtbl->notify(fConnection, message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
 
     static void setParameterCallback(void* const ptr, const uint32_t rindex, const float value)
@@ -838,10 +836,10 @@ private:
     {
         DISTRHO_SAFE_ASSERT_RETURN(fConnection != nullptr,);
 
-        v3_message** const message = createMessage("state-set");
+        Steinberg_Vst_IMessage* const message = createMessage("state-set");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = v3_cpp_obj(message)->get_attributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
         v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
@@ -865,10 +863,10 @@ private:
     {
         DISTRHO_SAFE_ASSERT_RETURN(fConnection != nullptr,);
 
-        v3_message** const message = createMessage("midi");
+        Steinberg_Vst_IMessage* const message = createMessage("midi");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = v3_cpp_obj(message)->get_attributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
         uint8_t midiData[3];
@@ -919,12 +917,12 @@ private:
 
         fIsResizingFromPlugin = true;
 
-        v3_view_rect rect;
+        Steinberg_ViewRect rect;
         rect.left = rect.top = 0;
         rect.right = width;
         rect.bottom = height;
         fNextPluginRect = rect;
-        v3_cpp_obj(fFrame)->resize_view(fFrame, (v3_plugin_view**)fView, &rect);
+        fFrame->lpVtbl->resizeView(fFrame, fView, &rect);
     }
 
     static void setSizeCallback(void* const ptr, const uint width, const uint height)
@@ -934,100 +932,90 @@ private:
 };
 
 // --------------------------------------------------------------------------------------------------------------------
-
-/**
- * VST3 low-level pointer thingies follow, proceed with care.
- */
-
-// --------------------------------------------------------------------------------------------------------------------
-// v3_funknown for classes with a single instance
-
-template<class T>
-static uint32_t V3_API dpf_single_instance_ref(void* const self)
-{
-    return ++(*static_cast<T**>(self))->refcounter;
-}
-
-template<class T>
-static uint32_t V3_API dpf_single_instance_unref(void* const self)
-{
-    return --(*static_cast<T**>(self))->refcounter;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
 // dpf_ui_connection_point
 
 struct dpf_ui_connection_point {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_connection_point point;
+    Steinberg_Vst_IConnectionPointVtbl* lpVtbl;
+    Steinberg_Vst_IConnectionPointVtbl base;
     std::atomic_int refcounter;
     ScopedPointer<UIVst3>& uivst3;
-    v3_connection_point** other;
+    Steinberg_Vst_IConnectionPoint* other;
 
     dpf_ui_connection_point(ScopedPointer<UIVst3>& v)
-        : lpVtbl(&com),
+        : lpVtbl(&base),
           refcounter(1),
           uivst3(v),
           other(nullptr)
     {
         // v3_funknown, single instance
-        com.query_interface = query_interface_connection_point;
-        com.ref = dpf_single_instance_ref<dpf_ui_connection_point>;
-        com.unref = dpf_single_instance_unref<dpf_ui_connection_point>;
+        base.queryInterface = query_interface_connection_point;
+        base.addRef = addRef_ui_connection_point;
+        base.release = release_ui_connection_point;
 
-        // v3_connection_point
-        point.connect = connect;
-        point.disconnect = disconnect;
-        point.notify = notify;
+        // Steinberg_Vst_IConnectionPoint
+        base.connect = connect;
+        base.disconnect = disconnect;
+        base.notify = notify;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_funknown
 
-    static v3_result V3_API query_interface_connection_point(void* const self, const v3_tuid iid, void** const iface)
+    static Steinberg_tresult query_interface_connection_point(void* const self, const Steinberg_TUID iid, void** const iface)
     {
         dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_connection_point_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
         {
             d_debug("UI|query_interface_connection_point => %p %s %p | OK", self, tuid2str(iid), iface);
             ++point->refcounter;
             *iface = self;
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
 
         d_debug("DSP|query_interface_connection_point => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
 
         *iface = NULL;
-        return V3_NO_INTERFACE;
+        return Steinberg_kNoInterface;
+    }
+
+    static uint32_t addRef_ui_connection_point(void* const self)
+    {
+        dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
+        return ++point->refcounter;
+    }
+
+    static uint32_t release_ui_connection_point(void* const self)
+    {
+        dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
+        return --point->refcounter;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_connection_point
+    // Steinberg_Vst_IConnectionPoint
 
-    static v3_result V3_API connect(void* const self, v3_connection_point** const other)
+    static Steinberg_tresult connect(void* const self, Steinberg_Vst_IConnectionPoint* const other)
     {
         dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
         d_debug("UI|dpf_ui_connection_point::connect => %p %p", self, other);
 
-        DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, V3_INVALID_ARG);
+        DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, Steinberg_kInvalidArgument);
 
         point->other = other;
 
         if (UIVst3* const uivst3 = point->uivst3)
             uivst3->connect(other);
 
-        return V3_OK;
+        return Steinberg_kResultOk;
     };
 
-    static v3_result V3_API disconnect(void* const self, v3_connection_point** const other)
+    static Steinberg_tresult disconnect(void* const self, Steinberg_Vst_IConnectionPoint* const other)
     {
         d_debug("UI|dpf_ui_connection_point::disconnect => %p %p", self, other);
         dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
 
-        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, V3_INVALID_ARG);
+        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, Steinberg_kInvalidArgument);
         DISTRHO_SAFE_ASSERT(point->other == other);
 
         point->other = nullptr;
@@ -1035,15 +1023,15 @@ struct dpf_ui_connection_point {
         if (UIVst3* const uivst3 = point->uivst3)
             uivst3->disconnect();
 
-        return V3_OK;
+        return Steinberg_kResultOk;
     };
 
-    static v3_result V3_API notify(void* const self, v3_message** const message)
+    static Steinberg_tresult notify(void* const self, Steinberg_Vst_IMessage* const message)
     {
         dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
 
         UIVst3* const uivst3 = point->uivst3;
-        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
+        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, Steinberg_kNotInitialized);
 
         return uivst3->notify(message);
     }
@@ -1053,55 +1041,69 @@ struct dpf_ui_connection_point {
 // dpf_plugin_view_content_scale
 
 struct dpf_plugin_view_content_scale {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_plugin_view_content_scale scale;
+    Steinberg_IPlugViewContentScaleSupportVtbl* lpVtbl;
+    Steinberg_IPlugViewContentScaleSupportVtbl base;
+    // v3_funknown* lpVtbl;
+    // v3_funknown com;
+    // v3_plugin_view_content_scale scale;
     std::atomic_int refcounter;
     ScopedPointer<UIVst3>& uivst3;
     // cached values
     float scaleFactor;
 
     dpf_plugin_view_content_scale(ScopedPointer<UIVst3>& v)
-        : lpVtbl(&com),
+        : lpVtbl(&base),
           refcounter(1),
           uivst3(v),
           scaleFactor(0.0f)
     {
         // v3_funknown, single instance
-        com.query_interface = query_interface_view_content_scale;
-        com.ref = dpf_single_instance_ref<dpf_plugin_view_content_scale>;
-        com.unref = dpf_single_instance_unref<dpf_plugin_view_content_scale>;
+        base.queryInterface = query_interface_view_content_scale;
+        base.addRef = addRef_view_content_scale;
+        base.release = release_view_content_scale;
 
         // v3_plugin_view_content_scale
-        scale.set_content_scale_factor = set_content_scale_factor;
+        base.setContentScaleFactor = set_content_scale_factor;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_funknown
 
-    static v3_result V3_API query_interface_view_content_scale(void* const self, const v3_tuid iid, void** const iface)
+    static Steinberg_tresult query_interface_view_content_scale(void* const self, const Steinberg_TUID iid, void** const iface)
     {
         dpf_plugin_view_content_scale* const scale = static_cast<dpf_plugin_view_content_scale*>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_plugin_view_content_scale_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_IPlugViewContentScaleSupport_iid))
         {
             d_debug("query_interface_view_content_scale => %p %s %p | OK", self, tuid2str(iid), iface);
             ++scale->refcounter;
             *iface = self;
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
 
         d_debug("query_interface_view_content_scale => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
 
         *iface = NULL;
-        return V3_NO_INTERFACE;
+        return Steinberg_kNoInterface;
+    }
+
+    static uint32_t addRef_view_content_scale(void* const self)
+    {
+        dpf_plugin_view_content_scale* const scale = static_cast<dpf_plugin_view_content_scale*>(self);
+        return ++scale->refcounter;
+    }
+
+    static uint32_t release_view_content_scale(void* const self)
+    {
+        dpf_plugin_view_content_scale* const scale = static_cast<dpf_plugin_view_content_scale*>(self);
+        return --scale->refcounter;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_plugin_view_content_scale
 
-    static v3_result V3_API set_content_scale_factor(void* const self, const float factor)
+    static Steinberg_tresult set_content_scale_factor(void* const self, const float factor)
     {
         dpf_plugin_view_content_scale* const scale = static_cast<dpf_plugin_view_content_scale*>(self);
         d_debug("dpf_plugin_view::set_content_scale_factor => %p %f", self, factor);
@@ -1111,7 +1113,7 @@ struct dpf_plugin_view_content_scale {
         if (UIVst3* const uivst3 = scale->uivst3)
             return uivst3->setContentScaleFactor(factor);
 
-        return V3_NOT_INITIALIZED;
+        return Steinberg_kNotInitialized;
     }
 };
 
@@ -1135,8 +1137,8 @@ struct dpf_timer_handler {
     {
         // v3_funknown, single instance
         com.query_interface = query_interface_timer_handler;
-        com.ref = dpf_single_instance_ref<dpf_timer_handler>;
-        com.unref = dpf_single_instance_unref<dpf_timer_handler>;
+        com.ref = addRef_timer;
+        com.unref = release_timer;
 
         // v3_timer_handler
         timer.on_timer = on_timer;
@@ -1145,29 +1147,41 @@ struct dpf_timer_handler {
     // ----------------------------------------------------------------------------------------------------------------
     // v3_funknown
 
-    static v3_result V3_API query_interface_timer_handler(void* self, const v3_tuid iid, void** iface)
+    static Steinberg_tresult query_interface_timer_handler(void* self, const Steinberg_TUID iid, void** iface)
     {
         dpf_timer_handler* const timer = static_cast<dpf_timer_handler*>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_timer_handler_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, v3_timer_handler_iid))
         {
             d_debug("query_interface_timer_handler => %p %s %p | OK", self, tuid2str(iid), iface);
             ++timer->refcounter;
             *iface = self;
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
 
         d_debug("query_interface_timer_handler => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
 
         *iface = NULL;
-        return V3_NO_INTERFACE;
+        return Steinberg_kNoInterface;
+    }
+
+    static uint32_t addRef_timer(void* const self)
+    {
+        dpf_timer_handler* const timer = static_cast<dpf_timer_handler*>(self);
+        return ++timer->refcounter;
+    }
+
+    static uint32_t release_timer(void* const self)
+    {
+        dpf_timer_handler* const timer = static_cast<dpf_timer_handler*>(self);
+        return --timer->refcounter;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_timer_handler
 
-    static void V3_API on_timer(void* self)
+    static void on_timer(void* self)
     {
         dpf_timer_handler* const timer = static_cast<dpf_timer_handler*>(self);
 
@@ -1183,18 +1197,17 @@ struct dpf_timer_handler {
 
 static const char* const kSupportedPlatforms[] = {
 #if defined(DISTRHO_OS_WINDOWS)
-    V3_VIEW_PLATFORM_TYPE_HWND,
+    Steinberg_kPlatformTypeHWND,
 #elif defined(DISTRHO_OS_MAC)
-    V3_VIEW_PLATFORM_TYPE_NSVIEW,
+    Steinberg_kPlatformTypeNSView,
 #else
-    V3_VIEW_PLATFORM_TYPE_X11,
+    Steinberg_kPlatformTypeX11EmbedWindowID,
 #endif
 };
 
 struct dpf_plugin_view {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_plugin_view view;
+    Steinberg_IPlugViewVtbl* lpVtbl;
+    Steinberg_IPlugViewVtbl base;
     std::atomic_int refcounter;
     ScopedPointer<dpf_ui_connection_point> connection;
     ScopedPointer<dpf_plugin_view_content_scale> scale;
@@ -1203,16 +1216,16 @@ struct dpf_plugin_view {
    #endif
     ScopedPointer<UIVst3> uivst3;
     // cached values
-    v3_host_application** const hostApplication;
+    Steinberg_Vst_IHostApplication* const hostApplication;
     void* const instancePointer;
     double sampleRate;
-    v3_plugin_frame** frame;
+    Steinberg_IPlugFrame* frame;
     v3_run_loop** runloop;
     uint32_t nextWidth, nextHeight;
     bool sizeRequestedBeforeBeingAttached;
 
-    dpf_plugin_view(v3_host_application** const host, void* const instance, const double sr)
-        : lpVtbl(&com),
+    dpf_plugin_view(Steinberg_Vst_IHostApplication* const host, void* const instance, const double sr)
+        : lpVtbl(&base),
           refcounter(1),
           hostApplication(host),
           instancePointer(instance),
@@ -1227,26 +1240,26 @@ struct dpf_plugin_view {
 
         // make sure host application is valid through out this view lifetime
         if (hostApplication != nullptr)
-            v3_cpp_obj_ref(hostApplication);
+            hostApplication->lpVtbl->addRef(hostApplication);
 
         // v3_funknown, everything custom
-        com.query_interface = query_interface_view;
-        com.ref = ref_view;
-        com.unref = unref_view;
+        base.queryInterface = query_interface_view;
+        base.addRef  = ref_view;
+        base.release = unref_view;
 
-        // v3_plugin_view
-        view.is_platform_type_supported = is_platform_type_supported;
-        view.attached = attached;
-        view.removed = removed;
-        view.on_wheel = on_wheel;
-        view.on_key_down = on_key_down;
-        view.on_key_up = on_key_up;
-        view.get_size = get_size;
-        view.on_size = on_size;
-        view.on_focus = on_focus;
-        view.set_frame = set_frame;
-        view.can_resize = can_resize;
-        view.check_size_constraint = check_size_constraint;
+        // Steinberg_IPlugView
+        base.isPlatformTypeSupported = is_platform_type_supported;
+        base.attached = attached;
+        base.removed = removed;
+        base.onWheel = on_wheel;
+        base.onKeyDown = on_key_down;
+        base.onKeyUp = on_key_up;
+        base.getSize = get_size;
+        base.onSize = on_size;
+        base.onFocus = on_focus;
+        base.setFrame = set_frame;
+        base.canResize = can_resize;
+        base.checkSizeConstraint = check_size_constraint;
     }
 
     ~dpf_plugin_view()
@@ -1261,26 +1274,26 @@ struct dpf_plugin_view {
         uivst3 = nullptr;
 
         if (hostApplication != nullptr)
-            v3_cpp_obj_unref(hostApplication);
+            hostApplication->lpVtbl->release(hostApplication);
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_funknown
 
-    static v3_result V3_API query_interface_view(void* self, const v3_tuid iid, void** iface)
+    static Steinberg_tresult query_interface_view(void* self, const Steinberg_TUID iid, void** iface)
     {
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
-        if (v3_tuid_match(iid, v3_funknown_iid) ||
-            v3_tuid_match(iid, v3_plugin_view_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_IPlugView_iid))
         {
             d_debug("query_interface_view => %p %s %p | OK", self, tuid2str(iid), iface);
             ++view->refcounter;
             *iface = self;
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
 
-        if (v3_tuid_match(v3_connection_point_iid, iid))
+        if (tuid_match(Steinberg_Vst_IConnectionPoint_iid, iid))
         {
             d_debug("query_interface_view => %p %s %p | OK convert %p",
                     self, tuid2str(iid), iface, view->connection.get());
@@ -1290,11 +1303,11 @@ struct dpf_plugin_view {
             else
                 ++view->connection->refcounter;
             *iface = &view->connection;
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
 
        #ifndef DISTRHO_OS_MAC
-        if (v3_tuid_match(v3_plugin_view_content_scale_iid, iid))
+        if (tuid_match(Steinberg_IPlugViewContentScaleSupport_iid, iid))
         {
             d_debug("query_interface_view => %p %s %p | OK convert %p",
                     self, tuid2str(iid), iface, view->scale.get());
@@ -1304,17 +1317,17 @@ struct dpf_plugin_view {
             else
                 ++view->scale->refcounter;
             *iface = &view->scale;
-            return V3_OK;
+            return Steinberg_kResultOk;
         }
        #endif
 
         d_debug("query_interface_view => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
 
         *iface = nullptr;
-        return V3_NO_INTERFACE;
+        return Steinberg_kNoInterface;
     }
 
-    static uint32_t V3_API ref_view(void* self)
+    static uint32_t ref_view(void* self)
     {
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
         const int refcount = ++view->refcounter;
@@ -1322,7 +1335,7 @@ struct dpf_plugin_view {
         return refcount;
     }
 
-    static uint32_t V3_API unref_view(void* self)
+    static uint32_t unref_view(void* self)
     {
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
@@ -1333,8 +1346,7 @@ struct dpf_plugin_view {
         }
 
         if (view->connection != nullptr && view->connection->other)
-            v3_cpp_obj(view->connection->other)->disconnect(view->connection->other,
-                                                            (v3_connection_point**)&view->connection);
+            view->connection->other->lpVtbl->disconnect(view->connection->other, (Steinberg_Vst_IConnectionPoint*)view->connection.get());
 
         /**
          * Some hosts will have unclean instances of a few of the view child classes at this point.
@@ -1374,29 +1386,29 @@ struct dpf_plugin_view {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_view
+    // Steinberg_IPlugView
 
-    static v3_result V3_API is_platform_type_supported(void* const self, const char* const platform_type)
+    static Steinberg_tresult is_platform_type_supported(void* const self, const char* const platform_type)
     {
         d_debug("dpf_plugin_view::is_platform_type_supported => %p %s", self, platform_type);
 
         for (size_t i=0; i<ARRAY_SIZE(kSupportedPlatforms); ++i)
         {
             if (std::strcmp(kSupportedPlatforms[i], platform_type) == 0)
-                return V3_OK;
+                return Steinberg_kResultOk;
         }
 
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
 
         // unused unless debug
         (void)self;
     }
 
-    static v3_result V3_API attached(void* const self, void* const parent, const char* const platform_type)
+    static Steinberg_tresult attached(void* const self, void* const parent, const char* const platform_type)
     {
         d_debug("dpf_plugin_view::attached => %p %p %s", self, parent, platform_type);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(view->uivst3 == nullptr, V3_INVALID_ARG);
+        DISTRHO_SAFE_ASSERT_RETURN(view->uivst3 == nullptr, Steinberg_kInvalidArgument);
 
         for (size_t i=0; i<ARRAY_SIZE(kSupportedPlatforms); ++i)
         {
@@ -1404,17 +1416,17 @@ struct dpf_plugin_view {
             {
                #if DPF_VST3_USING_HOST_RUN_LOOP
                 // find host run loop to plug ourselves into (required on some systems)
-                DISTRHO_SAFE_ASSERT_RETURN(view->frame != nullptr, V3_INVALID_ARG);
+                DISTRHO_SAFE_ASSERT_RETURN(view->frame != nullptr, Steinberg_kInvalidArgument);
 
                 v3_run_loop** runloop = nullptr;
                 v3_cpp_obj_query_interface(view->frame, v3_run_loop_iid, &runloop);
-                DISTRHO_SAFE_ASSERT_RETURN(runloop != nullptr, V3_INVALID_ARG);
+                DISTRHO_SAFE_ASSERT_RETURN(runloop != nullptr, Steinberg_kInvalidArgument);
 
                 view->runloop = runloop;
                #endif
 
                 const float lastScaleFactor = view->scale != nullptr ? view->scale->scaleFactor : 0.0f;
-                view->uivst3 = new UIVst3((v3_plugin_view*)self,
+                view->uivst3 = new UIVst3((Steinberg_IPlugView*)self,
                                           view->hostApplication,
                                           view->connection != nullptr ? view->connection->other : nullptr,
                                           view->frame,
@@ -1438,18 +1450,18 @@ struct dpf_plugin_view {
                                                     DPF_VST3_TIMER_INTERVAL);
                #endif
 
-                return V3_OK;
+                return Steinberg_kResultOk;
             }
         }
 
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
     }
 
-    static v3_result V3_API removed(void* const self)
+    static Steinberg_tresult removed(void* const self)
     {
         d_debug("dpf_plugin_view::removed => %p", self);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(view->uivst3 != nullptr, V3_INVALID_ARG);
+        DISTRHO_SAFE_ASSERT_RETURN(view->uivst3 != nullptr, Steinberg_kInvalidArgument);
 
        #if DPF_VST3_USING_HOST_RUN_LOOP
         // unregister our timer as needed
@@ -1476,61 +1488,61 @@ struct dpf_plugin_view {
        #endif
 
         view->uivst3 = nullptr;
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
-    static v3_result V3_API on_wheel(void* const self, const float distance)
+    static Steinberg_tresult on_wheel(void* const self, const float distance)
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_wheel => %p %f", self, distance);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
-        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
+        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, Steinberg_kNotInitialized);
 
         return uivst3->onWheel(distance);
 #else
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
         // unused
         (void)self; (void)distance;
 #endif
     }
 
-    static v3_result V3_API on_key_down(void* const self, const int16_t key_char, const int16_t key_code, const int16_t modifiers)
+    static Steinberg_tresult on_key_down(void* const self, const Steinberg_char16 key_char, const Steinberg_int16 key_code, const Steinberg_int16 modifiers)
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_key_down => %p %i %i %i", self, key_char, key_code, modifiers);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
-        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
+        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, Steinberg_kNotInitialized);
 
         return uivst3->onKeyDown(key_char, key_code, modifiers);
 #else
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
         // unused
         (void)self; (void)key_char; (void)key_code; (void)modifiers;
 #endif
     }
 
-    static v3_result V3_API on_key_up(void* const self, const int16_t key_char, const int16_t key_code, const int16_t modifiers)
+    static Steinberg_tresult on_key_up(void* const self, const Steinberg_char16 key_char, const Steinberg_int16 key_code, const Steinberg_int16 modifiers)
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_key_up => %p %i %i %i", self, key_char, key_code, modifiers);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
-        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
+        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, Steinberg_kNotInitialized);
 
         return uivst3->onKeyUp(key_char, key_code, modifiers);
 #else
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
         // unused
         (void)self; (void)key_char; (void)key_code; (void)modifiers;
 #endif
     }
 
-    static v3_result V3_API get_size(void* const self, v3_view_rect* const rect)
+    static Steinberg_tresult get_size(void* const self, Steinberg_ViewRect* const rect)
     {
         d_debug("dpf_plugin_view::get_size => %p", self);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
@@ -1563,15 +1575,15 @@ struct dpf_plugin_view {
         rect->bottom /= scaleFactor;
        #endif
 
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
-    static v3_result V3_API on_size(void* const self, v3_view_rect* const rect)
+    static Steinberg_tresult on_size(void* const self, Steinberg_ViewRect* const rect)
     {
         d_debug("dpf_plugin_view::on_size => %p {%d,%d,%d,%d}",
                 self, rect->top, rect->left, rect->right, rect->bottom);
-        DISTRHO_SAFE_ASSERT_INT2_RETURN(rect->right > rect->left, rect->right, rect->left, V3_INVALID_ARG);
-        DISTRHO_SAFE_ASSERT_INT2_RETURN(rect->bottom > rect->top, rect->bottom, rect->top, V3_INVALID_ARG);
+        DISTRHO_SAFE_ASSERT_INT2_RETURN(rect->right > rect->left, rect->right, rect->left, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_INT2_RETURN(rect->bottom > rect->top, rect->bottom, rect->top, Steinberg_kInvalidArgument);
 
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
@@ -1580,27 +1592,27 @@ struct dpf_plugin_view {
 
         view->nextWidth = static_cast<uint32_t>(rect->right - rect->left);
         view->nextHeight = static_cast<uint32_t>(rect->bottom - rect->top);
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
-    static v3_result V3_API on_focus(void* const self, const v3_bool state)
+    static Steinberg_tresult on_focus(void* const self, const Steinberg_TBool state)
     {
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         d_debug("dpf_plugin_view::on_focus => %p %u", self, state);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
 
         UIVst3* const uivst3 = view->uivst3;
-        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
+        DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, Steinberg_kNotInitialized);
 
         return uivst3->onFocus(state);
 #else
-        return V3_NOT_IMPLEMENTED;
+        return Steinberg_kNotImplemented;
         // unused
         (void)self; (void)state;
 #endif
     }
 
-    static v3_result V3_API set_frame(void* const self, v3_plugin_frame** const frame)
+    static Steinberg_tresult set_frame(void* const self, Steinberg_IPlugFrame* const frame)
     {
         d_debug("dpf_plugin_view::set_frame => %p %p", self, frame);
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
@@ -1610,10 +1622,10 @@ struct dpf_plugin_view {
         if (UIVst3* const uivst3 = view->uivst3)
             return uivst3->setFrame(frame);
 
-        return V3_OK;
+        return Steinberg_kResultOk;
     }
 
-    static v3_result V3_API can_resize(void* const self)
+    static Steinberg_tresult can_resize(void* const self)
     {
 #if DISTRHO_UI_USER_RESIZABLE
         dpf_plugin_view* const view = static_cast<dpf_plugin_view*>(self);
@@ -1621,16 +1633,16 @@ struct dpf_plugin_view {
         if (UIVst3* const uivst3 = view->uivst3)
             return uivst3->canResize();
 
-        return V3_TRUE;
+        return Steinberg_kResultTrue;
 #else
-        return V3_FALSE;
+        return Steinberg_kResultFalse;
 
         // unused
         (void)self;
 #endif
     }
 
-    static v3_result V3_API check_size_constraint(void* const self, v3_view_rect* const rect)
+    static Steinberg_tresult check_size_constraint(void* const self, Steinberg_ViewRect* const rect)
     {
         d_debug("dpf_plugin_view::check_size_constraint => %p {%d,%d,%d,%d}",
                 self, rect->top, rect->left, rect->right, rect->bottom);
@@ -1639,20 +1651,20 @@ struct dpf_plugin_view {
         if (UIVst3* const uivst3 = view->uivst3)
             return uivst3->checkSizeConstraint(rect);
 
-        return V3_NOT_INITIALIZED;
+        return Steinberg_kNotInitialized;
     }
 };
 
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_plugin_view_create (called from plugin side)
 
-v3_plugin_view* dpf_plugin_view_create(v3_host_application** host, void* instancePointer, double sampleRate);
+Steinberg_IPlugView* dpf_plugin_view_create(Steinberg_Vst_IHostApplication* host, void* instancePointer, double sampleRate);
 
-v3_plugin_view* dpf_plugin_view_create(v3_host_application** const host,
+Steinberg_IPlugView* dpf_plugin_view_create(Steinberg_Vst_IHostApplication* const host,
                                         void* const instancePointer,
                                         const double sampleRate)
 {
-    return (v3_plugin_view*)new dpf_plugin_view(host, instancePointer, sampleRate);
+    return (Steinberg_IPlugView*)new dpf_plugin_view(host, instancePointer, sampleRate);
 }
 
 // --------------------------------------------------------------------------------------------------------------------
