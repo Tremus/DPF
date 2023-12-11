@@ -620,26 +620,26 @@ public:
             int64_t valueLength = -1;
             Steinberg_tresult res;
 
-            res = v3_cpp_obj(attrs)->get_int(attrs, "key:length", &keyLength);
+            res = attrs->lpVtbl->getInt(attrs, "key:length", &keyLength);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
             DISTRHO_SAFE_ASSERT_INT_RETURN(keyLength >= 0, keyLength, Steinberg_kInternalError);
 
-            res = v3_cpp_obj(attrs)->get_int(attrs, "value:length", &valueLength);
+            res = attrs->lpVtbl->getInt(attrs, "value:length", &valueLength);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
             DISTRHO_SAFE_ASSERT_INT_RETURN(valueLength >= 0, valueLength, Steinberg_kInternalError);
 
-            int16_t* const key16 = (int16_t*)std::malloc(sizeof(int16_t)*(keyLength + 1));
+            char16_t* const key16 = (char16_t*)std::malloc(sizeof(char16_t) * (keyLength + 1));
             DISTRHO_SAFE_ASSERT_RETURN(key16 != nullptr, Steinberg_kOutOfMemory);
 
-            int16_t* const value16 = (int16_t*)std::malloc(sizeof(int16_t)*(valueLength + 1));
+            char16_t* const value16 = (char16_t*)std::malloc(sizeof(char16_t) * (valueLength + 1));
             DISTRHO_SAFE_ASSERT_RETURN(value16 != nullptr, Steinberg_kOutOfMemory);
 
-            res = v3_cpp_obj(attrs)->get_string(attrs, "key", key16, sizeof(int16_t)*(keyLength+1));
+            res = attrs->lpVtbl->getString(attrs, "key", key16, sizeof(char16_t) * (keyLength+1));
             DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, keyLength, res);
 
             if (valueLength != 0)
             {
-                res = v3_cpp_obj(attrs)->get_string(attrs, "value", value16, sizeof(int16_t)*(valueLength+1));
+                res = attrs->lpVtbl->getString(attrs, "value", value16, sizeof(char16_t) * (valueLength+1));
                 DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, valueLength, res);
             }
 
@@ -839,17 +839,17 @@ private:
         Steinberg_Vst_IMessage* const message = createMessage("state-set");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        Steinberg_Vst_IAttributeList* const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
-        v3_cpp_obj(attrlist)->set_int(attrlist, "key:length", std::strlen(key));
-        v3_cpp_obj(attrlist)->set_int(attrlist, "value:length", std::strlen(value));
-        v3_cpp_obj(attrlist)->set_string(attrlist, "key", ScopedUTF16String(key));
-        v3_cpp_obj(attrlist)->set_string(attrlist, "value", ScopedUTF16String(value));
-        v3_cpp_obj(fConnection)->notify(fConnection, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
+        attrlist->lpVtbl->setInt(attrlist, "key:length", std::strlen(key));
+        attrlist->lpVtbl->setInt(attrlist, "value:length", std::strlen(value));
+        attrlist->lpVtbl->setString(attrlist, "key", ScopedUTF16String(key));
+        attrlist->lpVtbl->setString(attrlist, "value", ScopedUTF16String(value));
+        fConnection->lpVtbl->notify(fConnection, message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
 
     static void setStateCallback(void* const ptr, const char* const key, const char* const value)
@@ -866,7 +866,7 @@ private:
         Steinberg_Vst_IMessage* const message = createMessage("midi");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        Steinberg_Vst_IAttributeList* const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
         uint8_t midiData[3];
@@ -874,11 +874,11 @@ private:
         midiData[1] = note;
         midiData[2] = velocity;
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 1);
-        v3_cpp_obj(attrlist)->set_binary(attrlist, "data", midiData, sizeof(midiData));
-        v3_cpp_obj(fConnection)->notify(fConnection, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
+        attrlist->lpVtbl->setBinary(attrlist, "data", midiData, sizeof(midiData));
+        fConnection->lpVtbl->notify(fConnection, message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
 
     static void sendNoteCallback(void* const ptr, const uint8_t channel, const uint8_t note, const uint8_t velocity)
@@ -1419,7 +1419,7 @@ struct dpf_plugin_view {
                 DISTRHO_SAFE_ASSERT_RETURN(view->frame != nullptr, Steinberg_kInvalidArgument);
 
                 v3_run_loop** runloop = nullptr;
-                v3_cpp_obj_query_interface(view->frame, v3_run_loop_iid, &runloop);
+                view->frame->lpVtbl->queryInterface(view->frame, (char*)v3_run_loop_iid, (void**)&runloop);
                 DISTRHO_SAFE_ASSERT_RETURN(runloop != nullptr, Steinberg_kInvalidArgument);
 
                 view->runloop = runloop;

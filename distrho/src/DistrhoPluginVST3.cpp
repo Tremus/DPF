@@ -1400,7 +1400,7 @@ public:
             fPlugin.activate();
 
        #if DISTRHO_PLUGIN_WANT_TIMEPOS
-        if (v3_process_context* const ctx = data->ctx)
+        if (Steinberg_Vst_ProcessContext* const ctx = data->processContext)
         {
             fTimePosition.playing = ctx->state & Steinberg_Vst_ProcessContext_StatesAndFlags_kPlaying;
 
@@ -1408,33 +1408,33 @@ public:
             fTimePosition.bbt.ticksPerBeat = 1920.0;
 
             if (ctx->state & Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid)
-                fTimePosition.frame = ctx->project_time_in_samples;
+                fTimePosition.frame = ctx->projectTimeSamples;
             else if (ctx->state & Steinberg_Vst_ProcessContext_StatesAndFlags_kContTimeValid)
-                fTimePosition.frame = ctx->continuous_time_in_samples;
+                fTimePosition.frame = ctx->continousTimeSamples;
 
             if (ctx->state & Steinberg_Vst_ProcessContext_StatesAndFlags_kTempoValid)
-                fTimePosition.bbt.beatsPerMinute = ctx->bpm;
+                fTimePosition.bbt.beatsPerMinute = ctx->tempo;
             else
                 fTimePosition.bbt.beatsPerMinute = 120.0;
 
             if ((ctx->state & (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid)) == (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid))
             {
-                const double ppqPos    = std::abs(ctx->project_time_quarters);
-                const int    ppqPerBar = ctx->time_sig_numerator * 4 / ctx->time_sig_denom;
-                const double barBeats  = (std::fmod(ppqPos, ppqPerBar) / ppqPerBar) * ctx->time_sig_numerator;
+                const double ppqPos    = std::abs(ctx->projectTimeMusic);
+                const int    ppqPerBar = ctx->timeSigNumerator * 4 / ctx->timeSigDenominator;
+                const double barBeats  = (std::fmod(ppqPos, ppqPerBar) / ppqPerBar) * ctx->timeSigNumerator;
                 const double rest      =  std::fmod(barBeats, 1.0);
 
                 fTimePosition.bbt.valid       = true;
                 fTimePosition.bbt.bar         = static_cast<int32_t>(ppqPos) / ppqPerBar + 1;
                 fTimePosition.bbt.beat        = static_cast<int32_t>(barBeats - rest + 0.5) + 1;
                 fTimePosition.bbt.tick        = rest * fTimePosition.bbt.ticksPerBeat;
-                fTimePosition.bbt.beatsPerBar = ctx->time_sig_numerator;
-                fTimePosition.bbt.beatType    = ctx->time_sig_denom;
+                fTimePosition.bbt.beatsPerBar = ctx->timeSigNumerator;
+                fTimePosition.bbt.beatType    = ctx->timeSigDenominator;
 
-                if (ctx->project_time_quarters < 0.0)
+                if (ctx->projectTimeMusic < 0.0)
                 {
                     --fTimePosition.bbt.bar;
-                    fTimePosition.bbt.beat = ctx->time_sig_numerator - fTimePosition.bbt.beat + 1;
+                    fTimePosition.bbt.beat = ctx->timeSigDenominator - fTimePosition.bbt.beat + 1;
                     fTimePosition.bbt.tick = fTimePosition.bbt.ticksPerBeat - fTimePosition.bbt.tick - 1;
                 }
             }
@@ -2329,7 +2329,7 @@ public:
         {
            #if DPF_VST3_USES_SEPARATE_CONTROLLER
             DISTRHO_SAFE_ASSERT_RETURN(fConnectionFromCompToCtrl != nullptr, Steinberg_kInternalError);
-            return v3_cpp_obj(fConnectionFromCompToCtrl)->notify(fConnectionFromCompToCtrl, message);
+            return fConnectionFromCompToCtrl->lpVtbl->notify(fConnectionFromCompToCtrl, message);
            #else
             return notify_midi(attrs);
            #endif
@@ -2347,7 +2347,7 @@ public:
 
             // notify component of the change
             DISTRHO_SAFE_ASSERT_RETURN(fConnectionFromCompToCtrl != nullptr, Steinberg_kInternalError);
-            return v3_cpp_obj(fConnectionFromCompToCtrl)->notify(fConnectionFromCompToCtrl, message);
+            return fConnectionFromCompToCtrl->lpVtbl->notify(fConnectionFromCompToCtrl, message);
            #else
             return res;
            #endif
@@ -2360,32 +2360,32 @@ public:
     }
 
    #if DISTRHO_PLUGIN_WANT_STATE
-    Steinberg_tresult notify_state(v3_attribute_list** const attrs)
+    Steinberg_tresult notify_state(Steinberg_Vst_IAttributeList* const attrs)
     {
         int64_t keyLength = -1;
         int64_t valueLength = -1;
         Steinberg_tresult res;
 
-        res = v3_cpp_obj(attrs)->get_int(attrs, "key:length", &keyLength);
+        res = attrs->lpVtbl->getInt(attrs, "key:length", &keyLength);
         DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
         DISTRHO_SAFE_ASSERT_INT_RETURN(keyLength >= 0, keyLength, Steinberg_kInternalError);
 
-        res = v3_cpp_obj(attrs)->get_int(attrs, "value:length", &valueLength);
+        res = attrs->lpVtbl->getInt(attrs, "value:length", &valueLength);
         DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
         DISTRHO_SAFE_ASSERT_INT_RETURN(valueLength >= 0, valueLength, Steinberg_kInternalError);
 
-        int16_t* const key16 = (int16_t*)std::malloc(sizeof(int16_t)*(keyLength + 1));
+        char16_t* const key16 = (char16_t*)std::malloc(sizeof(char16_t)*(keyLength + 1));
         DISTRHO_SAFE_ASSERT_RETURN(key16 != nullptr, Steinberg_kOutOfMemory);
 
-        int16_t* const value16 = (int16_t*)std::malloc(sizeof(int16_t)*(valueLength + 1));
+        char16_t* const value16 = (char16_t*)std::malloc(sizeof(char16_t)*(valueLength + 1));
         DISTRHO_SAFE_ASSERT_RETURN(value16 != nullptr, Steinberg_kOutOfMemory);
 
-        res = v3_cpp_obj(attrs)->get_string(attrs, "key", key16, sizeof(int16_t)*(keyLength+1));
+        res = attrs->lpVtbl->getString(attrs, "key", key16, sizeof(char16_t)*(keyLength+1));
         DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, keyLength, res);
 
         if (valueLength != 0)
         {
-            res = v3_cpp_obj(attrs)->get_string(attrs, "value", value16, sizeof(int16_t)*(valueLength+1));
+            res = attrs->lpVtbl->getString(attrs, "value", value16, sizeof(char16_t)*(valueLength+1));
             DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, valueLength, res);
         }
 
@@ -2429,13 +2429,13 @@ public:
    #endif // DISTRHO_PLUGIN_WANT_STATE
 
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-    Steinberg_tresult notify_midi(v3_attribute_list** const attrs)
+    Steinberg_tresult notify_midi(Steinberg_Vst_IAttributeList* const attrs)
     {
         uint8_t* data;
         uint32_t size;
         Steinberg_tresult res;
 
-        res = v3_cpp_obj(attrs)->get_binary(attrs, "data", (const void**)&data, &size);
+        res = attrs->lpVtbl->getBinary(attrs, "data", (const void**)&data, &size);
         DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
 
         // known maximum size
@@ -2963,7 +2963,7 @@ private:
 
         /* FLStudio gets confused with this one, skip it for now
         if (offset != 0)
-            v3_cpp_obj(queue)->add_point(queue, offset, normalized, &index);
+            queue->lpVtbl->addPoint(queue, offset, normalized, &index);
         */
 
         return true;
