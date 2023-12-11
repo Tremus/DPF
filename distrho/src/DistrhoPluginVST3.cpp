@@ -3175,20 +3175,24 @@ static uint32_t handleUncleanController(dpf_edit_controller* const controllerptr
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_comp2ctrl_connection_point
 
-struct dpf_comp2ctrl_connection_point : v3_connection_point_cpp {
+struct dpf_comp2ctrl_connection_point {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_connection_point point;
     std::atomic_int refcounter;
     ScopedPointer<PluginVst3>& vst3;
     v3_connection_point** other;
 
     dpf_comp2ctrl_connection_point(ScopedPointer<PluginVst3>& v)
-        : refcounter(1),
+        : lpVtbl(&com),
+          refcounter(1),
           vst3(v),
           other(nullptr)
     {
         // v3_funknown, single instance
-        query_interface = query_interface_connection_point;
-        ref = dpf_single_instance_ref<dpf_comp2ctrl_connection_point>;
-        unref = dpf_single_instance_unref<dpf_comp2ctrl_connection_point>;
+        com.query_interface = query_interface_connection_point;
+        com.ref = dpf_single_instance_ref<dpf_comp2ctrl_connection_point>;
+        com.unref = dpf_single_instance_unref<dpf_comp2ctrl_connection_point>;
 
         // v3_connection_point
         point.connect = connect;
@@ -3201,7 +3205,7 @@ struct dpf_comp2ctrl_connection_point : v3_connection_point_cpp {
 
     static v3_result V3_API query_interface_connection_point(void* const self, const v3_tuid iid, void** const iface)
     {
-        dpf_comp2ctrl_connection_point* const point = *static_cast<dpf_comp2ctrl_connection_point**>(self);
+        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
 
         if (tuid_match(iid, v3_funknown_iid) ||
             tuid_match(iid, v3_connection_point_iid))
@@ -3224,7 +3228,7 @@ struct dpf_comp2ctrl_connection_point : v3_connection_point_cpp {
     static v3_result V3_API connect(void* const self, v3_connection_point** const other)
     {
         d_debug("dpf_comp2ctrl_connection_point::connect => %p %p", self, other);
-        dpf_comp2ctrl_connection_point* const point = *static_cast<dpf_comp2ctrl_connection_point**>(self);
+        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
         DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, V3_INVALID_ARG);
         DISTRHO_SAFE_ASSERT_RETURN(point->other != other, V3_INVALID_ARG);
 
@@ -3239,7 +3243,7 @@ struct dpf_comp2ctrl_connection_point : v3_connection_point_cpp {
     static v3_result V3_API disconnect(void* const self, v3_connection_point** const other)
     {
         d_debug("dpf_comp2ctrl_connection_point => %p %p", self, other);
-        dpf_comp2ctrl_connection_point* const point = *static_cast<dpf_comp2ctrl_connection_point**>(self);
+        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
         DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, V3_INVALID_ARG);
         DISTRHO_SAFE_ASSERT_RETURN(point->other == other, V3_INVALID_ARG);
 
@@ -3253,7 +3257,7 @@ struct dpf_comp2ctrl_connection_point : v3_connection_point_cpp {
 
     static v3_result V3_API notify(void* const self, v3_message** const message)
     {
-        dpf_comp2ctrl_connection_point* const point = *static_cast<dpf_comp2ctrl_connection_point**>(self);
+        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
 
         PluginVst3* const vst3 = point->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -3279,18 +3283,22 @@ struct dpf_comp2ctrl_connection_point : v3_connection_point_cpp {
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_ctrl2view_connection_point
 
-struct dpf_ctrl2view_connection_point : v3_connection_point_cpp {
+struct dpf_ctrl2view_connection_point {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_connection_point point;
     ScopedPointer<PluginVst3>& vst3;
     v3_connection_point** other;
 
     dpf_ctrl2view_connection_point(ScopedPointer<PluginVst3>& v)
-        : vst3(v),
+        : lpVtbl(&com),
+          vst3(v),
           other(nullptr)
     {
         // v3_funknown, single instance, used internally
-        query_interface = nullptr;
-        ref = nullptr;
-        unref = nullptr;
+        com.query_interface = nullptr;
+        com.ref = nullptr;
+        com.unref = nullptr;
 
         // v3_connection_point
         point.connect = connect;
@@ -3304,7 +3312,7 @@ struct dpf_ctrl2view_connection_point : v3_connection_point_cpp {
     static v3_result V3_API connect(void* const self, v3_connection_point** const other)
     {
         d_debug("dpf_ctrl2view_connection_point::connect => %p %p", self, other);
-        dpf_ctrl2view_connection_point* const point = *static_cast<dpf_ctrl2view_connection_point**>(self);
+        dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
         DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, V3_INVALID_ARG);
         DISTRHO_SAFE_ASSERT_RETURN(point->other != other, V3_INVALID_ARG);
 
@@ -3319,7 +3327,7 @@ struct dpf_ctrl2view_connection_point : v3_connection_point_cpp {
     static v3_result V3_API disconnect(void* const self, v3_connection_point** const other)
     {
         d_debug("dpf_ctrl2view_connection_point::disconnect => %p %p", self, other);
-        dpf_ctrl2view_connection_point* const point = *static_cast<dpf_ctrl2view_connection_point**>(self);
+        dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
         DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, V3_INVALID_ARG);
         DISTRHO_SAFE_ASSERT_RETURN(point->other == other, V3_INVALID_ARG);
 
@@ -3334,7 +3342,7 @@ struct dpf_ctrl2view_connection_point : v3_connection_point_cpp {
 
     static v3_result V3_API notify(void* const self, v3_message** const message)
     {
-        dpf_ctrl2view_connection_point* const point = *static_cast<dpf_ctrl2view_connection_point**>(self);
+        dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
 
         PluginVst3* const vst3 = point->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
@@ -3914,7 +3922,7 @@ struct dpf_edit_controller {
             d_debug("view connection query ok %p", uiconn);
             controller->connectionCtrl2View = new dpf_ctrl2view_connection_point(controller->vst3);
 
-            v3_connection_point** const ctrlconn = (v3_connection_point**)&controller->connectionCtrl2View;
+            v3_connection_point** const ctrlconn = (v3_connection_point**)(void*)controller->connectionCtrl2View;
 
             v3_cpp_obj(uiconn)->connect(uiconn, ctrlconn);
             v3_cpp_obj(ctrlconn)->connect(ctrlconn, uiconn);
@@ -4275,7 +4283,7 @@ struct dpf_component {
                 component->connectionComp2Ctrl = new dpf_comp2ctrl_connection_point(component->vst3);
             else
                 ++component->connectionComp2Ctrl->refcounter;
-            *iface = &component->connectionComp2Ctrl;
+            *iface = component->connectionComp2Ctrl;
             return V3_OK;
            #else
             d_debug("query_interface_component => %p %s %p | reject unwanted", self, tuid2str(iid), iface);
