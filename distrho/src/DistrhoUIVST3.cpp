@@ -15,6 +15,8 @@
  */
 
 #include "DistrhoUIInternal.hpp"
+#include "DistrhoPluginVST.hpp"
+#include "DistrhoUIInternal.hpp"
 
 #include "travesty/base.h"
 #include "travesty/edit_controller.h"
@@ -29,6 +31,8 @@
 #  define DPF_VST3_WIN32_TIMER_ID 1
 # endif
 #endif
+
+#include <atomic>
 
 /* TODO items:
  * - mousewheel event
@@ -953,20 +957,24 @@ static uint32_t V3_API dpf_single_instance_unref(void* const self)
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_ui_connection_point
 
-struct dpf_ui_connection_point : v3_connection_point_cpp {
+struct dpf_ui_connection_point {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_connection_point point;
     std::atomic_int refcounter;
     ScopedPointer<UIVst3>& uivst3;
     v3_connection_point** other;
 
     dpf_ui_connection_point(ScopedPointer<UIVst3>& v)
-        : refcounter(1),
+        : lpVtbl(&com),
+          refcounter(1),
           uivst3(v),
           other(nullptr)
     {
         // v3_funknown, single instance
-        query_interface = query_interface_connection_point;
-        ref = dpf_single_instance_ref<dpf_ui_connection_point>;
-        unref = dpf_single_instance_unref<dpf_ui_connection_point>;
+        com.query_interface = query_interface_connection_point;
+        com.ref = dpf_single_instance_ref<dpf_ui_connection_point>;
+        com.unref = dpf_single_instance_unref<dpf_ui_connection_point>;
 
         // v3_connection_point
         point.connect = connect;
@@ -979,7 +987,7 @@ struct dpf_ui_connection_point : v3_connection_point_cpp {
 
     static v3_result V3_API query_interface_connection_point(void* const self, const v3_tuid iid, void** const iface)
     {
-        dpf_ui_connection_point* const point = *static_cast<dpf_ui_connection_point**>(self);
+        dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
 
         if (v3_tuid_match(iid, v3_funknown_iid) ||
             v3_tuid_match(iid, v3_connection_point_iid))
@@ -1001,7 +1009,7 @@ struct dpf_ui_connection_point : v3_connection_point_cpp {
 
     static v3_result V3_API connect(void* const self, v3_connection_point** const other)
     {
-        dpf_ui_connection_point* const point = *static_cast<dpf_ui_connection_point**>(self);
+        dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
         d_debug("UI|dpf_ui_connection_point::connect => %p %p", self, other);
 
         DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, V3_INVALID_ARG);
@@ -1017,7 +1025,7 @@ struct dpf_ui_connection_point : v3_connection_point_cpp {
     static v3_result V3_API disconnect(void* const self, v3_connection_point** const other)
     {
         d_debug("UI|dpf_ui_connection_point::disconnect => %p %p", self, other);
-        dpf_ui_connection_point* const point = *static_cast<dpf_ui_connection_point**>(self);
+        dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
 
         DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, V3_INVALID_ARG);
         DISTRHO_SAFE_ASSERT(point->other == other);
@@ -1032,7 +1040,7 @@ struct dpf_ui_connection_point : v3_connection_point_cpp {
 
     static v3_result V3_API notify(void* const self, v3_message** const message)
     {
-        dpf_ui_connection_point* const point = *static_cast<dpf_ui_connection_point**>(self);
+        dpf_ui_connection_point* const point = static_cast<dpf_ui_connection_point*>(self);
 
         UIVst3* const uivst3 = point->uivst3;
         DISTRHO_SAFE_ASSERT_RETURN(uivst3 != nullptr, V3_NOT_INITIALIZED);
@@ -1044,21 +1052,25 @@ struct dpf_ui_connection_point : v3_connection_point_cpp {
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_plugin_view_content_scale
 
-struct dpf_plugin_view_content_scale : v3_plugin_view_content_scale_cpp {
+struct dpf_plugin_view_content_scale {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_plugin_view_content_scale scale;
     std::atomic_int refcounter;
     ScopedPointer<UIVst3>& uivst3;
     // cached values
     float scaleFactor;
 
     dpf_plugin_view_content_scale(ScopedPointer<UIVst3>& v)
-        : refcounter(1),
+        : lpVtbl(&com),
+          refcounter(1),
           uivst3(v),
           scaleFactor(0.0f)
     {
         // v3_funknown, single instance
-        query_interface = query_interface_view_content_scale;
-        ref = dpf_single_instance_ref<dpf_plugin_view_content_scale>;
-        unref = dpf_single_instance_unref<dpf_plugin_view_content_scale>;
+        com.query_interface = query_interface_view_content_scale;
+        com.ref = dpf_single_instance_ref<dpf_plugin_view_content_scale>;
+        com.unref = dpf_single_instance_unref<dpf_plugin_view_content_scale>;
 
         // v3_plugin_view_content_scale
         scale.set_content_scale_factor = set_content_scale_factor;
@@ -1069,7 +1081,7 @@ struct dpf_plugin_view_content_scale : v3_plugin_view_content_scale_cpp {
 
     static v3_result V3_API query_interface_view_content_scale(void* const self, const v3_tuid iid, void** const iface)
     {
-        dpf_plugin_view_content_scale* const scale = *static_cast<dpf_plugin_view_content_scale**>(self);
+        dpf_plugin_view_content_scale* const scale = static_cast<dpf_plugin_view_content_scale*>(self);
 
         if (v3_tuid_match(iid, v3_funknown_iid) ||
             v3_tuid_match(iid, v3_plugin_view_content_scale_iid))
@@ -1091,7 +1103,7 @@ struct dpf_plugin_view_content_scale : v3_plugin_view_content_scale_cpp {
 
     static v3_result V3_API set_content_scale_factor(void* const self, const float factor)
     {
-        dpf_plugin_view_content_scale* const scale = *static_cast<dpf_plugin_view_content_scale**>(self);
+        dpf_plugin_view_content_scale* const scale = static_cast<dpf_plugin_view_content_scale*>(self);
         d_debug("dpf_plugin_view::set_content_scale_factor => %p %f", self, factor);
 
         scale->scaleFactor = factor;
@@ -1107,20 +1119,24 @@ struct dpf_plugin_view_content_scale : v3_plugin_view_content_scale_cpp {
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_timer_handler
 
-struct dpf_timer_handler : v3_timer_handler_cpp {
+struct dpf_timer_handler {
+    v3_funknown* lpVtbl;
+    v3_funknown com;
+    v3_timer_handler timer;
     std::atomic_int refcounter;
     ScopedPointer<UIVst3>& uivst3;
     bool valid;
 
     dpf_timer_handler(ScopedPointer<UIVst3>& v)
-        : refcounter(1),
+        : lpVtbl(&com),
+          refcounter(1),
           uivst3(v),
           valid(true)
     {
         // v3_funknown, single instance
-        query_interface = query_interface_timer_handler;
-        ref = dpf_single_instance_ref<dpf_timer_handler>;
-        unref = dpf_single_instance_unref<dpf_timer_handler>;
+        com.query_interface = query_interface_timer_handler;
+        com.ref = dpf_single_instance_ref<dpf_timer_handler>;
+        com.unref = dpf_single_instance_unref<dpf_timer_handler>;
 
         // v3_timer_handler
         timer.on_timer = on_timer;
@@ -1131,7 +1147,7 @@ struct dpf_timer_handler : v3_timer_handler_cpp {
 
     static v3_result V3_API query_interface_timer_handler(void* self, const v3_tuid iid, void** iface)
     {
-        dpf_timer_handler* const timer = *static_cast<dpf_timer_handler**>(self);
+        dpf_timer_handler* const timer = static_cast<dpf_timer_handler*>(self);
 
         if (v3_tuid_match(iid, v3_funknown_iid) ||
             v3_tuid_match(iid, v3_timer_handler_iid))
@@ -1153,7 +1169,7 @@ struct dpf_timer_handler : v3_timer_handler_cpp {
 
     static void V3_API on_timer(void* self)
     {
-        dpf_timer_handler* const timer = *static_cast<dpf_timer_handler**>(self);
+        dpf_timer_handler* const timer = static_cast<dpf_timer_handler*>(self);
 
         DISTRHO_SAFE_ASSERT_RETURN(timer->valid,);
 

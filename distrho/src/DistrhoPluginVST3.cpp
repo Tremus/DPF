@@ -40,6 +40,7 @@
 #include "DistrhoPluginInternal.hpp"
 #include "../DistrhoPluginUtils.hpp"
 #include "../extra/ScopedPointer.hpp"
+#include "DistrhoPluginVST.hpp"
 
 #define DPF_VST3_MAX_BUFFER_SIZE 32768
 #define DPF_VST3_MAX_SAMPLE_RATE 384000
@@ -59,6 +60,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <atomic>
 
 START_NAMESPACE_DISTRHO
 
