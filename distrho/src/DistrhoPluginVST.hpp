@@ -366,9 +366,9 @@ struct ScopedUTF16String {
 struct ScopedUTF8String {
     char str[128];
 
-    ScopedUTF8String(const int16_t* const s) noexcept
+    ScopedUTF8String(const char16_t* const s) noexcept
     {
-        strncpy_utf8(str, s, 128);
+        strncpy_utf8(str, (int16_t*)s, 128);
     }
 
     operator const char*() const noexcept

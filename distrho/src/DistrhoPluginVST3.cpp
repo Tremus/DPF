@@ -956,7 +956,7 @@ public:
      * the parameter symbol is used as the "key", so it is possible to reorder them or even remove and add safely.
      * there are markers for begin and end of state and parameters, so they never conflict.
      */
-    v3_result setState(v3_bstream** const stream)
+    v3_result setState(Steinberg_IBStream* const stream)
     {
        #if DISTRHO_PLUGIN_HAS_UI
         const bool connectedToUI = fConnectionFromCtrlToView != nullptr && fConnectedToUI;
@@ -974,7 +974,7 @@ public:
         for (int32_t terminated = 0, read; terminated == 0;)
         {
             read = -1;
-            res = v3_cpp_obj(stream)->read(stream, buffer, sizeof(buffer)-1, &read);
+            res = stream->lpVtbl->read(stream, buffer, sizeof(buffer)-1, &read);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
             DISTRHO_SAFE_ASSERT_INT_RETURN(read > 0, read, V3_INTERNAL_ERR);
 
@@ -1148,7 +1148,7 @@ public:
         }
 
         if (fComponentHandler != nullptr)
-            v3_cpp_obj(fComponentHandler)->restart_component(fComponentHandler, V3_RESTART_PARAM_VALUES_CHANGED);
+            fComponentHandler->lpVtbl->restartComponent(fComponentHandler, V3_RESTART_PARAM_VALUES_CHANGED);
 
        #if DISTRHO_PLUGIN_HAS_UI
         if (connectedToUI)
@@ -1671,13 +1671,13 @@ public:
         return fVst3ParameterCount;
     }
 
-    v3_result getParameterInfo(const int32_t rindex, v3_param_info* const info) const noexcept
+    v3_result getParameterInfo(const int32_t rindex, Steinberg_Vst_ParameterInfo* const info) const noexcept
     {
-        std::memset(info, 0, sizeof(v3_param_info));
+        std::memset(info, 0, sizeof(*info));
         DISTRHO_SAFE_ASSERT_RETURN(rindex >= 0, V3_INVALID_ARG);
 
         // TODO hash the parameter symbol
-        info->param_id = rindex;
+        info->id = rindex;
 
       #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
         switch (rindex)
@@ -1685,16 +1685,16 @@ public:
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
         case kVst3InternalParameterBufferSize:
             info->flags = V3_PARAM_READ_ONLY | V3_PARAM_IS_HIDDEN;
-            info->step_count = DPF_VST3_MAX_BUFFER_SIZE - 1;
-            strncpy_utf16(info->title, "Buffer Size", 128);
-            strncpy_utf16(info->short_title, "Buffer Size", 128);
-            strncpy_utf16(info->units, "frames", 128);
+            info->stepCount = DPF_VST3_MAX_BUFFER_SIZE - 1;
+            strncpy_utf16((int16_t*)info->title, "Buffer Size", 128);
+            strncpy_utf16((int16_t*)info->shortTitle, "Buffer Size", 128);
+            strncpy_utf16((int16_t*)info->units, "frames", 128);
             return V3_OK;
         case kVst3InternalParameterSampleRate:
             info->flags = V3_PARAM_READ_ONLY | V3_PARAM_IS_HIDDEN;
-            strncpy_utf16(info->title, "Sample Rate", 128);
-            strncpy_utf16(info->short_title, "Sample Rate", 128);
-            strncpy_utf16(info->units, "frames", 128);
+            strncpy_utf16((int16_t*)info->title, "Sample Rate", 128);
+            strncpy_utf16((int16_t*)info->shortTitle, "Sample Rate", 128);
+            strncpy_utf16((int16_t*)info->units, "frames", 128);
             return V3_OK;
        #endif
        #if DISTRHO_PLUGIN_WANT_LATENCY
@@ -1708,9 +1708,9 @@ public:
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         case kVst3InternalParameterProgram:
             info->flags = V3_PARAM_CAN_AUTOMATE | V3_PARAM_IS_LIST | V3_PARAM_PROGRAM_CHANGE | V3_PARAM_IS_HIDDEN;
-            info->step_count = fProgramCountMinusOne;
-            strncpy_utf16(info->title, "Current Program", 128);
-            strncpy_utf16(info->short_title, "Program", 128);
+            info->stepCount = fProgramCountMinusOne;
+            strncpy_utf16((int16_t*)info->title, "Current Program", 128);
+            strncpy_utf16((int16_t*)info->shortTitle, "Program", 128);
             return V3_OK;
        #endif
         }
@@ -1770,16 +1770,16 @@ public:
         }
 
         info->flags = flags;
-        info->step_count = step_count;
-        info->default_normalised_value = ranges.getNormalizedValue(ranges.def);
+        info->stepCount = step_count;
+        info->defaultNormalizedValue = ranges.getNormalizedValue(ranges.def);
         // int32_t unit_id;
-        strncpy_utf16(info->title,       fPlugin.getParameterName(index), 128);
-        strncpy_utf16(info->short_title, fPlugin.getParameterShortName(index), 128);
-        strncpy_utf16(info->units,       fPlugin.getParameterUnit(index), 128);
+        strncpy_utf16((int16_t*)info->title,       fPlugin.getParameterName(index), 128);
+        strncpy_utf16((int16_t*)info->shortTitle, fPlugin.getParameterShortName(index), 128);
+        strncpy_utf16((int16_t*)info->units,       fPlugin.getParameterUnit(index), 128);
         return V3_OK;
     }
 
-    v3_result getParameterStringForValue(const v3_param_id rindex, const double normalized, v3_str_128 output)
+    v3_result getParameterStringForValue(const v3_param_id rindex, const double normalized, Steinberg_Vst_String128 output)
     {
         DISTRHO_SAFE_ASSERT_RETURN(normalized >= 0.0 && normalized <= 1.0, V3_INVALID_ARG);
 
@@ -1788,10 +1788,10 @@ public:
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
         case kVst3InternalParameterBufferSize:
-            snprintf_i32_utf16(output, static_cast<int>(normalized * DPF_VST3_MAX_BUFFER_SIZE + 0.5), 128);
+            snprintf_i32_utf16((int16_t*)output, static_cast<int>(normalized * DPF_VST3_MAX_BUFFER_SIZE + 0.5), 128);
             return V3_OK;
         case kVst3InternalParameterSampleRate:
-            snprintf_f32_utf16(output, std::round(normalized * DPF_VST3_MAX_SAMPLE_RATE), 128);
+            snprintf_f32_utf16((int16_t*)output, std::round(normalized * DPF_VST3_MAX_SAMPLE_RATE), 128);
             return V3_OK;
        #endif
        #if DISTRHO_PLUGIN_WANT_LATENCY
@@ -1802,7 +1802,7 @@ public:
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         case kVst3InternalParameterProgram:
             const uint32_t program = std::round(normalized * fProgramCountMinusOne);
-            strncpy_utf16(output, fPlugin.getProgramName(program), 128);
+            strncpy_utf16((int16_t*)output, fPlugin.getProgramName(program), 128);
             return V3_OK;
        #endif
         }
@@ -1838,20 +1838,20 @@ public:
         {
             if (d_isEqual(enumValues.values[i].value, value))
             {
-                strncpy_utf16(output, enumValues.values[i].label, 128);
+                strncpy_utf16((int16_t*)output, enumValues.values[i].label, 128);
                 return V3_OK;
             }
         }
 
         if (hints & kParameterIsInteger)
-            snprintf_i32_utf16(output, value, 128);
+            snprintf_i32_utf16((int16_t*)output, value, 128);
         else
-            snprintf_f32_utf16(output, value, 128);
+            snprintf_f32_utf16((int16_t*)output, value, 128);
 
         return V3_OK;
     }
 
-    v3_result getParameterValueForString(const v3_param_id rindex, int16_t* const input, double* const output)
+    v3_result getParameterValueForString(const v3_param_id rindex, char16_t* const input, double* const output)
     {
       #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
         switch (rindex)
@@ -1873,7 +1873,7 @@ public:
         case kVst3InternalParameterProgram:
             for (uint32_t i=0, count=fPlugin.getProgramCount(); i < count; ++i)
             {
-                if (strcmp_utf16(input, fPlugin.getProgramName(i)))
+                if (strcmp_utf16((int16_t*)input, fPlugin.getProgramName(i)))
                 {
                     *output = static_cast<double>(i) / static_cast<double>(fProgramCountMinusOne);
                     return V3_OK;
@@ -1900,7 +1900,7 @@ public:
 
         for (uint32_t i=0; i < enumValues.count; ++i)
         {
-            if (strcmp_utf16(input, enumValues.values[i].label))
+            if (strcmp_utf16((int16_t*)input, enumValues.values[i].label))
             {
                 *output = ranges.getNormalizedValue(enumValues.values[i].value);
                 return V3_OK;
@@ -2092,7 +2092,7 @@ public:
             }
 
             if (fComponentHandler != nullptr && flags != 0)
-                v3_cpp_obj(fComponentHandler)->restart_component(fComponentHandler, flags);
+                fComponentHandler->lpVtbl->restartComponent(fComponentHandler, flags);
 
             return V3_OK;
         }
@@ -2114,7 +2114,7 @@ public:
         return V3_OK;
     }
 
-    v3_result setComponentHandler(v3_component_handler** const handler) noexcept
+    v3_result setComponentHandler(Steinberg_Vst_IComponentHandler* const handler) noexcept
     {
         fComponentHandler = handler;
         return V3_OK;
@@ -2291,8 +2291,8 @@ public:
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
             DISTRHO_SAFE_ASSERT_INT_RETURN(started == 0 || started == 1, started, V3_INTERNAL_ERR);
 
-            return started != 0 ? v3_cpp_obj(fComponentHandler)->begin_edit(fComponentHandler, rindex)
-                                : v3_cpp_obj(fComponentHandler)->end_edit(fComponentHandler, rindex);
+            return started != 0 ? fComponentHandler->lpVtbl->beginEdit(fComponentHandler, rindex)
+                                : fComponentHandler->lpVtbl->endEdit(fComponentHandler, rindex);
         }
 
         if (std::strcmp(msgid, "parameter-set") == 0)
@@ -2321,7 +2321,7 @@ public:
             if (! fPlugin.isParameterOutputOrTrigger(index))
                 fPlugin.setParameterValue(index, value);
 
-            return v3_cpp_obj(fComponentHandler)->perform_edit(fComponentHandler, rindex, normalized);
+            return fComponentHandler->lpVtbl->performEdit(fComponentHandler, rindex, normalized);
         }
 
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
@@ -2453,7 +2453,7 @@ private:
     PluginExporter fPlugin;
 
     // VST3 stuff
-    v3_component_handler** fComponentHandler;
+    Steinberg_Vst_IComponentHandler* fComponentHandler;
   #if DISTRHO_PLUGIN_HAS_UI
    #if DPF_VST3_USES_SEPARATE_CONTROLLER
     Steinberg_Vst_IConnectionPoint* fConnectionFromCompToCtrl;
@@ -2600,7 +2600,7 @@ private:
         int32_t numChannels;
         uint32_t flags;
         v3_bus_types busType;
-        v3_str_128 busName = {};
+        Steinberg_Vst_String128 busName = {};
 
         if (busId < busInfo.groups)
         {
@@ -2616,14 +2616,14 @@ private:
 
                     if ((port.groupId == kPortGroupStereo || port.groupId == kPortGroupMono) && busId == 0)
                     {
-                        strncpy_utf16(busName, isInput ? "Audio Input" : "Audio Output", 128);
+                        strncpy_utf16((int16_t*)busName, isInput ? "Audio Input" : "Audio Output", 128);
                     }
                     else
                     {
                         if (group.name.isNotEmpty())
-                            strncpy_utf16(busName, group.name, 128);
+                            strncpy_utf16((int16_t*)busName, group.name, 128);
                         else
-                            strncpy_utf16(busName, port.name, 128);
+                            strncpy_utf16((int16_t*)busName, port.name, 128);
                     }
 
                     numChannels = fPlugin.getAudioPortCountWithGroupId(isInput, port.groupId);
@@ -2680,7 +2680,7 @@ private:
 
             if (busType == V3_MAIN && flags != V3_IS_CONTROL_VOLTAGE)
             {
-                strncpy_utf16(busName, isInput ? "Audio Input" : "Audio Output", 128);
+                strncpy_utf16((int16_t*)busName, isInput ? "Audio Input" : "Audio Output", 128);
             }
             else
             {
@@ -2695,7 +2695,7 @@ private:
                             groupName = fPlugin.getPortGroupById(port.groupId).name;
                         if (groupName.isEmpty())
                             groupName = port.name;
-                        strncpy_utf16(busName, groupName, 128);
+                        strncpy_utf16((int16_t*)busName, groupName, 128);
                         break;
                     }
                 }
@@ -3205,8 +3205,8 @@ struct dpf_comp2ctrl_connection_point {
     {
         dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
 
-        if (tuid_match(iid, v3_funknown_iid) ||
-            tuid_match(iid, v3_connection_point_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
         {
             d_debug("dpf_comp2ctrl_connection_point => %p %s %p | OK", self, tuid2str(iid), iface);
             ++point->refcounter;
@@ -3404,8 +3404,8 @@ struct dpf_midi_mapping {
 
     static v3_result V3_API query_interface_midi_mapping(void* const self, const v3_tuid iid, void** const iface)
     {
-        if (tuid_match(iid, v3_funknown_iid) ||
-            tuid_match(iid, v3_midi_mapping_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
         {
             d_debug("query_interface_midi_mapping => %p %s %p | OK", self, tuid2str(iid), iface);
             *iface = self;
@@ -3439,10 +3439,8 @@ struct dpf_midi_mapping {
 // dpf_edit_controller
 
 struct dpf_edit_controller {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_plugin_base base;
-	v3_edit_controller ctrl;
+    Steinberg_Vst_IEditControllerVtbl* lpVtbl;
+    Steinberg_Vst_IEditControllerVtbl base;
     std::atomic_int refcounter;
    #if DISTRHO_PLUGIN_HAS_UI
     ScopedPointer<dpf_ctrl2view_connection_point> connectionCtrl2View;
@@ -3455,7 +3453,7 @@ struct dpf_edit_controller {
     bool initialized;
    #endif
     // cached values
-    v3_component_handler** handler;
+    Steinberg_Vst_IComponentHandler* handler;
     Steinberg_Vst_IHostApplication* const hostApplicationFromFactory;
    #if !DPF_VST3_USES_SEPARATE_CONTROLLER
     Steinberg_Vst_IHostApplication* const hostApplicationFromComponent;
@@ -3465,7 +3463,7 @@ struct dpf_edit_controller {
 
    #if DPF_VST3_USES_SEPARATE_CONTROLLER
     dpf_edit_controller(Steinberg_Vst_IHostApplication* const hostApp)
-        : lpVtbl(&com),
+        : lpVtbl(&base),
           refcounter(1),
           vst3(nullptr),
    #else
@@ -3493,29 +3491,29 @@ struct dpf_edit_controller {
             hostApplicationFromComponent->lpVtbl->addRef(hostApplicationFromComponent);
        #endif
 
-        // v3_funknown, everything custom
-        com.query_interface = query_interface_edit_controller;
-        com.ref = ref_edit_controller;
-        com.unref = unref_edit_controller;
+        // Steinberg_FUnknown, everything custom
+        base.queryInterface = query_interface_edit_controller;
+        base.addRef = ref_edit_controller;
+        base.release = unref_edit_controller;
 
-        // v3_plugin_base
+        // Steinberg_IPluginBase
         base.initialize = initialize;
         base.terminate = terminate;
 
-        // v3_edit_controller
-        ctrl.set_component_state = set_component_state;
-        ctrl.set_state = set_state;
-        ctrl.get_state = get_state;
-        ctrl.get_parameter_count = get_parameter_count;
-        ctrl.get_parameter_info = get_parameter_info;
-        ctrl.get_parameter_string_for_value = get_parameter_string_for_value;
-        ctrl.get_parameter_value_for_string = get_parameter_value_for_string;
-        ctrl.normalised_parameter_to_plain = normalised_parameter_to_plain;
-        ctrl.plain_parameter_to_normalised = plain_parameter_to_normalised;
-        ctrl.get_parameter_normalised = get_parameter_normalised;
-        ctrl.set_parameter_normalised = set_parameter_normalised;
-        ctrl.set_component_handler = set_component_handler;
-        ctrl.create_view = create_view;
+        // Steinberg_Vst_IEditController
+        base.setComponentState = set_component_state;
+        base.setState = set_state;
+        base.getState = get_state;
+        base.getParameterCount = get_parameter_count;
+        base.getParameterInfo = get_parameter_info;
+        base.getParamStringByValue = get_parameter_string_for_value;
+        base.getParamValueByString = get_parameter_value_for_string;
+        base.normalizedParamToPlain = normalised_parameter_to_plain;
+        base.plainParamToNormalized = plain_parameter_to_normalised;
+        base.getParamNormalized = get_parameter_normalised;
+        base.setParamNormalized = set_parameter_normalised;
+        base.setComponentHandler = set_component_handler;
+        base.createView = create_view;
     }
 
     ~dpf_edit_controller()
@@ -3538,15 +3536,15 @@ struct dpf_edit_controller {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_funknown
+    // Steinberg_FUnknown
 
-    static v3_result V3_API query_interface_edit_controller(void* const self, const v3_tuid iid, void** const iface)
+    static v3_result V3_API query_interface_edit_controller(void* const self, const Steinberg_TUID iid, void** const iface)
     {
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
 
-        if (tuid_match(iid, v3_funknown_iid) ||
-            tuid_match(iid, v3_plugin_base_iid) ||
-            tuid_match(iid, v3_edit_controller_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_IPluginBase_iid) ||
+            tuid_match(iid, Steinberg_Vst_IEditController_iid))
         {
             d_debug("query_interface_edit_controller => %p %s %p | OK", self, tuid2str(iid), iface);
             ++controller->refcounter;
@@ -3554,7 +3552,7 @@ struct dpf_edit_controller {
             return V3_OK;
         }
 
-        if (tuid_match(iid, v3_midi_mapping_iid))
+        if (tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
         {
            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             d_debug("query_interface_edit_controller => %p %s %p | OK convert static", self, tuid2str(iid), iface);
@@ -3569,7 +3567,7 @@ struct dpf_edit_controller {
            #endif
         }
 
-        if (tuid_match(iid, v3_connection_point_iid))
+        if (tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
         {
            #if DPF_VST3_USES_SEPARATE_CONTROLLER
             d_debug("query_interface_edit_controller => %p %s %p | OK convert %p",
@@ -3642,9 +3640,9 @@ struct dpf_edit_controller {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_base
+    // Steinberg_IPluginBase
 
-    static v3_result V3_API initialize(void* const self, v3_funknown** const context)
+    static v3_result V3_API initialize(void* const self, Steinberg_FUnknown* const context)
     {
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
 
@@ -3725,9 +3723,9 @@ struct dpf_edit_controller {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_edit_controller
+    // Steinberg_Vst_IEditController
 
-    static v3_result V3_API set_component_state(void* const self, v3_bstream** const stream)
+    static v3_result set_component_state(void* const self, Steinberg_IBStream* const stream)
     {
         d_debug("dpf_edit_controller::set_component_state => %p %p", self, stream);
 
@@ -3747,7 +3745,7 @@ struct dpf_edit_controller {
        #endif
     }
 
-    static v3_result V3_API set_state(void* const self, v3_bstream** const stream)
+    static v3_result set_state(void* const self, Steinberg_IBStream* const stream)
     {
         d_debug("dpf_edit_controller::set_state => %p %p", self, stream);
 
@@ -3763,7 +3761,7 @@ struct dpf_edit_controller {
         (void)stream;
     }
 
-    static v3_result V3_API get_state(void* const self, v3_bstream** const stream)
+    static v3_result get_state(void* const self, Steinberg_IBStream* const stream)
     {
         d_debug("dpf_edit_controller::get_state => %p %p", self, stream);
 
@@ -3779,7 +3777,7 @@ struct dpf_edit_controller {
         (void)stream;
     }
 
-    static int32_t V3_API get_parameter_count(void* self)
+    static int32_t get_parameter_count(void* self)
     {
         // d_debug("dpf_edit_controller::get_parameter_count => %p", self);
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
@@ -3790,7 +3788,7 @@ struct dpf_edit_controller {
         return vst3->getParameterCount();
     }
 
-    static v3_result V3_API get_parameter_info(void* self, int32_t param_idx, v3_param_info* param_info)
+    static v3_result get_parameter_info(void* self, int32_t param_idx, Steinberg_Vst_ParameterInfo* param_info)
     {
         // d_debug("dpf_edit_controller::get_parameter_info => %p %i", self, param_idx);
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
@@ -3801,7 +3799,7 @@ struct dpf_edit_controller {
         return vst3->getParameterInfo(param_idx, param_info);
     }
 
-    static v3_result V3_API get_parameter_string_for_value(void* self, v3_param_id index, double normalized, v3_str_128 output)
+    static v3_result get_parameter_string_for_value(void* self, uint32_t index, double normalized, Steinberg_Vst_String128 output)
     {
         // NOTE very noisy, called many times
         // d_debug("dpf_edit_controller::get_parameter_string_for_value => %p %u %f %p", self, index, normalized, output);
@@ -3813,7 +3811,7 @@ struct dpf_edit_controller {
         return vst3->getParameterStringForValue(index, normalized, output);
     }
 
-    static v3_result V3_API get_parameter_value_for_string(void* self, v3_param_id index, int16_t* input, double* output)
+    static v3_result get_parameter_value_for_string(void* self, uint32_t  index, char16_t* input, double* output)
     {
         d_debug("dpf_edit_controller::get_parameter_value_for_string => %p %u %p %p", self, index, input, output);
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
@@ -3824,7 +3822,7 @@ struct dpf_edit_controller {
         return vst3->getParameterValueForString(index, input, output);
     }
 
-    static double V3_API normalised_parameter_to_plain(void* self, v3_param_id index, double normalized)
+    static double normalised_parameter_to_plain(void* self, v3_param_id index, double normalized)
     {
         d_debug("dpf_edit_controller::normalised_parameter_to_plain => %p %u %f", self, index, normalized);
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
@@ -3835,7 +3833,7 @@ struct dpf_edit_controller {
         return vst3->normalizedParameterToPlain(index, normalized);
     }
 
-    static double V3_API plain_parameter_to_normalised(void* self, v3_param_id index, double plain)
+    static double plain_parameter_to_normalised(void* self, v3_param_id index, double plain)
     {
         d_debug("dpf_edit_controller::plain_parameter_to_normalised => %p %u %f", self, index, plain);
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
@@ -3846,7 +3844,7 @@ struct dpf_edit_controller {
         return vst3->plainParameterToNormalized(index, plain);
     }
 
-    static double V3_API get_parameter_normalised(void* self, v3_param_id index)
+    static double get_parameter_normalised(void* self, v3_param_id index)
     {
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
 
@@ -3856,7 +3854,7 @@ struct dpf_edit_controller {
         return vst3->getParameterNormalized(index);
     }
 
-    static v3_result V3_API set_parameter_normalised(void* const self, const v3_param_id index, const double normalized)
+    static v3_result set_parameter_normalised(void* const self, const v3_param_id index, const double normalized)
     {
         // d_debug("dpf_edit_controller::set_parameter_normalised => %p %u %f", self, index, normalized);
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
@@ -3867,7 +3865,7 @@ struct dpf_edit_controller {
         return vst3->setParameterNormalized(index, normalized);
     }
 
-    static v3_result V3_API set_component_handler(void* self, v3_component_handler** handler)
+    static v3_result set_component_handler(void* self, Steinberg_Vst_IComponentHandler* handler)
     {
         d_debug("dpf_edit_controller::set_component_handler => %p %p", self, handler);
         dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
@@ -3880,7 +3878,7 @@ struct dpf_edit_controller {
         return V3_NOT_INITIALIZED;
     }
 
-    static v3_plugin_view** V3_API create_view(void* self, const char* name)
+    static Steinberg_IPlugView* create_view(void* self, const char* name)
     {
         d_debug("dpf_edit_controller::create_view => %p %s", self, name);
 
@@ -3939,7 +3937,7 @@ struct dpf_edit_controller {
             controller->connectionCtrl2View = nullptr;
         }
 
-        return (v3_plugin_view**)(void*)view;
+        return view;
        #else
         return nullptr;
        #endif
@@ -3973,8 +3971,8 @@ struct dpf_process_context_requirements {
 
     static v3_result V3_API query_interface_process_context_requirements(void* const self, const v3_tuid iid, void** const iface)
     {
-        if (tuid_match(iid, v3_funknown_iid) ||
-            tuid_match(iid, v3_process_context_requirements_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
         {
             d_debug("query_interface_process_context_requirements => %p %s %p | OK", self, tuid2str(iid), iface);
             *iface = self;
@@ -4045,8 +4043,8 @@ struct dpf_audio_processor {
     {
         dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
-        if (tuid_match(iid, v3_funknown_iid) ||
-            tuid_match(iid, v3_audio_processor_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_Vst_IAudioProcessor_iid))
         {
             d_debug("query_interface_audio_processor => %p %s %p | OK", self, tuid2str(iid), iface);
             ++processor->refcounter;
@@ -4254,9 +4252,9 @@ struct dpf_component {
     {
         dpf_component* const component = static_cast<dpf_component*>(self);
 
-        if (tuid_match(iid, v3_funknown_iid) ||
-            tuid_match(iid, v3_plugin_base_iid) ||
-            tuid_match(iid, v3_component_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_IPluginBase_iid) ||
+            tuid_match(iid, Steinberg_Vst_IComponent_iid))
         {
             d_debug("query_interface_component => %p %s %p | OK", self, tuid2str(iid), iface);
             ++component->refcounter;
@@ -4264,7 +4262,7 @@ struct dpf_component {
             return V3_OK;
         }
 
-        if (tuid_match(iid, v3_midi_mapping_iid))
+        if (tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
         {
            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             d_debug("query_interface_component => %p %s %p | OK convert static", self, tuid2str(iid), iface);
@@ -4279,7 +4277,7 @@ struct dpf_component {
            #endif
         }
 
-        if (tuid_match(iid, v3_audio_processor_iid))
+        if (tuid_match(iid, Steinberg_Vst_IAudioProcessor_iid))
         {
             d_debug("query_interface_component => %p %s %p | OK convert %p",
                     self, tuid2str(iid), iface, component->processor.get());
@@ -4292,7 +4290,7 @@ struct dpf_component {
             return V3_OK;
         }
 
-        if (tuid_match(iid, v3_connection_point_iid))
+        if (tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
         {
            #if DPF_VST3_USES_SEPARATE_CONTROLLER
             d_debug("query_interface_component => %p %s %p | OK convert %p",
@@ -4311,7 +4309,7 @@ struct dpf_component {
            #endif
         }
 
-        if (tuid_match(iid, v3_edit_controller_iid))
+        if (tuid_match(iid, Steinberg_Vst_IEditController_iid))
         {
            #if !DPF_VST3_USES_SEPARATE_CONTROLLER
             d_debug("query_interface_component => %p %s %p | OK convert %p",
@@ -4580,7 +4578,7 @@ struct dpf_component {
         PluginVst3* const vst3 = component->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
 
-        return vst3->setState(stream);
+        return vst3->setState((Steinberg_IBStream*)stream);
     }
 
     static v3_result V3_API get_state(void* const self, v3_bstream** const stream)
@@ -4721,10 +4719,10 @@ struct dpf_factory {
     {
         dpf_factory* const factory = (dpf_factory*)(self);
 
-        if (tuid_match(iid, v3_funknown_iid) ||
-            tuid_match(iid, v3_plugin_factory_iid) ||
-            tuid_match(iid, v3_plugin_factory_2_iid) ||
-            tuid_match(iid, v3_plugin_factory_3_iid))
+        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
+            tuid_match(iid, Steinberg_IPluginFactory_iid) ||
+            tuid_match(iid, Steinberg_IPluginFactory2_iid) ||
+            tuid_match(iid, Steinberg_IPluginFactory3_iid))
         {
             d_debug("query_interface_factory => %p %s %p | OK", self, tuid2str(iid), iface);
             ++factory->refcounter;
@@ -4821,8 +4819,8 @@ struct dpf_factory {
             ((Steinberg_FUnknown*)factory->hostContext)->lpVtbl->queryInterface((Steinberg_FUnknown*)factory->hostContext, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
 
         // create component
-        if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_class) && (tuid_match(iid, v3_component_iid) ||
-                                                                          tuid_match(iid, v3_funknown_iid)))
+        if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_class) && (tuid_match(iid, Steinberg_Vst_IComponent_iid) ||
+                                                                          tuid_match(iid, Steinberg_FUnknown_iid)))
         {
             *instance = (void*)(new dpf_component(hostApplication));
             return V3_OK;
@@ -4830,8 +4828,8 @@ struct dpf_factory {
 
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
         // create edit controller
-        if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_controller) && (tuid_match(iid, v3_edit_controller_iid) ||
-                                                                               tuid_match(iid, v3_funknown_iid)))
+        if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_controller) && (tuid_match(iid, Steinberg_Vst_IEditController_iid) ||
+                                                                               tuid_match(iid, Steinberg_FUnknown_iid)))
         {
             *instance = static_cast<void*>(new dpf_edit_controller(hostApplication));
             return V3_OK;
