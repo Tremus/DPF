@@ -88,21 +88,33 @@ static_assert(sizeof(Steinberg_TUID) == sizeof(dpf_tuid), "uid size mismatch");
 // --------------------------------------------------------------------------------------------------------------------
 // custom, constant uids related to DPF
 
-static constexpr const uint32_t dpf_id_entry = d_cconst('D', 'P', 'F', ' ');
-static constexpr const uint32_t dpf_id_clas  = d_cconst('c', 'l', 'a', 's');
-static constexpr const uint32_t dpf_id_comp  = d_cconst('c', 'o', 'm', 'p');
-static constexpr const uint32_t dpf_id_ctrl  = d_cconst('c', 't', 'r', 'l');
-static constexpr const uint32_t dpf_id_proc  = d_cconst('p', 'r', 'o', 'c');
-static constexpr const uint32_t dpf_id_view  = d_cconst('v', 'i', 'e', 'w');
+// static constexpr const uint32_t dpf_id_entry2 = d_cconst('D', 'P', 'F', ' ');
+static constexpr const uint32_t dpf_id_entry = 0x44504620;
+// static constexpr const uint32_t dpf_id_clas2  = d_cconst('c', 'l', 'a', 's');
+static constexpr const uint32_t dpf_id_clas  = 0x636c6173;
+// static constexpr const uint32_t dpf_id_comp2  = d_cconst('c', 'o', 'm', 'p');
+static constexpr const uint32_t dpf_id_comp  = 0x636f6d70;
+// static constexpr const uint32_t dpf_id_ctrl2  = d_cconst('c', 't', 'r', 'l');
+static constexpr const uint32_t dpf_id_ctrl  = 0x6374726c;
+// static constexpr const uint32_t dpf_id_proc2  = d_cconst('p', 'r', 'o', 'c');
+static constexpr const uint32_t dpf_id_proc  = 0x70726f63;
+// static constexpr const uint32_t dpf_id_view2  = d_cconst('v', 'i', 'e', 'w');
+static constexpr const uint32_t dpf_id_view  = 0x76696577;
 
 // --------------------------------------------------------------------------------------------------------------------
 // plugin specific uids (values are filled in during plugin init)
 
-static dpf_tuid dpf_tuid_class = { dpf_id_entry, dpf_id_clas, 0, 0 };
-static dpf_tuid dpf_tuid_component = { dpf_id_entry, dpf_id_comp, 0, 0 };
+static dpf_tuid dpf_tuid_class      = { dpf_id_entry, dpf_id_clas, 0, 0 };
+static dpf_tuid dpf_tuid_component  = { dpf_id_entry, dpf_id_comp, 0, 0 };
 static dpf_tuid dpf_tuid_controller = { dpf_id_entry, dpf_id_ctrl, 0, 0 };
-static dpf_tuid dpf_tuid_processor = { dpf_id_entry, dpf_id_proc, 0, 0 };
-static dpf_tuid dpf_tuid_view = { dpf_id_entry, dpf_id_view, 0, 0 };
+static dpf_tuid dpf_tuid_processor  = { dpf_id_entry, dpf_id_proc, 0, 0 };
+static dpf_tuid dpf_tuid_view       = { dpf_id_entry, dpf_id_view, 0, 0 };
+// Steinberg Ids not working for some reason...
+// static Steinberg_TUID dpf_tuid_class      = SMTG_INLINE_UID(0x44504620, 0x636c6173, 0, 0);
+// static Steinberg_TUID dpf_tuid_component  = SMTG_INLINE_UID(0x44504620, 0x636f6d70, 0, 0);
+// static Steinberg_TUID dpf_tuid_controller = SMTG_INLINE_UID(0x44504620, 0x6374726c, 0, 0);
+// static Steinberg_TUID dpf_tuid_processor  = SMTG_INLINE_UID(0x44504620, 0x70726f63, 0, 0);
+// static Steinberg_TUID dpf_tuid_view       = SMTG_INLINE_UID(0x44504620, 0x76696577, 0, 0);
 
 // --------------------------------------------------------------------------------------------------------------------
 // Utility functions
@@ -3133,21 +3145,6 @@ static uint32_t V3_API dpf_static_ref(void*) { return 1; }
 static uint32_t V3_API dpf_static_unref(void*) { return 0; }
 
 // --------------------------------------------------------------------------------------------------------------------
-// v3_funknown for classes with a single instance
-
-template<class T>
-static uint32_t V3_API dpf_single_instance_ref(void* const self)
-{
-    return ++(*static_cast<T**>(self))->refcounter;
-}
-
-template<class T>
-static uint32_t V3_API dpf_single_instance_unref(void* const self)
-{
-    return --(*static_cast<T**>(self))->refcounter;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
 // Store components that we can't delete properly, to be cleaned up on module unload
 
 struct dpf_component;
@@ -3193,8 +3190,8 @@ struct dpf_comp2ctrl_connection_point {
     {
         // v3_funknown, single instance
         com.query_interface = query_interface_connection_point;
-        com.ref = dpf_single_instance_ref<dpf_comp2ctrl_connection_point>;
-        com.unref = dpf_single_instance_unref<dpf_comp2ctrl_connection_point>;
+        com.ref = addRef_connection_point;
+        com.unref = release_connection_point;
 
         // v3_connection_point
         point.connect = connect;
@@ -3222,6 +3219,18 @@ struct dpf_comp2ctrl_connection_point {
 
         *iface = nullptr;
         return V3_NO_INTERFACE;
+    }
+
+    static uint32_t V3_API addRef_connection_point(void* const self)
+    {
+        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
+        return ++point->refcounter;
+    }
+
+    static uint32_t V3_API release_connection_point(void* const self)
+    {
+        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
+        return --point->refcounter;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -4019,8 +4028,8 @@ struct dpf_audio_processor {
     {
         // v3_funknown, single instance
         com.query_interface = query_interface_audio_processor;
-        com.ref = dpf_single_instance_ref<dpf_audio_processor>;
-        com.unref = dpf_single_instance_unref<dpf_audio_processor>;
+        com.ref = addRef_audio_processor;
+        com.unref = release_audio_processor;
 
         // v3_audio_processor
         proc.set_bus_arrangements = set_bus_arrangements;
@@ -4062,6 +4071,18 @@ struct dpf_audio_processor {
 
         *iface = nullptr;
         return V3_NO_INTERFACE;
+    }
+
+    static uint32_t V3_API addRef_audio_processor(void* const self)
+    {
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+        return ++processor->refcounter;
+    }
+
+    static uint32_t V3_API release_audio_processor(void* const self)
+    {
+        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+        return --processor->refcounter;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -4989,8 +5010,19 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
         d_nextPluginIsDummy = false;
         d_nextCanRequestParameterValueChanges = false;
 
-        dpf_tuid_class[2] = dpf_tuid_component[2] = dpf_tuid_controller[2]
-            = dpf_tuid_processor[2] = dpf_tuid_view[2] = sPlugin->getUniqueId();
+        uint32_t id= sPlugin->getUniqueId();
+        memcpy(&dpf_tuid_class[2], &id, 4);
+        memcpy(&dpf_tuid_component[2], &id, 4);
+        memcpy(&dpf_tuid_controller[2], &id, 4);
+        memcpy(&dpf_tuid_processor[2], &id, 4);
+        memcpy(&dpf_tuid_view[2], &id, 4);
+        // memcpy(&dpf_tuid_class[8], &id, 4);
+        // memcpy(&dpf_tuid_component[8], &id, 4);
+        // memcpy(&dpf_tuid_controller[8], &id, 4);
+        // memcpy(&dpf_tuid_processor[8], &id, 4);
+        // memcpy(&dpf_tuid_view[8], &id, 4);
+        // dpf_tuid_class[2] = dpf_tuid_component[2] = dpf_tuid_controller[2]
+        //     = dpf_tuid_processor[2] = dpf_tuid_view[2] = sPlugin->getUniqueId();
     }
 
     return true;
