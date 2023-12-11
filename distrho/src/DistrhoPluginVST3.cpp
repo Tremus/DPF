@@ -596,7 +596,7 @@ class PluginVst3
    #endif // DISTRHO_PLUGIN_WANT_MIDI_INPUT
 
 public:
-    PluginVst3(v3_host_application** const host, const bool isComponent)
+    PluginVst3(Steinberg_Vst_IHostApplication* const host, const bool isComponent)
         : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback, nullptr),
           fComponentHandler(nullptr),
         #if DISTRHO_PLUGIN_HAS_UI
@@ -2122,10 +2122,10 @@ public:
 
 #if DISTRHO_PLUGIN_HAS_UI
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_connection_point interface calls
+    // Steinberg_Vst_IConnectionPoint interface calls
 
    #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    void comp2ctrl_connect(v3_connection_point** const other)
+    void comp2ctrl_connect(Steinberg_Vst_IConnectionPoint* const other)
     {
         fConnectionFromCompToCtrl = other;
     }
@@ -2135,12 +2135,12 @@ public:
         fConnectionFromCompToCtrl = nullptr;
     }
 
-    v3_result comp2ctrl_notify(v3_message** const message)
+    v3_result comp2ctrl_notify(Steinberg_Vst_IMessage* const message)
     {
-        const char* const msgid = v3_cpp_obj(message)->get_message_id(message);
+        const char* const msgid = message->lpVtbl->getMessageID(message);
         DISTRHO_SAFE_ASSERT_RETURN(msgid != nullptr, V3_INVALID_ARG);
 
-        v3_attribute_list** const attrs = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrs = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrs != nullptr, V3_INVALID_ARG);
 
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
@@ -2161,7 +2161,7 @@ public:
 
     // ----------------------------------------------------------------------------------------------------------------
 
-    void ctrl2view_connect(v3_connection_point** const other)
+    void ctrl2view_connect(Steinberg_Vst_IConnectionPoint* const other)
     {
         DISTRHO_SAFE_ASSERT(fConnectedToUI == false);
 
@@ -2175,11 +2175,11 @@ public:
         fConnectionFromCtrlToView = nullptr;
     }
 
-    v3_result ctrl2view_notify(v3_message** const message)
+    v3_result ctrl2view_notify(Steinberg_Vst_IMessage* const message)
     {
         DISTRHO_SAFE_ASSERT_RETURN(fConnectionFromCtrlToView != nullptr, V3_INTERNAL_ERR);
 
-        const char* const msgid = v3_cpp_obj(message)->get_message_id(message);
+        const char* const msgid = message->lpVtbl->getMessageID(message);
         DISTRHO_SAFE_ASSERT_RETURN(msgid != nullptr, V3_INVALID_ARG);
 
         if (std::strcmp(msgid, "init") == 0)
@@ -2230,7 +2230,7 @@ public:
 
         DISTRHO_SAFE_ASSERT_RETURN(fConnectedToUI, V3_INTERNAL_ERR);
 
-        v3_attribute_list** const attrs = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrs = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrs != nullptr, V3_INVALID_ARG);
 
         if (std::strcmp(msgid, "idle") == 0)
@@ -2280,14 +2280,14 @@ public:
             int64_t started;
             v3_result res;
 
-            res = v3_cpp_obj(attrs)->get_int(attrs, "rindex", &rindex);
+            res = attrs->lpVtbl->getInt(attrs, "rindex", &rindex);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
             DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex >= kVst3InternalParameterCount,
                                             rindex, fParameterCount, V3_INTERNAL_ERR);
             DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex < kVst3InternalParameterCount + fParameterCount,
                                             rindex, fParameterCount, V3_INTERNAL_ERR);
 
-            res = v3_cpp_obj(attrs)->get_int(attrs, "started", &started);
+            res = attrs->lpVtbl->getInt(attrs, "started", &started);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
             DISTRHO_SAFE_ASSERT_INT_RETURN(started == 0 || started == 1, started, V3_INTERNAL_ERR);
 
@@ -2303,14 +2303,14 @@ public:
             double value;
             v3_result res;
 
-            res = v3_cpp_obj(attrs)->get_int(attrs, "rindex", &rindex);
+            res = attrs->lpVtbl->getInt(attrs, "rindex", &rindex);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
             DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex >= kVst3InternalParameterCount,
                                             rindex, fParameterCount, V3_INTERNAL_ERR);
             DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex < kVst3InternalParameterCount + fParameterCount,
                                             rindex, fParameterCount, V3_INTERNAL_ERR);
 
-            res = v3_cpp_obj(attrs)->get_float(attrs, "value", &value);
+            res = attrs->lpVtbl->getFloat(attrs, "value", &value);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_OK, res, res);
 
             const uint32_t index = rindex - kVst3InternalParameterCount;
@@ -2456,10 +2456,10 @@ private:
     v3_component_handler** fComponentHandler;
   #if DISTRHO_PLUGIN_HAS_UI
    #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    v3_connection_point** fConnectionFromCompToCtrl;
+    Steinberg_Vst_IConnectionPoint* fConnectionFromCompToCtrl;
    #endif
-    v3_connection_point** fConnectionFromCtrlToView;
-    v3_host_application** const fHostApplication;
+    Steinberg_Vst_IConnectionPoint* fConnectionFromCtrlToView;
+    Steinberg_Vst_IHostApplication* const fHostApplication;
   #endif
 
     // Temporary data
@@ -2976,67 +2976,67 @@ private:
     // ----------------------------------------------------------------------------------------------------------------
     // helper functions called during message passing, can block
 
-    v3_message** createMessage(const char* const id) const
+    Steinberg_Vst_IMessage* createMessage(const char* const id) const
     {
         DISTRHO_SAFE_ASSERT_RETURN(fHostApplication != nullptr, nullptr);
 
-        v3_tuid iid;
-        memcpy(iid, v3_message_iid, sizeof(v3_tuid));
-        v3_message** msg = nullptr;
-        const v3_result res = v3_cpp_obj(fHostApplication)->create_instance(fHostApplication, iid, iid, (void**)&msg);
+        Steinberg_TUID iid;
+        memcpy(iid, Steinberg_Vst_IMessage_iid, sizeof(iid));
+        Steinberg_Vst_IMessage* msg = nullptr;
+        const v3_result res = fHostApplication->lpVtbl->createInstance(fHostApplication, iid, iid, (void**)&msg);
         DISTRHO_SAFE_ASSERT_INT_RETURN(res == V3_TRUE, res, nullptr);
         DISTRHO_SAFE_ASSERT_RETURN(msg != nullptr, nullptr);
 
-        v3_cpp_obj(msg)->set_message_id(msg, id);
+        msg->lpVtbl->setMessageID(msg, id);
         return msg;
     }
 
     void sendParameterSetToUI(const v3_param_id rindex, const double value) const
     {
-        v3_message** const message = createMessage("parameter-set");
+        Steinberg_Vst_IMessage* const message = createMessage("parameter-set");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 2);
-        v3_cpp_obj(attrlist)->set_int(attrlist, "rindex", rindex);
-        v3_cpp_obj(attrlist)->set_float(attrlist, "value", value);
-        v3_cpp_obj(fConnectionFromCtrlToView)->notify(fConnectionFromCtrlToView, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 2);
+        attrlist->lpVtbl->setInt(attrlist, "rindex", rindex);
+        attrlist->lpVtbl->setFloat(attrlist, "value", value);
+        fConnectionFromCtrlToView->lpVtbl->notify(fConnectionFromCtrlToView, (Steinberg_Vst_IMessage*)(void*)message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
 
     void sendStateSetToUI(const char* const key, const char* const value) const
     {
-        v3_message** const message = createMessage("state-set");
+        Steinberg_Vst_IMessage* const message = createMessage("state-set");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 2);
-        v3_cpp_obj(attrlist)->set_int(attrlist, "key:length", std::strlen(key));
-        v3_cpp_obj(attrlist)->set_int(attrlist, "value:length", std::strlen(value));
-        v3_cpp_obj(attrlist)->set_string(attrlist, "key", ScopedUTF16String(key));
-        v3_cpp_obj(attrlist)->set_string(attrlist, "value", ScopedUTF16String(value));
-        v3_cpp_obj(fConnectionFromCtrlToView)->notify(fConnectionFromCtrlToView, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 2);
+        attrlist->lpVtbl->setInt(attrlist, "key:length", std::strlen(key));
+        attrlist->lpVtbl->setInt(attrlist, "value:length", std::strlen(value));
+        attrlist->lpVtbl->setString(attrlist, "key", ScopedUTF16String(key));
+        attrlist->lpVtbl->setString(attrlist, "value", ScopedUTF16String(value));
+        fConnectionFromCtrlToView->lpVtbl->notify(fConnectionFromCtrlToView, (Steinberg_Vst_IMessage*)(void*)message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
 
     void sendReadyToUI() const
     {
-        v3_message** const message = createMessage("ready");
+        Steinberg_Vst_IMessage* const message = createMessage("ready");
         DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
 
-        v3_cpp_obj(attrlist)->set_int(attrlist, "__dpf_msg_target__", 2);
-        v3_cpp_obj(fConnectionFromCtrlToView)->notify(fConnectionFromCtrlToView, message);
+        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 2);
+        fConnectionFromCtrlToView->lpVtbl->notify(fConnectionFromCtrlToView, (Steinberg_Vst_IMessage*)(void*)message);
 
-        v3_cpp_obj_unref(message);
+        message->lpVtbl->release(message);
     }
    #endif
 
@@ -3175,34 +3175,33 @@ static uint32_t handleUncleanController(dpf_edit_controller* const controllerptr
 // dpf_comp2ctrl_connection_point
 
 struct dpf_comp2ctrl_connection_point {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_connection_point point;
+    Steinberg_Vst_IConnectionPointVtbl* lpVtbl;
+    Steinberg_Vst_IConnectionPointVtbl base;
     std::atomic_int refcounter;
     ScopedPointer<PluginVst3>& vst3;
-    v3_connection_point** other;
+    Steinberg_Vst_IConnectionPoint* other;
 
     dpf_comp2ctrl_connection_point(ScopedPointer<PluginVst3>& v)
-        : lpVtbl(&com),
+        : lpVtbl(&base),
           refcounter(1),
           vst3(v),
           other(nullptr)
     {
         // v3_funknown, single instance
-        com.query_interface = query_interface_connection_point;
-        com.ref = addRef_connection_point;
-        com.unref = release_connection_point;
+        base.queryInterface = query_interface_connection_point;
+        base.addRef = addRef_connection_point;
+        base.release = release_connection_point;
 
-        // v3_connection_point
-        point.connect = connect;
-        point.disconnect = disconnect;
-        point.notify = notify;
+        // Steinberg_Vst_IConnectionPoint
+        base.connect = connect_comp2ctrl_connection_point;
+        base.disconnect = disconnect_comp2ctrl_connection_point;
+        base.notify = notify_comp2ctrl_connection_point;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_funknown
 
-    static v3_result V3_API query_interface_connection_point(void* const self, const v3_tuid iid, void** const iface)
+    static v3_result V3_API query_interface_connection_point(void* const self, const Steinberg_TUID iid, void** const iface)
     {
         dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
 
@@ -3234,9 +3233,9 @@ struct dpf_comp2ctrl_connection_point {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_connection_point
+    // Steinberg_Vst_IConnectionPoint
 
-    static v3_result V3_API connect(void* const self, v3_connection_point** const other)
+    static v3_result V3_API connect_comp2ctrl_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
     {
         d_debug("dpf_comp2ctrl_connection_point::connect => %p %p", self, other);
         dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
@@ -3251,7 +3250,7 @@ struct dpf_comp2ctrl_connection_point {
         return V3_OK;
     }
 
-    static v3_result V3_API disconnect(void* const self, v3_connection_point** const other)
+    static v3_result V3_API disconnect_comp2ctrl_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
     {
         d_debug("dpf_comp2ctrl_connection_point => %p %p", self, other);
         dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
@@ -3266,21 +3265,19 @@ struct dpf_comp2ctrl_connection_point {
         return V3_OK;
     }
 
-    static v3_result V3_API notify(void* const self, v3_message** const message)
+    static v3_result V3_API notify_comp2ctrl_connection_point(void* const self, Steinberg_Vst_IMessage* const message)
     {
         dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
 
         PluginVst3* const vst3 = point->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
+        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, V3_NOT_INITIALIZED);
 
-        v3_connection_point** const other = point->other;
-        DISTRHO_SAFE_ASSERT_RETURN(other != nullptr, V3_NOT_INITIALIZED);
-
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr, V3_INVALID_ARG);
 
         int64_t target = 0;
-        const v3_result res = v3_cpp_obj(attrlist)->get_int(attrlist, "__dpf_msg_target__", &target);
+        const v3_result res = attrlist->lpVtbl->getInt(attrlist, "__dpf_msg_target__", &target);
         DISTRHO_SAFE_ASSERT_RETURN(res == V3_OK, res);
         DISTRHO_SAFE_ASSERT_INT_RETURN(target == 1, target, V3_INTERNAL_ERR);
 
@@ -3295,32 +3292,31 @@ struct dpf_comp2ctrl_connection_point {
 // dpf_ctrl2view_connection_point
 
 struct dpf_ctrl2view_connection_point {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_connection_point point;
+    Steinberg_Vst_IConnectionPointVtbl* lpVtbl;
+    Steinberg_Vst_IConnectionPointVtbl base;
     ScopedPointer<PluginVst3>& vst3;
-    v3_connection_point** other;
+    Steinberg_Vst_IConnectionPoint* other;
 
     dpf_ctrl2view_connection_point(ScopedPointer<PluginVst3>& v)
-        : lpVtbl(&com),
+        : lpVtbl(&base),
           vst3(v),
           other(nullptr)
     {
         // v3_funknown, single instance, used internally
-        com.query_interface = nullptr;
-        com.ref = nullptr;
-        com.unref = nullptr;
+        base.queryInterface = nullptr;
+        base.addRef = nullptr;
+        base.release = nullptr;
 
-        // v3_connection_point
-        point.connect = connect;
-        point.disconnect = disconnect;
-        point.notify = notify;
+        // Steinberg_Vst_IConnectionPoint
+        base.connect = connect_ctrl2view_connection_point;
+        base.disconnect = disconnect_ctrl2view_connection_point;
+        base.notify = notify_ctrl2view_connection_point;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_connection_point
+    // Steinberg_Vst_IConnectionPoint
 
-    static v3_result V3_API connect(void* const self, v3_connection_point** const other)
+    static v3_result V3_API connect_ctrl2view_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
     {
         d_debug("dpf_ctrl2view_connection_point::connect => %p %p", self, other);
         dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
@@ -3335,7 +3331,7 @@ struct dpf_ctrl2view_connection_point {
         return V3_OK;
     }
 
-    static v3_result V3_API disconnect(void* const self, v3_connection_point** const other)
+    static v3_result V3_API disconnect_ctrl2view_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
     {
         d_debug("dpf_ctrl2view_connection_point::disconnect => %p %p", self, other);
         dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
@@ -3345,27 +3341,27 @@ struct dpf_ctrl2view_connection_point {
         if (PluginVst3* const vst3 = point->vst3)
             vst3->ctrl2view_disconnect();
 
-        v3_cpp_obj_unref(point->other);
+        point->other->lpVtbl->release(point->other);
         point->other = nullptr;
 
         return V3_OK;
     }
 
-    static v3_result V3_API notify(void* const self, v3_message** const message)
+    static v3_result V3_API notify_ctrl2view_connection_point(void* const self, Steinberg_Vst_IMessage* const message)
     {
         dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
 
         PluginVst3* const vst3 = point->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, V3_NOT_INITIALIZED);
 
-        v3_connection_point** const other = point->other;
-        DISTRHO_SAFE_ASSERT_RETURN(other != nullptr, V3_NOT_INITIALIZED);
+        Steinberg_Vst_IConnectionPoint* const other = point->other;
+        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, V3_NOT_INITIALIZED);
 
-        v3_attribute_list** const attrlist = v3_cpp_obj(message)->get_attributes(message);
+        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr, V3_INVALID_ARG);
 
         int64_t target = 0;
-        const v3_result res = v3_cpp_obj(attrlist)->get_int(attrlist, "__dpf_msg_target__", &target);
+        const v3_result res = attrlist->lpVtbl->getInt(attrlist, "__dpf_msg_target__", &target);
         DISTRHO_SAFE_ASSERT_RETURN(res == V3_OK, res);
         DISTRHO_SAFE_ASSERT_INT_RETURN(target == 1 || target == 2, target, V3_INTERNAL_ERR);
 
@@ -3377,7 +3373,7 @@ struct dpf_ctrl2view_connection_point {
         else
         {
             // edit controller -> view
-            return v3_cpp_obj(other)->notify(other, message);
+            return other->lpVtbl->notify(other, message);
         }
     }
 };
@@ -3460,20 +3456,20 @@ struct dpf_edit_controller {
    #endif
     // cached values
     v3_component_handler** handler;
-    v3_host_application** const hostApplicationFromFactory;
+    Steinberg_Vst_IHostApplication* const hostApplicationFromFactory;
    #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-    v3_host_application** const hostApplicationFromComponent;
-    v3_host_application** hostApplicationFromComponentInitialize;
+    Steinberg_Vst_IHostApplication* const hostApplicationFromComponent;
+    Steinberg_Vst_IHostApplication* hostApplicationFromComponentInitialize;
    #endif
-    v3_host_application** hostApplicationFromInitialize;
+    Steinberg_Vst_IHostApplication* hostApplicationFromInitialize;
 
    #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    dpf_edit_controller(v3_host_application** const hostApp)
+    dpf_edit_controller(Steinberg_Vst_IHostApplication* const hostApp)
         : lpVtbl(&com),
           refcounter(1),
           vst3(nullptr),
    #else
-    dpf_edit_controller(ScopedPointer<PluginVst3>& v, v3_host_application** const hostApp, v3_host_application** const hostComp)
+    dpf_edit_controller(ScopedPointer<PluginVst3>& v, Steinberg_Vst_IHostApplication* const hostApp, Steinberg_Vst_IHostApplication* const hostComp)
         : lpVtbl(&com),
           refcounter(1),
           vst3(v),
@@ -3491,10 +3487,10 @@ struct dpf_edit_controller {
 
         // make sure host application is valid through out this controller lifetime
         if (hostApplicationFromFactory != nullptr)
-            v3_cpp_obj_ref(hostApplicationFromFactory);
+            hostApplicationFromFactory->lpVtbl->addRef(hostApplicationFromFactory);
        #if !DPF_VST3_USES_SEPARATE_CONTROLLER
         if (hostApplicationFromComponent != nullptr)
-            v3_cpp_obj_ref(hostApplicationFromComponent);
+            hostApplicationFromComponent->lpVtbl->addRef(hostApplicationFromComponent);
        #endif
 
         // v3_funknown, everything custom
@@ -3535,10 +3531,10 @@ struct dpf_edit_controller {
 
        #if !DPF_VST3_USES_SEPARATE_CONTROLLER
         if (hostApplicationFromComponent != nullptr)
-            v3_cpp_obj_unref(hostApplicationFromComponent);
+            hostApplicationFromComponent->lpVtbl->release(hostApplicationFromComponent);
        #endif
         if (hostApplicationFromFactory != nullptr)
-            v3_cpp_obj_unref(hostApplicationFromFactory);
+            hostApplicationFromFactory->lpVtbl->release(hostApplicationFromFactory);
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -3660,9 +3656,9 @@ struct dpf_edit_controller {
        #endif
 
         // query for host application
-        v3_host_application** hostApplication = nullptr;
+        Steinberg_Vst_IHostApplication* hostApplication = nullptr;
         if (context != nullptr)
-            v3_cpp_obj_query_interface(context, v3_host_application_iid, &hostApplication);
+            ((Steinberg_FUnknown*)context)->lpVtbl->queryInterface((Steinberg_FUnknown*)context, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
 
         d_debug("dpf_edit_controller::initialize => %p %p | host %p", self, context, hostApplication);
 
@@ -3721,7 +3717,7 @@ struct dpf_edit_controller {
         // unref host application received during initialize
         if (controller->hostApplicationFromInitialize != nullptr)
         {
-            v3_cpp_obj_unref(controller->hostApplicationFromInitialize);
+            controller->hostApplicationFromInitialize->lpVtbl->release(controller->hostApplicationFromInitialize);
             controller->hostApplicationFromInitialize = nullptr;
         }
 
@@ -3904,7 +3900,7 @@ struct dpf_edit_controller {
                 controller->hostApplicationFromFactory);
 
         // we require a host application for message creation
-        v3_host_application** const host = controller->hostApplicationFromInitialize != nullptr
+        Steinberg_Vst_IHostApplication* const host = controller->hostApplicationFromInitialize != nullptr
                                          ? controller->hostApplicationFromInitialize
                                         #if !DPF_VST3_USES_SEPARATE_CONTROLLER
                                          : controller->hostApplicationFromComponent != nullptr
@@ -3927,16 +3923,16 @@ struct dpf_edit_controller {
                                                              vst3->getSampleRate());
         DISTRHO_SAFE_ASSERT_RETURN(view != nullptr, nullptr);
 
-        v3_connection_point** uiconn = nullptr;
+        Steinberg_Vst_IConnectionPoint* uiconn = nullptr;
         if (view->lpVtbl->queryInterface(view, Steinberg_Vst_IConnectionPoint_iid, (void**)&uiconn) == V3_OK)
         {
             d_debug("view connection query ok %p", uiconn);
             controller->connectionCtrl2View = new dpf_ctrl2view_connection_point(controller->vst3);
 
-            v3_connection_point** const ctrlconn = (v3_connection_point**)(void*)controller->connectionCtrl2View;
+            Steinberg_Vst_IConnectionPoint* const ctrlconn = (Steinberg_Vst_IConnectionPoint*)controller->connectionCtrl2View.get();
 
-            v3_cpp_obj(uiconn)->connect(uiconn, ctrlconn);
-            v3_cpp_obj(ctrlconn)->connect(ctrlconn, uiconn);
+            uiconn->lpVtbl->connect(uiconn, ctrlconn);
+            ctrlconn->lpVtbl->connect(ctrlconn, uiconn);
         }
         else
         {
@@ -4200,10 +4196,10 @@ struct dpf_component {
     ScopedPointer<dpf_edit_controller> controller;
    #endif
     ScopedPointer<PluginVst3> vst3;
-    v3_host_application** const hostApplicationFromFactory;
-    v3_host_application** hostApplicationFromInitialize;
+    Steinberg_Vst_IHostApplication* const hostApplicationFromFactory;
+    Steinberg_Vst_IHostApplication* hostApplicationFromInitialize;
 
-    dpf_component(v3_host_application** const host)
+    dpf_component(Steinberg_Vst_IHostApplication* const host)
         : lpVtbl(&com),
           refcounter(1),
           hostApplicationFromFactory(host),
@@ -4213,7 +4209,7 @@ struct dpf_component {
 
         // make sure host application is valid through out this component lifetime
         if (hostApplicationFromFactory != nullptr)
-            v3_cpp_obj_ref(hostApplicationFromFactory);
+            hostApplicationFromFactory->lpVtbl->addRef(hostApplicationFromFactory);
 
         // v3_funknown, everything custom
         com.query_interface = query_interface_component;
@@ -4248,7 +4244,7 @@ struct dpf_component {
         vst3 = nullptr;
 
         if (hostApplicationFromFactory != nullptr)
-            v3_cpp_obj_unref(hostApplicationFromFactory);
+            hostApplicationFromFactory->lpVtbl->release(hostApplicationFromFactory);
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -4416,9 +4412,9 @@ struct dpf_component {
         DISTRHO_SAFE_ASSERT_RETURN(component->vst3 == nullptr, V3_INVALID_ARG);
 
         // query for host application
-        v3_host_application** hostApplication = nullptr;
+        Steinberg_Vst_IHostApplication* hostApplication = nullptr;
         if (context != nullptr)
-            v3_cpp_obj_query_interface(context, v3_host_application_iid, &hostApplication);
+            ((Steinberg_FUnknown*)context)->lpVtbl->queryInterface((Steinberg_FUnknown*)context, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
 
         d_debug("dpf_component::initialize => %p %p | hostApplication %p", self, context, hostApplication);
 
@@ -4478,7 +4474,7 @@ struct dpf_component {
         // unref host application received during initialize
         if (component->hostApplicationFromInitialize != nullptr)
         {
-            v3_cpp_obj_unref(component->hostApplicationFromInitialize);
+            component->hostApplicationFromInitialize->lpVtbl->release(component->hostApplicationFromInitialize);
             component->hostApplicationFromInitialize = nullptr;
         }
 
@@ -4820,9 +4816,9 @@ struct dpf_factory {
         dpf_factory* const factory = (dpf_factory*)(self);
 
         // query for host application
-        v3_host_application** hostApplication = nullptr;
+        Steinberg_Vst_IHostApplication* hostApplication = nullptr;
         if (factory->hostContext != nullptr)
-            v3_cpp_obj_query_interface(factory->hostContext, v3_host_application_iid, &hostApplication);
+            ((Steinberg_FUnknown*)factory->hostContext)->lpVtbl->queryInterface((Steinberg_FUnknown*)factory->hostContext, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
 
         // create component
         if (tuid_match(class_id, *(const v3_tuid*)&dpf_tuid_class) && (tuid_match(iid, v3_component_iid) ||
@@ -4844,7 +4840,7 @@ struct dpf_factory {
 
         // unsupported, roll back host application
         if (hostApplication != nullptr)
-            v3_cpp_obj_unref(hostApplication);
+            hostApplication->lpVtbl->release(hostApplication);
 
         return V3_NO_INTERFACE;
     }
@@ -4866,7 +4862,7 @@ struct dpf_factory {
         d_strncpy(info->name, sPlugin->getName(), ARRAY_SIZE(info->name));
         d_strncpy(info->vendor, sPlugin->getMaker(), ARRAY_SIZE(info->vendor));
         d_strncpy(info->version, getPluginVersion(), ARRAY_SIZE(info->version));
-        d_strncpy(info->sdk_version, "VST 3.7.4", ARRAY_SIZE(info->sdk_version));
+        d_strncpy(info->sdk_version, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdk_version));
 
         if (idx == 0)
         {

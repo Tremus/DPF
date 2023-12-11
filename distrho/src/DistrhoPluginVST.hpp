@@ -339,14 +339,14 @@ uint translateVstKeyCode(bool& special, const int16_t keychar, const int16_t key
 // handy way to create a utf16 string from a utf8 one on the current function scope, used for message strings
 
 struct ScopedUTF16String {
-    int16_t* str;
+    char16_t* str;
     ScopedUTF16String(const char* const s) noexcept
         : str(nullptr)
     {
         const size_t len = std::strlen(s);
-        str = static_cast<int16_t*>(std::malloc(sizeof(int16_t) * (len + 1)));
+        str = static_cast<char16_t*>(std::malloc(sizeof(char16_t) * (len + 1)));
         DISTRHO_SAFE_ASSERT_RETURN(str != nullptr,);
-        strncpy_utf16(str, s, len + 1);
+        strncpy_utf16((int16_t*)str, s, len + 1);
     }
 
     ~ScopedUTF16String() noexcept
@@ -354,7 +354,7 @@ struct ScopedUTF16String {
         std::free(str);
     }
 
-    operator const int16_t*() const noexcept
+    operator const char16_t*() const noexcept
     {
         return str;
     }
