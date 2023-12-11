@@ -195,7 +195,7 @@ const char* tuid2str(const Steinberg_TUID iid)
     if (tuid_match(iid, Steinberg_Vst_IEditController_iid))
         return "{Steinberg_Vst_IEditController_iid}";
     // Not in official SDK? Also not used by DPF...
-    if (memcmp(iid, v3_event_handler_iid, sizeof(Steinberg_TUID)) == 0)
+    if (tuid_match(iid, v3_event_handler_iid))
         return "{v3_event_handler_iid}";
     if (tuid_match(iid, Steinberg_Vst_IEventList_iid))
         return "{Steinberg_Vst_IEventList_iid}";
@@ -230,20 +230,20 @@ const char* tuid2str(const Steinberg_TUID iid)
     if (tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
         return "{Steinberg_Vst_IProcessContextRequirements_iid}";
     // These aren't in the C SDK for some reason...
-    if (memcmp(iid, v3_run_loop_iid, sizeof(Steinberg_TUID)) == 0)
+    if (tuid_match(iid, v3_run_loop_iid))
         return "{v3_run_loop_iid}";
-    if (memcmp(iid, v3_timer_handler_iid, sizeof(Steinberg_TUID)) == 0)
+    if (tuid_match(iid, v3_timer_handler_iid))
         return "{v3_timer_handler_iid}";
 
-    if (std::memcmp(iid, dpf_tuid_class, sizeof(dpf_tuid)) == 0)
+    if (tuid_match(iid, dpf_tuid_class))
         return "{dpf_tuid_class}";
-    if (std::memcmp(iid, dpf_tuid_component, sizeof(dpf_tuid)) == 0)
+    if (tuid_match(iid, dpf_tuid_component))
         return "{dpf_tuid_component}";
-    if (std::memcmp(iid, dpf_tuid_controller, sizeof(dpf_tuid)) == 0)
+    if (tuid_match(iid, dpf_tuid_controller))
         return "{dpf_tuid_controller}";
-    if (std::memcmp(iid, dpf_tuid_processor, sizeof(dpf_tuid)) == 0)
+    if (tuid_match(iid, dpf_tuid_processor))
         return "{dpf_tuid_processor}";
-    if (std::memcmp(iid, dpf_tuid_view, sizeof(dpf_tuid)) == 0)
+    if (tuid_match(iid, dpf_tuid_view))
         return "{dpf_tuid_view}";
 
     for (size_t i=0; i<ARRAY_SIZE(extra_known_iids); ++i)
@@ -329,10 +329,10 @@ class PluginVst3
         struct InputEventStorage {
             Type type;
             union {
-                v3_event_note_on noteOn;
-                v3_event_note_off noteOff;
-                v3_event_data sysexData;
-                v3_event_poly_pressure polyPressure;
+                Steinberg_Vst_NoteOnEvent noteOn;
+                Steinberg_Vst_NoteOffEvent noteOff;
+                Steinberg_Vst_DataEvent sysexData;
+                Steinberg_Vst_PolyPressureEvent polyPressure;
                 uint8_t midi[3];
             };
         } eventListStorage[kMaxMidiEvents];
@@ -427,7 +427,7 @@ class PluginVst3
             return count;
         }
 
-        bool appendEvent(const v3_event& event) noexcept
+        bool appendEvent(const Steinberg_Vst_Event& event) noexcept
         {
             // only save events that can be converted directly into MIDI
             switch (event.type)
@@ -447,28 +447,28 @@ class PluginVst3
             {
             case Steinberg_Vst_Event_EventTypes_kNoteOnEvent:
                 eventStorage.type = NoteOn;
-                eventStorage.noteOn = event.note_on;
+                eventStorage.noteOn = event.Steinberg_Vst_Event_noteOn;
                 break;
             case Steinberg_Vst_Event_EventTypes_kNoteOffEvent:
                 eventStorage.type = NoteOff;
-                eventStorage.noteOff = event.note_off;
+                eventStorage.noteOff = event.Steinberg_Vst_Event_noteOff;
                 break;
             case Steinberg_Vst_Event_EventTypes_kDataEvent:
                 eventStorage.type = SysexData;
-                eventStorage.sysexData = event.data;
+                eventStorage.sysexData = event.Steinberg_Vst_Event_data;
                 break;
             case Steinberg_Vst_Event_EventTypes_kPolyPressureEvent:
                 eventStorage.type = PolyPressure;
-                eventStorage.polyPressure = event.poly_pressure;
+                eventStorage.polyPressure = event.Steinberg_Vst_Event_polyPressure;
                 break;
             default:
                 return false;
             }
 
-            eventList[numUsed].sampleOffset = event.sample_offset;
+            eventList[numUsed].sampleOffset = event.sampleOffset;
             eventList[numUsed].storage = &eventStorage;
 
-            return placeSorted(event.sample_offset);
+            return placeSorted(event.sampleOffset);
         }
 
         bool appendCC(const int32_t sampleOffset, uint32_t paramId, const double normalized) noexcept
@@ -1343,23 +1343,23 @@ public:
        #endif
     }
 
-    Steinberg_tresult setupProcessing(v3_process_setup* const setup)
+    Steinberg_tresult setupProcessing(Steinberg_Vst_ProcessSetup* const setup)
     {
-        DISTRHO_SAFE_ASSERT_RETURN(setup->symbolic_sample_size == Steinberg_Vst_SymbolicSampleSizes_kSample32, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_RETURN(setup->symbolicSampleSize == Steinberg_Vst_SymbolicSampleSizes_kSample32, Steinberg_kInvalidArgument);
 
         const bool active = fPlugin.isActive();
         fPlugin.deactivateIfNeeded();
 
         // TODO process_mode can be Steinberg_Vst_ProcessModes_kRealtime, Steinberg_Vst_ProcessModes_kPrefetch, Steinberg_Vst_ProcessModes_kOffline
 
-        fPlugin.setSampleRate(setup->sample_rate, true);
-        fPlugin.setBufferSize(setup->max_block_size, true);
+        fPlugin.setSampleRate(setup->sampleRate, true);
+        fPlugin.setBufferSize(setup->maxSamplesPerBlock, true);
 
       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        fCachedParameterValues[kVst3InternalParameterBufferSize] = setup->max_block_size;
+        fCachedParameterValues[kVst3InternalParameterBufferSize] = setup->maxSamplesPerBlock;
         fParameterValuesChangedDuringProcessing[kVst3InternalParameterBufferSize] = true;
 
-        fCachedParameterValues[kVst3InternalParameterSampleRate] = setup->sample_rate;
+        fCachedParameterValues[kVst3InternalParameterSampleRate] = setup->sampleRate;
         fParameterValuesChangedDuringProcessing[kVst3InternalParameterSampleRate] = true;
        #if DISTRHO_PLUGIN_HAS_UI
         fParameterValueChangesForUI[kVst3InternalParameterSampleRate] = true;
@@ -1370,7 +1370,7 @@ public:
             fPlugin.activate();
 
         delete[] fDummyAudioBuffer;
-        fDummyAudioBuffer = new float[setup->max_block_size];
+        fDummyAudioBuffer = new float[setup->maxSamplesPerBlock];
 
         return Steinberg_kResultOk;
     }
@@ -1390,10 +1390,10 @@ public:
         return Steinberg_kResultOk;
     }
 
-    Steinberg_tresult process(v3_process_data* const data)
+    Steinberg_tresult process(Steinberg_Vst_ProcessData* const data)
     {
-        DISTRHO_SAFE_ASSERT_RETURN(data->symbolic_sample_size == Steinberg_Vst_SymbolicSampleSizes_kSample32, Steinberg_kInvalidArgument);
-        // d_debug("process %i", data->symbolic_sample_size);
+        DISTRHO_SAFE_ASSERT_RETURN(data->symbolicSampleSize == Steinberg_Vst_SymbolicSampleSizes_kSample32, Steinberg_kInvalidArgument);
+        // d_debug("process %i", data->symbolicSampleSize);
 
         // activate plugin if not done yet
         if (! fPlugin.isActive())
@@ -1456,24 +1456,24 @@ public:
         }
        #endif
 
-        if (data->nframes <= 0)
+        if (data->numSamples <= 0)
         {
-            updateParametersFromProcessing(data->output_params, 0);
+            updateParametersFromProcessing(data->outputParameterChanges, 0);
             return Steinberg_kResultOk;
         }
 
         const float* inputs[DISTRHO_PLUGIN_NUM_INPUTS != 0 ? DISTRHO_PLUGIN_NUM_INPUTS : 1];
         /* */ float* outputs[DISTRHO_PLUGIN_NUM_OUTPUTS != 0 ? DISTRHO_PLUGIN_NUM_OUTPUTS : 1];
 
-        std::memset(fDummyAudioBuffer, 0, sizeof(float)*data->nframes);
+        std::memset(fDummyAudioBuffer, 0, sizeof(float)*data->numSamples);
 
         {
             int32_t i = 0;
            #if DISTRHO_PLUGIN_NUM_INPUTS > 0
             if (data->inputs != nullptr)
             {
-                for (int32_t b = 0; b < data->num_input_buses; ++b) {
-                    for (int32_t j = 0; j < data->inputs[b].num_channels; ++j)
+                for (int32_t b = 0; b < data->numInputs; ++b) {
+                    for (int32_t j = 0; j < data->inputs[b].numChannels; ++j)
                     {
                         DISTRHO_SAFE_ASSERT_INT_BREAK(i < DISTRHO_PLUGIN_NUM_INPUTS, i);
                         if (!fEnabledInputs[i] && i < DISTRHO_PLUGIN_NUM_INPUTS) {
@@ -1481,7 +1481,7 @@ public:
                             continue;
                         }
 
-                        inputs[i++] = data->inputs[b].channel_buffers_32[j];
+                        inputs[i++] = data->inputs[b].Steinberg_Vst_AudioBusBuffers_channelBuffers32[j];
                     }
                 }
             }
@@ -1495,8 +1495,8 @@ public:
            #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
             if (data->outputs != nullptr)
             {
-                for (int32_t b = 0; b < data->num_output_buses; ++b) {
-                    for (int32_t j = 0; j < data->outputs[b].num_channels; ++j)
+                for (int32_t b = 0; b < data->numOutputs; ++b) {
+                    for (int32_t j = 0; j < data->outputs[b].numChannels; ++j)
                     {
                         DISTRHO_SAFE_ASSERT_INT_BREAK(i < DISTRHO_PLUGIN_NUM_OUTPUTS, i);
                         if (!fEnabledOutputs[i] && i < DISTRHO_PLUGIN_NUM_OUTPUTS) {
@@ -1504,7 +1504,7 @@ public:
                             continue;
                         }
 
-                        outputs[i++] = data->outputs[b].channel_buffers_32[j];
+                        outputs[i++] = data->outputs[b].Steinberg_Vst_AudioBusBuffers_channelBuffers32[j];
                     }
                 }
             }
@@ -1514,7 +1514,7 @@ public:
         }
 
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-        fHostEventOutputHandle = data->output_events;
+        fHostEventOutputHandle = data->outputEvents;
        #endif
 
       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
@@ -1538,12 +1538,12 @@ public:
 
         if (canAppendMoreEvents)
         {
-            if (v3_event_list** const eventptr = data->input_events)
+            if (Steinberg_Vst_IEventList* const eventptr = data->inputEvents)
             {
-                v3_event event;
-                for (uint32_t i = 0, count = v3_cpp_obj(eventptr)->get_event_count(eventptr); i < count; ++i)
+                Steinberg_Vst_Event event;
+                for (uint32_t i = 0, count = eventptr->lpVtbl->getEventCount(eventptr); i < count; ++i)
                 {
-                    if (v3_cpp_obj(eventptr)->get_event(eventptr, i, &event) != Steinberg_kResultOk)
+                    if (eventptr->lpVtbl->getEvent(eventptr, i, &event) != Steinberg_kResultOk)
                         break;
 
                     if (inputEventList.appendEvent(event))
@@ -1556,17 +1556,17 @@ public:
         }
       #endif
 
-        if (v3_param_changes** const inparamsptr = data->input_params)
+        if (Steinberg_Vst_IParameterChanges* const inparamsptr = data->inputParameterChanges)
         {
             int32_t offset;
             double normalized;
 
-            for (int32_t i = 0, count = v3_cpp_obj(inparamsptr)->get_param_count(inparamsptr); i < count; ++i)
+            for (int32_t i = 0, count = inparamsptr->lpVtbl->getParameterCount(inparamsptr); i < count; ++i)
             {
-                v3_param_value_queue** const queue = v3_cpp_obj(inparamsptr)->get_param_data(inparamsptr, i);
+                Steinberg_Vst_IParamValueQueue* const queue = inparamsptr->lpVtbl->getParameterData(inparamsptr, i);
                 DISTRHO_SAFE_ASSERT_BREAK(queue != nullptr);
 
-                const uint32_t rindex = v3_cpp_obj(queue)->get_param_id(queue);
+                const uint32_t rindex = queue->lpVtbl->getParameterId(queue);
                 DISTRHO_SAFE_ASSERT_UINT_BREAK(rindex < fVst3ParameterCount, rindex);
 
                #if DPF_VST3_HAS_INTERNAL_PARAMETERS
@@ -1576,9 +1576,9 @@ public:
                     // if there are any MIDI CC events as parameter changes, handle them here
                     if (canAppendMoreEvents && rindex >= kVst3InternalParameterMidiCC_start && rindex <= kVst3InternalParameterMidiCC_end)
                     {
-                        for (int32_t j = 0, pcount = v3_cpp_obj(queue)->get_point_count(queue); j < pcount; ++j)
+                        for (int32_t j = 0, pcount = queue->lpVtbl->getPointCount(queue); j < pcount; ++j)
                         {
-                            if (v3_cpp_obj(queue)->get_point(queue, j, &offset, &normalized) != Steinberg_kResultOk)
+                            if (queue->lpVtbl->getPoint(queue, j, &offset, &normalized) != Steinberg_kResultOk)
                                 break;
 
                             if (inputEventList.appendCC(offset, rindex, normalized))
@@ -1593,11 +1593,11 @@ public:
                 }
                #endif
 
-                if (v3_cpp_obj(queue)->get_point_count(queue) <= 0)
+                if (queue->lpVtbl->getPointCount(queue) <= 0)
                     continue;
 
                 // if there are any parameter changes at frame 0, handle them here
-                if (v3_cpp_obj(queue)->get_point(queue, 0, &offset, &normalized) != Steinberg_kResultOk)
+                if (queue->lpVtbl->getPoint(queue, 0, &offset, &normalized) != Steinberg_kResultOk)
                     break;
 
                 if (offset != 0)
@@ -1610,9 +1610,9 @@ public:
 
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         const uint32_t midiEventCount = inputEventList.convert(fMidiEvents);
-        fPlugin.run(inputs, outputs, data->nframes, fMidiEvents, midiEventCount);
+        fPlugin.run(inputs, outputs, data->numSamples, fMidiEvents, midiEventCount);
        #else
-        fPlugin.run(inputs, outputs, data->nframes);
+        fPlugin.run(inputs, outputs, data->numSamples);
        #endif
 
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
@@ -1620,17 +1620,17 @@ public:
        #endif
 
         // if there are any parameter changes after frame 0, set them here
-        if (v3_param_changes** const inparamsptr = data->input_params)
+        if (Steinberg_Vst_IParameterChanges* const inparamsptr = data->inputParameterChanges)
         {
             int32_t offset;
             double normalized;
 
-            for (int32_t i = 0, count = v3_cpp_obj(inparamsptr)->get_param_count(inparamsptr); i < count; ++i)
+            for (int32_t i = 0, count = inparamsptr->lpVtbl->getParameterCount(inparamsptr); i < count; ++i)
             {
-                v3_param_value_queue** const queue = v3_cpp_obj(inparamsptr)->get_param_data(inparamsptr, i);
+                Steinberg_Vst_IParamValueQueue* const queue = inparamsptr->lpVtbl->getParameterData(inparamsptr, i);
                 DISTRHO_SAFE_ASSERT_BREAK(queue != nullptr);
 
-                const uint32_t rindex = v3_cpp_obj(queue)->get_param_id(queue);
+                const uint32_t rindex = queue->lpVtbl->getParameterId(queue);
                 DISTRHO_SAFE_ASSERT_UINT_BREAK(rindex < fVst3ParameterCount, rindex);
 
                #if DPF_VST3_HAS_INTERNAL_PARAMETERS
@@ -1638,12 +1638,12 @@ public:
                     continue;
                #endif
 
-                const int32_t pcount = v3_cpp_obj(queue)->get_point_count(queue);
+                const int32_t pcount = queue->lpVtbl->getPointCount(queue);
 
                 if (pcount <= 0)
                     continue;
 
-                if (v3_cpp_obj(queue)->get_point(queue, pcount - 1, &offset, &normalized) != Steinberg_kResultOk)
+                if (queue->lpVtbl->getPoint(queue, pcount - 1, &offset, &normalized) != Steinberg_kResultOk)
                     break;
 
                 if (offset == 0)
@@ -1654,7 +1654,7 @@ public:
             }
         }
 
-        updateParametersFromProcessing(data->output_params, data->nframes - 1);
+        updateParametersFromProcessing(data->outputParameterChanges, data->numSamples - 1);
         return Steinberg_kResultOk;
     }
 
@@ -2491,7 +2491,7 @@ private:
    #endif
   #endif
    #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-    v3_event_list** fHostEventOutputHandle;
+    Steinberg_Vst_IEventList* fHostEventOutputHandle;
    #endif
    #if DISTRHO_PLUGIN_WANT_PROGRAMS
     uint32_t fCurrentProgram;
@@ -2876,7 +2876,7 @@ private:
     // ----------------------------------------------------------------------------------------------------------------
     // helper functions called during process, cannot block
 
-    void updateParametersFromProcessing(v3_param_changes** const outparamsptr, const int32_t offset)
+    void updateParametersFromProcessing(Steinberg_Vst_IParameterChanges* const outparamsptr, const int32_t offset)
     {
         DISTRHO_SAFE_ASSERT_RETURN(outparamsptr != nullptr,);
 
@@ -2950,16 +2950,16 @@ private:
        #endif
     }
 
-    bool addParameterDataToHostOutputEvents(v3_param_changes** const outparamsptr,
+    bool addParameterDataToHostOutputEvents(Steinberg_Vst_IParameterChanges* const outparamsptr,
                                             const uint32_t paramId,
                                             const double normalized,
                                             const int32_t offset = 0)
     {
         int32_t index = 0;
-        v3_param_value_queue** const queue = v3_cpp_obj(outparamsptr)->add_param_data(outparamsptr,
+        Steinberg_Vst_IParamValueQueue* const queue = outparamsptr->lpVtbl->addParameterData(outparamsptr,
                                                                                       &paramId, &index);
         DISTRHO_SAFE_ASSERT_RETURN(queue != nullptr, false);
-        DISTRHO_SAFE_ASSERT_RETURN(v3_cpp_obj(queue)->add_point(queue, 0, normalized, &index) == Steinberg_kResultOk, false);
+        DISTRHO_SAFE_ASSERT_RETURN(queue->lpVtbl->addPoint(queue, 0, normalized, &index) == Steinberg_kResultOk, false);
 
         /* FLStudio gets confused with this one, skip it for now
         if (offset != 0)
@@ -3061,9 +3061,9 @@ private:
     {
         DISTRHO_CUSTOM_SAFE_ASSERT_ONCE_RETURN("MIDI output unsupported", fHostEventOutputHandle != nullptr, false);
 
-        v3_event event;
+        Steinberg_Vst_Event event;
         std::memset(&event, 0, sizeof(event));
-        event.sample_offset = midiEvent.frame;
+        event.sampleOffset = midiEvent.frame;
 
         const uint8_t* const data = midiEvent.size > MidiEvent::kDataSize ? midiEvent.dataExt : midiEvent.data;
 
@@ -3071,35 +3071,35 @@ private:
         {
         case 0x80:
             event.type = Steinberg_Vst_Event_EventTypes_kNoteOffEvent;
-            event.note_off.channel = data[0] & 0xf;
-            event.note_off.pitch = data[1];
-            event.note_off.velocity = (float)data[2] / 127.0f;
+            event.Steinberg_Vst_Event_noteOff.channel = data[0] & 0xf;
+            event.Steinberg_Vst_Event_noteOff.pitch = data[1];
+            event.Steinberg_Vst_Event_noteOff.velocity = (float)data[2] / 127.0f;
             // int32_t note_id;
             // float tuning;
             break;
         case 0x90:
             event.type = Steinberg_Vst_Event_EventTypes_kNoteOnEvent;
-            event.note_on.channel = data[0] & 0xf;
-            event.note_on.pitch = data[1];
+            event.Steinberg_Vst_Event_noteOn.channel = data[0] & 0xf;
+            event.Steinberg_Vst_Event_noteOn.pitch = data[1];
             // float tuning;
-            event.note_on.velocity = (float)data[2] / 127.0f;
+            event.Steinberg_Vst_Event_noteOn.velocity = (float)data[2] / 127.0f;
             // int32_t length;
             // int32_t note_id;
             break;
         case 0xA0:
             event.type = Steinberg_Vst_Event_EventTypes_kPolyPressureEvent;
-            event.poly_pressure.channel = data[0] & 0xf;
-            event.poly_pressure.pitch = data[1];
-            event.poly_pressure.pressure = (float)data[2] / 127.0f;
+            event.Steinberg_Vst_Event_polyPressure.channel = data[0] & 0xf;
+            event.Steinberg_Vst_Event_polyPressure.pitch = data[1];
+            event.Steinberg_Vst_Event_polyPressure.pressure = (float)data[2] / 127.0f;
             // int32_t note_id;
             break;
         case 0xB0:
             event.type = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
-            event.midi_cc_out.channel = data[0] & 0xf;
-            event.midi_cc_out.cc_number = data[1];
-            event.midi_cc_out.value = data[2];
+            event.Steinberg_Vst_Event_midiCCOut.channel = data[0] & 0xf;
+            event.Steinberg_Vst_Event_midiCCOut.controlNumber = data[1];
+            event.Steinberg_Vst_Event_midiCCOut.value = data[2];
             if (midiEvent.size == 4)
-                event.midi_cc_out.value2 = midiEvent.size == 4;
+                event.Steinberg_Vst_Event_midiCCOut.value2 = midiEvent.size == 4;
             break;
         /* TODO how do we deal with program changes??
         case 0xC0:
@@ -3107,22 +3107,22 @@ private:
         */
         case 0xD0:
             event.type = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
-            event.midi_cc_out.channel = data[0] & 0xf;
-            event.midi_cc_out.cc_number = 128;
-            event.midi_cc_out.value = data[1];
+            event.Steinberg_Vst_Event_midiCCOut.channel = data[0] & 0xf;
+            event.Steinberg_Vst_Event_midiCCOut.controlNumber = 128;
+            event.Steinberg_Vst_Event_midiCCOut.value = data[1];
             break;
         case 0xE0:
             event.type = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
-            event.midi_cc_out.channel = data[0] & 0xf;
-            event.midi_cc_out.cc_number = 129;
-            event.midi_cc_out.value = data[1];
-            event.midi_cc_out.value2 = data[2];
+            event.Steinberg_Vst_Event_midiCCOut.channel = data[0] & 0xf;
+            event.Steinberg_Vst_Event_midiCCOut.controlNumber = 129;
+            event.Steinberg_Vst_Event_midiCCOut.value = data[1];
+            event.Steinberg_Vst_Event_midiCCOut.value2 = data[2];
             break;
         default:
             return true;
         }
 
-        return v3_cpp_obj(fHostEventOutputHandle)->add_event(fHostEventOutputHandle, &event) == Steinberg_kResultOk;
+        return fHostEventOutputHandle->lpVtbl->addEvent(fHostEventOutputHandle, &event) == Steinberg_kResultOk;
     }
 
     static bool writeMidiCallback(void* const ptr, const MidiEvent& midiEvent)
@@ -4008,37 +4008,36 @@ struct dpf_process_context_requirements {
 // dpf_audio_processor
 
 struct dpf_audio_processor {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_audio_processor proc;
+    Steinberg_Vst_IAudioProcessorVtbl* lpVtbl;
+    Steinberg_Vst_IAudioProcessorVtbl base;
     std::atomic_int refcounter;
     ScopedPointer<PluginVst3>& vst3;
 
     dpf_audio_processor(ScopedPointer<PluginVst3>& v)
-        : lpVtbl(&com),
+        : lpVtbl(&base),
           refcounter(1),
           vst3(v)
     {
         // v3_funknown, single instance
-        com.query_interface = query_interface_audio_processor;
-        com.ref = addRef_audio_processor;
-        com.unref = release_audio_processor;
+        base.queryInterface = query_interface_audio_processor;
+        base.addRef = addRef_audio_processor;
+        base.release = release_audio_processor;
 
         // v3_audio_processor
-        proc.set_bus_arrangements = set_bus_arrangements;
-        proc.get_bus_arrangement = get_bus_arrangement;
-        proc.can_process_sample_size = can_process_sample_size;
-        proc.get_latency_samples = get_latency_samples;
-        proc.setup_processing = setup_processing;
-        proc.set_processing = set_processing;
-        proc.process = process;
-        proc.get_tail_samples = get_tail_samples;
+        base.setBusArrangements = set_bus_arrangements;
+        base.getBusArrangement = get_bus_arrangement;
+        base.canProcessSampleSize = can_process_sample_size;
+        base.getLatencySamples = get_latency_samples;
+        base.setupProcessing = setup_processing;
+        base.setProcessing = set_processing;
+        base.process = process;
+        base.getTailSamples = get_tail_samples;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
     // v3_funknown
 
-    static Steinberg_tresult query_interface_audio_processor(void* const self, const v3_tuid iid, void** const iface)
+    static Steinberg_tresult query_interface_audio_processor(void* const self, const Steinberg_TUID iid, void** const iface)
     {
         dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
@@ -4127,7 +4126,7 @@ struct dpf_audio_processor {
         return processor->vst3->getLatencySamples();
     }
 
-    static Steinberg_tresult setup_processing(void* const self, v3_process_setup* const setup)
+    static Steinberg_tresult setup_processing(void* const self, Steinberg_Vst_ProcessSetup* const setup)
     {
         d_debug("dpf_audio_processor::setup_processing => %p %p", self, setup);
         dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
@@ -4135,14 +4134,14 @@ struct dpf_audio_processor {
         PluginVst3* const vst3 = processor->vst3;
         DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        d_debug("dpf_audio_processor::setup_processing => %p %p | %d %f", self, setup, setup->max_block_size, setup->sample_rate);
+        d_debug("dpf_audio_processor::setup_processing => %p %p | %d %f", self, setup, setup->maxSamplesPerBlock, setup->sample_rate);
 
-        d_nextBufferSize = setup->max_block_size;
-        d_nextSampleRate = setup->sample_rate;
+        d_nextBufferSize = setup->maxSamplesPerBlock;
+        d_nextSampleRate = setup->sampleRate;
         return processor->vst3->setupProcessing(setup);
     }
 
-    static Steinberg_tresult set_processing(void* const self, const v3_bool state)
+    static Steinberg_tresult set_processing(void* const self, const Steinberg_TBool state)
     {
         d_debug("dpf_audio_processor::set_processing => %p %u", self, state);
         dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
@@ -4153,7 +4152,7 @@ struct dpf_audio_processor {
         return processor->vst3->setProcessing(state);
     }
 
-    static Steinberg_tresult process(void* const self, v3_process_data* const data)
+    static Steinberg_tresult process(void* const self, Steinberg_Vst_ProcessData* const data)
     {
         // NOTE runs during RT
         // d_debug("dpf_audio_processor::process => %p", self);
