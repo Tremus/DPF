@@ -31,8 +31,8 @@ struct ExamplePluginMeters
           fOutRight(0.0f),
           fNeedsReset(true)
     {
-        // 3 parameters, 0 programs, 0 states
-        PluginPrivateData_init(&data, 3, 0, 0);
+        // 3 parameters, 0 programs
+        PluginPrivateData_init(&data, 3, 0);
     }
 
    /**
@@ -152,11 +152,6 @@ void plugin_initPortGroup(void*, const uint32_t groupId, PortGroup& portGroup)
     fillInPredefinedPortGroupData(groupId, portGroup);
 }
 
-void plugin_initState(void* ptr, uint32_t index, State& state)
-{
-    // we are using states but don't want them saved in the host
-}
-
 /* --------------------------------------------------------------------------------------------------------
 * Internal data */
 
@@ -180,15 +175,6 @@ void plugin_setParameterValue(void* ptr, uint32_t index, float value)
     if (index != 0) return;
 
     plugin->fColor = value;
-}
-
-void plugin_setState(void* ptr, const char* key, const char*)
-{
-    ExamplePluginMeters* plugin = (ExamplePluginMeters*)ptr;
-    if (std::strcmp(key, "reset") != 0)
-        return;
-
-    plugin->fNeedsReset = true;
 }
 
 /* --------------------------------------------------------------------------------------------------------

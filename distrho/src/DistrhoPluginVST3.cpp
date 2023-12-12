@@ -51,14 +51,9 @@
 #endif
 
 #include "travesty/audio_processor.h"
-#include "travesty/component.h"
 #include "travesty/edit_controller.h"
-#include "travesty/factory.h"
-#include "travesty/host.h"
 #include "vst3_c_api/vst3_c_api.h"
 
-#include <map>
-#include <string>
 #include <vector>
 #include <atomic>
 
@@ -72,8 +67,6 @@ static constexpr const writeMidiFunc writeMidiCallback = nullptr;
 #if ! DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
 static constexpr const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
 #endif
-
-typedef std::map<const String, String> StringMap;
 
 // --------------------------------------------------------------------------------------------------------------------
 // custom Steinberg_TUID compatible type
@@ -597,7 +590,7 @@ class PluginVst3
 
 public:
     PluginVst3(Steinberg_Vst_IHostApplication* const host, const bool isComponent)
-        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback, nullptr),
+        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback),
           fComponentHandler(nullptr),
         #if DISTRHO_PLUGIN_HAS_UI
          #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -668,14 +661,6 @@ public:
             std::memset(fParameterValueChangesForUI, 0, sizeof(bool)*extraParameterCount);
            #endif
         }
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        for (uint32_t i=0, count=fPlugin.getStateCount(); i<count; ++i)
-        {
-            const String& dkey(fPlugin.getStateKey(i));
-            fStateMap[dkey] = fPlugin.getStateDefaultValue(i);
-        }
-       #endif
 
        #if !DISTRHO_PLUGIN_HAS_UI
         // unused
@@ -950,328 +935,15 @@ public:
         return Steinberg_kResultOk;
     }
 
-    /* state: we pack pairs of key-value strings each separated by a null/zero byte.
-     * current-program comes first, then dpf key/value states and then parameters.
-     * parameters are simply converted to/from strings and floats.
-     * the parameter symbol is used as the "key", so it is possible to reorder them or even remove and add safely.
-     * there are markers for begin and end of state and parameters, so they never conflict.
-     */
     Steinberg_tresult setState(Steinberg_IBStream* const stream)
     {
-       #if DISTRHO_PLUGIN_HAS_UI
-        const bool connectedToUI = fConnectionFromCtrlToView != nullptr && fConnectedToUI;
-       #endif
-        String key, value;
-        bool empty = true;
-        bool hasValue = false;
-        bool fillingKey = true; // if filling key or value
-        char queryingType = 'i'; // can be 'n', 's' or 'p' (none, states, parameters)
-
-        char buffer[512], orig;
-        buffer[sizeof(buffer)-1] = '\xff';
-        Steinberg_tresult res;
-
-        for (int32_t terminated = 0, read; terminated == 0;)
-        {
-            read = -1;
-            res = stream->lpVtbl->read(stream, buffer, sizeof(buffer)-1, &read);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(read > 0, read, Steinberg_kInternalError);
-
-            if (read == 0)
-                return empty ? Steinberg_kInvalidArgument : Steinberg_kResultOk;
-
-            empty = false;
-            for (int32_t i = 0; i < read; ++i)
-            {
-                // found terminator, stop here
-                if (buffer[i] == '\xfe')
-                {
-                    terminated = 1;
-                    break;
-                }
-
-                // store character at read position
-                orig = buffer[read];
-
-                // place null character to create valid string
-                buffer[read] = '\0';
-
-                // append to temporary vars
-                if (fillingKey)
-                {
-                    key += buffer + i;
-                }
-                else
-                {
-                    value += buffer + i;
-                    hasValue = true;
-                }
-
-                // increase buffer offset by length of string
-                i += std::strlen(buffer + i);
-
-                // restore read character
-                buffer[read] = orig;
-
-                // if buffer offset points to null, we found the end of a string, lets check
-                if (buffer[i] == '\0')
-                {
-                    // special keys
-                    if (key == "__dpf_state_begin__")
-                    {
-                        DISTRHO_SAFE_ASSERT_INT_RETURN(queryingType == 'i' || queryingType == 'n',
-                                                       queryingType, Steinberg_kInternalError);
-                        queryingType = 's';
-                        key.clear();
-                        value.clear();
-                        hasValue = false;
-                        continue;
-                    }
-                    if (key == "__dpf_state_end__")
-                    {
-                        DISTRHO_SAFE_ASSERT_INT_RETURN(queryingType == 's', queryingType, Steinberg_kInternalError);
-                        queryingType = 'n';
-                        key.clear();
-                        value.clear();
-                        hasValue = false;
-                        continue;
-                    }
-                    if (key == "__dpf_parameters_begin__")
-                    {
-                        DISTRHO_SAFE_ASSERT_INT_RETURN(queryingType == 'i' || queryingType == 'n',
-                                                       queryingType, Steinberg_kInternalError);
-                        queryingType = 'p';
-                        key.clear();
-                        value.clear();
-                        hasValue = false;
-                        continue;
-                    }
-                    if (key == "__dpf_parameters_end__")
-                    {
-                        DISTRHO_SAFE_ASSERT_INT_RETURN(queryingType == 'p', queryingType, Steinberg_kInternalError);
-                        queryingType = 'x';
-                        key.clear();
-                        value.clear();
-                        hasValue = false;
-                        continue;
-                    }
-
-                    // no special key, swap between reading real key and value
-                    fillingKey = !fillingKey;
-
-                    // if there is no value yet keep reading until we have one
-                    if (! hasValue)
-                        continue;
-
-                    if (key == "__dpf_program__")
-                    {
-                        DISTRHO_SAFE_ASSERT_INT_RETURN(queryingType == 'i', queryingType, Steinberg_kInternalError);
-                        queryingType = 'n';
-
-                        d_debug("found program '%s'", value.buffer());
-
-                      #if DISTRHO_PLUGIN_WANT_PROGRAMS
-                        const int program = std::atoi(value.buffer());
-                        DISTRHO_SAFE_ASSERT_CONTINUE(program >= 0);
-
-                        fCurrentProgram = static_cast<uint32_t>(program);
-                        fPlugin.loadProgram(fCurrentProgram);
-
-                       #if DISTRHO_PLUGIN_HAS_UI
-                        if (connectedToUI)
-                        {
-                            fParameterValueChangesForUI[kVst3InternalParameterProgram] = false;
-                            sendParameterSetToUI(kVst3InternalParameterProgram, program);
-                        }
-                       #endif
-                      #endif
-                    }
-                    else if (queryingType == 's')
-                    {
-                        d_debug("found state '%s' '%s'", key.buffer(), value.buffer());
-
-                       #if DISTRHO_PLUGIN_WANT_STATE
-                        if (fPlugin.wantStateKey(key))
-                        {
-                            fStateMap[key] = value;
-                            fPlugin.setState(key, value);
-
-                           #if DISTRHO_PLUGIN_HAS_UI
-                            if (connectedToUI)
-                                sendStateSetToUI(key, value);
-                           #endif
-                        }
-                       #endif
-                    }
-                    else if (queryingType == 'p')
-                    {
-                        d_debug("found parameter '%s' '%s'", key.buffer(), value.buffer());
-                        float fvalue;
-
-                        // find parameter with this symbol, and set its value
-                        for (uint32_t j=0; j < fParameterCount; ++j)
-                        {
-                            if (fPlugin.isParameterOutputOrTrigger(j))
-                                continue;
-                            if (fPlugin.getParameterSymbol(j) != key)
-                                continue;
-
-                            if (fPlugin.getParameterHints(j) & kParameterIsInteger)
-                            {
-                                fvalue = std::atoi(value.buffer());
-                            }
-                            else
-                            {
-                                const ScopedSafeLocale ssl;
-                                fvalue = std::atof(value.buffer());
-                            }
-
-                            fCachedParameterValues[kVst3InternalParameterBaseCount + j] = fvalue;
-                           #if DISTRHO_PLUGIN_HAS_UI
-                            if (connectedToUI)
-                            {
-                                // UI parameter updates are handled outside the read loop (after host param restart)
-                                fParameterValueChangesForUI[kVst3InternalParameterBaseCount + j] = true;
-                            }
-                           #endif
-                            fPlugin.setParameterValue(j, fvalue);
-                            break;
-                        }
-                    }
-
-                    key.clear();
-                    value.clear();
-                    hasValue = false;
-                }
-            }
-        }
-
-        if (fComponentHandler != nullptr)
-            fComponentHandler->lpVtbl->restartComponent(fComponentHandler, Steinberg_Vst_RestartFlags_kParamValuesChanged);
-
-       #if DISTRHO_PLUGIN_HAS_UI
-        if (connectedToUI)
-        {
-            for (uint32_t i=0; i<fParameterCount; ++i)
-            {
-                if (fPlugin.isParameterOutputOrTrigger(i))
-                    continue;
-                fParameterValueChangesForUI[kVst3InternalParameterBaseCount + i] = false;
-                sendParameterSetToUI(kVst3InternalParameterCount + i,
-                                     fCachedParameterValues[kVst3InternalParameterBaseCount + i]);
-            }
-        }
-       #endif
-
+        // TODO
         return Steinberg_kResultOk;
     }
 
     Steinberg_tresult getState(Steinberg_IBStream* const stream)
     {
-        const uint32_t paramCount = fPlugin.getParameterCount();
-       #if DISTRHO_PLUGIN_WANT_STATE
-        const uint32_t stateCount = fPlugin.getStateCount();
-       #else
-        const uint32_t stateCount = 0;
-       #endif
-
-        if (stateCount == 0 && paramCount == 0)
-        {
-            char buffer = '\0';
-            int32_t ignored;
-            return stream->lpVtbl->write(stream, &buffer, 1, &ignored);
-        }
-
-       #if DISTRHO_PLUGIN_WANT_FULL_STATE
-        // Update current state
-        for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-        {
-            const String& key = cit->first;
-            fStateMap[key] = fPlugin.getStateValue(key);
-        }
-       #endif
-
-        String state;
-
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        {
-            String tmpStr("__dpf_program__\xff");
-            tmpStr += String(fCurrentProgram);
-            tmpStr += "\xff";
-
-            state += tmpStr;
-        }
-       #endif
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        if (stateCount != 0)
-        {
-            state += "__dpf_state_begin__\xff";
-
-            for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key   = cit->first;
-                const String& value = cit->second;
-
-                // join key and value
-                String tmpStr;
-                tmpStr  = key;
-                tmpStr += "\xff";
-                tmpStr += value;
-                tmpStr += "\xff";
-
-                state += tmpStr;
-            }
-
-            state += "__dpf_state_end__\xff";
-        }
-       #endif
-
-        if (paramCount != 0)
-        {
-            state += "__dpf_parameters_begin__\xff";
-
-            for (uint32_t i=0; i<paramCount; ++i)
-            {
-                if (fPlugin.isParameterOutputOrTrigger(i))
-                    continue;
-
-                // join key and value
-                String tmpStr;
-                tmpStr  = fPlugin.getParameterSymbol(i);
-                tmpStr += "\xff";
-                if (fPlugin.getParameterHints(i) & kParameterIsInteger)
-                    tmpStr += String(static_cast<int>(std::round(fPlugin.getParameterValue(i))));
-                else
-                    tmpStr += String(fPlugin.getParameterValue(i));
-                tmpStr += "\xff";
-
-                state += tmpStr;
-            }
-
-            state += "__dpf_parameters_end__\xff";
-        }
-
-        // terminator
-        state += "\xfe";
-
-        state.replace('\xff', '\0');
-
-        // now saving state, carefully until host written bytes matches full state size
-        const char* buffer = state.buffer();
-        const int32_t size = static_cast<int32_t>(state.length())+1;
-        Steinberg_tresult res;
-
-        for (int32_t wrtntotal = 0, wrtn; wrtntotal < size; wrtntotal += wrtn)
-        {
-            wrtn = 0;
-            res = stream->lpVtbl->write(stream, const_cast<char*>(buffer) + wrtntotal, size - wrtntotal, &wrtn);
-
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(wrtn > 0, wrtn, Steinberg_kInternalError);
-        }
-
+        // TODO
         return Steinberg_kResultOk;
     }
 
@@ -1402,6 +1074,7 @@ public:
        #if DISTRHO_PLUGIN_WANT_TIMEPOS
         if (Steinberg_Vst_ProcessContext* const ctx = data->processContext)
         {
+            /*
             fTimePosition.playing = ctx->state & Steinberg_Vst_ProcessContext_StatesAndFlags_kPlaying;
 
             // ticksPerBeat is not possible with VST3
@@ -1453,6 +1126,7 @@ public:
                                              (fTimePosition.bbt.bar-1);
 
             fPlugin.setTimePosition(fTimePosition);
+            */
         }
        #endif
 
@@ -2148,11 +1822,6 @@ public:
             return notify_midi(attrs);
        #endif
 
-       #if DISTRHO_PLUGIN_WANT_STATE
-        if (std::strcmp(msgid, "state-set") == 0)
-            return notify_state(attrs);
-       #endif
-
         d_stderr("comp2ctrl_notify received unknown msg '%s'", msgid);
 
         return Steinberg_kNotImplemented;
@@ -2195,26 +1864,6 @@ public:
            #if DISTRHO_PLUGIN_WANT_PROGRAMS
             fParameterValueChangesForUI[kVst3InternalParameterProgram] = false;
             sendParameterSetToUI(kVst3InternalParameterProgram, fCurrentProgram);
-           #endif
-
-           #if DISTRHO_PLUGIN_WANT_FULL_STATE
-            // Update current state from plugin side
-            for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key = cit->first;
-                fStateMap[key] = fPlugin.getStateValue(key);
-            }
-           #endif
-
-           #if DISTRHO_PLUGIN_WANT_STATE
-            // Set state
-            for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key   = cit->first;
-                const String& value = cit->second;
-
-                sendStateSetToUI(key, value);
-            }
            #endif
 
             for (uint32_t i=0; i<fParameterCount; ++i)
@@ -2336,97 +1985,10 @@ public:
         }
        #endif
 
-       #if DISTRHO_PLUGIN_WANT_STATE
-        if (std::strcmp(msgid, "state-set") == 0)
-        {
-            const Steinberg_tresult res = notify_state(attrs);
-
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            if (res != Steinberg_kResultOk)
-                return res;
-
-            // notify component of the change
-            DISTRHO_SAFE_ASSERT_RETURN(fConnectionFromCompToCtrl != nullptr, Steinberg_kInternalError);
-            return fConnectionFromCompToCtrl->lpVtbl->notify(fConnectionFromCompToCtrl, message);
-           #else
-            return res;
-           #endif
-        }
-       #endif
-
         d_stderr("ctrl2view_notify received unknown msg '%s'", msgid);
 
         return Steinberg_kNotImplemented;
     }
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    Steinberg_tresult notify_state(Steinberg_Vst_IAttributeList* const attrs)
-    {
-        int64_t keyLength = -1;
-        int64_t valueLength = -1;
-        Steinberg_tresult res;
-
-        res = attrs->lpVtbl->getInt(attrs, "key:length", &keyLength);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(keyLength >= 0, keyLength, Steinberg_kInternalError);
-
-        res = attrs->lpVtbl->getInt(attrs, "value:length", &valueLength);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(valueLength >= 0, valueLength, Steinberg_kInternalError);
-
-        char16_t* const key16 = (char16_t*)std::malloc(sizeof(char16_t)*(keyLength + 1));
-        DISTRHO_SAFE_ASSERT_RETURN(key16 != nullptr, Steinberg_kOutOfMemory);
-
-        char16_t* const value16 = (char16_t*)std::malloc(sizeof(char16_t)*(valueLength + 1));
-        DISTRHO_SAFE_ASSERT_RETURN(value16 != nullptr, Steinberg_kOutOfMemory);
-
-        res = attrs->lpVtbl->getString(attrs, "key", key16, sizeof(char16_t)*(keyLength+1));
-        DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, keyLength, res);
-
-        if (valueLength != 0)
-        {
-            res = attrs->lpVtbl->getString(attrs, "value", value16, sizeof(char16_t)*(valueLength+1));
-            DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, valueLength, res);
-        }
-
-        // do cheap inline conversion
-        char* const key = (char*)key16;
-        char* const value = (char*)value16;
-
-        for (int64_t i=0; i<keyLength; ++i)
-            key[i] = key16[i];
-        for (int64_t i=0; i<valueLength; ++i)
-            value[i] = value16[i];
-
-        key[keyLength] = '\0';
-        value[valueLength] = '\0';
-
-        fPlugin.setState(key, value);
-
-        // save this key as needed
-        if (fPlugin.wantStateKey(key))
-        {
-            for (StringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
-            {
-                const String& dkey(it->first);
-
-                if (dkey == key)
-                {
-                    it->second = value;
-                    std::free(key16);
-                    std::free(value16);
-                    return Steinberg_kResultOk;
-                }
-            }
-
-            d_stderr("Failed to find plugin state with key \"%s\"", key);
-        }
-
-        std::free(key16);
-        std::free(value16);
-        return Steinberg_kResultOk;
-    }
-   #endif // DISTRHO_PLUGIN_WANT_STATE
 
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     Steinberg_tresult notify_midi(Steinberg_Vst_IAttributeList* const attrs)
@@ -2496,9 +2058,6 @@ private:
    #if DISTRHO_PLUGIN_WANT_PROGRAMS
     uint32_t fCurrentProgram;
     const uint32_t fProgramCountMinusOne;
-   #endif
-   #if DISTRHO_PLUGIN_WANT_STATE
-    StringMap fStateMap;
    #endif
    #if DISTRHO_PLUGIN_WANT_TIMEPOS
     TimePosition fTimePosition;
@@ -3002,24 +2561,6 @@ private:
         attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 2);
         attrlist->lpVtbl->setInt(attrlist, "rindex", rindex);
         attrlist->lpVtbl->setFloat(attrlist, "value", value);
-        fConnectionFromCtrlToView->lpVtbl->notify(fConnectionFromCtrlToView, (Steinberg_Vst_IMessage*)(void*)message);
-
-        message->lpVtbl->release(message);
-    }
-
-    void sendStateSetToUI(const char* const key, const char* const value) const
-    {
-        Steinberg_Vst_IMessage* const message = createMessage("state-set");
-        DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
-
-        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
-
-        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 2);
-        attrlist->lpVtbl->setInt(attrlist, "key:length", std::strlen(key));
-        attrlist->lpVtbl->setInt(attrlist, "value:length", std::strlen(value));
-        attrlist->lpVtbl->setString(attrlist, "key", ScopedUTF16String(key));
-        attrlist->lpVtbl->setString(attrlist, "value", ScopedUTF16String(value));
         fConnectionFromCtrlToView->lpVtbl->notify(fConnectionFromCtrlToView, (Steinberg_Vst_IMessage*)(void*)message);
 
         message->lpVtbl->release(message);

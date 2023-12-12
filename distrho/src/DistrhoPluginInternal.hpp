@@ -177,11 +177,6 @@ struct PluginPrivateData {
     String*  programNames;
 #endif
 
-#if DISTRHO_PLUGIN_WANT_STATE
-    uint32_t stateCount;
-    State*   states;
-#endif
-
 #if DISTRHO_PLUGIN_WANT_LATENCY
     uint32_t latency;
 #endif
@@ -194,7 +189,6 @@ struct PluginPrivateData {
     void*         callbacksPtr;
     writeMidiFunc writeMidiCallbackFunc;
     requestParameterValueChangeFunc requestParameterValueChangeCallbackFunc;
-    updateStateValueFunc updateStateValueCallbackFunc;
 
     // Host state
     // These values will remain constant between plugin_activate() and plugin_deactivate().
@@ -221,17 +215,12 @@ struct PluginPrivateData {
           programCount(0),
           programNames(nullptr),
 #endif
-#if DISTRHO_PLUGIN_WANT_STATE
-          stateCount(0),
-          states(nullptr),
-#endif
 #if DISTRHO_PLUGIN_WANT_LATENCY
           latency(0),
 #endif
           callbacksPtr(nullptr),
           writeMidiCallbackFunc(nullptr),
           requestParameterValueChangeCallbackFunc(nullptr),
-          updateStateValueCallbackFunc(nullptr),
           bufferSize(d_nextBufferSize),
           sampleRate(d_nextSampleRate),
           bundlePath(d_nextBundlePath != nullptr ? strdup(d_nextBundlePath) : nullptr)
@@ -247,10 +236,10 @@ struct PluginPrivateData {
 #endif
 
 #ifdef DISTRHO_PLUGIN_TARGET_LV2
-# if (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_STATE || DISTRHO_PLUGIN_WANT_TIMEPOS)
+# if (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS)
         parameterOffset += 1;
 # endif
-# if (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
+# if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
         parameterOffset += 1;
 # endif
 #endif
@@ -290,14 +279,6 @@ struct PluginPrivateData {
         }
 #endif
 
-#if DISTRHO_PLUGIN_WANT_STATE
-        if (states != nullptr)
-        {
-            delete[] states;
-            states = nullptr;
-        }
-#endif
-
         if (bundlePath != nullptr)
         {
             std::free(bundlePath);
@@ -324,17 +305,6 @@ struct PluginPrivateData {
         return false;
     }
 #endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-    bool updateStateValueCallback(const char* const key, const char* const value)
-    {
-        d_stdout("updateStateValueCallback %p", updateStateValueCallbackFunc);
-        if (updateStateValueCallbackFunc != nullptr)
-            return updateStateValueCallbackFunc(callbacksPtr, key, value);
-
-        return false;
-    }
-#endif
 };
 
 // -----------------------------------------------------------------------
@@ -345,8 +315,7 @@ class PluginExporter
 public:
     PluginExporter(void* const callbacksPtr,
                    const writeMidiFunc writeMidiCall,
-                   const requestParameterValueChangeFunc requestParameterValueChangeCall,
-                   const updateStateValueFunc updateStateValueCall)
+                   const requestParameterValueChangeFunc requestParameterValueChangeCall)
         : fPlugin(createPlugin()),
           fData(getPluginPrivateData(fPlugin)),
           fIsActive(false)
@@ -393,39 +362,6 @@ public:
         }
 # endif
 
-# if DISTRHO_PLUGIN_WANT_STATE
-        if (fData->stateCount != 0)
-        {
-            if ((void*)(fPlugin->*(static_cast<void(Plugin::*)(uint32_t,State&)>(&Plugin::initState))) ==
-                (void*)static_cast<void(Plugin::*)(uint32_t,State&)>(&Plugin::initState))
-            {
-                d_stderr2("DPF warning: Plugins with state must implement `initState`");
-                abort();
-            }
-
-            if ((void*)(fPlugin->*(&Plugin::setState)) == (void*)&Plugin::setState)
-            {
-                d_stderr2("DPF warning: Plugins with state must implement `setState`");
-                abort();
-            }
-        }
-# endif
-
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
-        if (fData->stateCount != 0)
-        {
-            if ((void*)(fPlugin->*(&Plugin::getState)) == (void*)&Plugin::getState)
-            {
-                d_stderr2("DPF warning: Plugins with full state must implement `getState`");
-                abort();
-            }
-        }
-        else
-        {
-            d_stderr2("DPF warning: Plugins with full state must have at least 1 state");
-            abort();
-        }
-# endif
 #endif
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
@@ -481,15 +417,9 @@ public:
             plugin_initProgramName(fPlugin, i, fData->programNames[i]);
 #endif
 
-#if DISTRHO_PLUGIN_WANT_STATE
-        for (uint32_t i=0, count=fData->stateCount; i < count; ++i)
-            plugin_initState(fPlugin, i, fData->states[i]);
-#endif
-
         fData->callbacksPtr = callbacksPtr;
         fData->writeMidiCallbackFunc = writeMidiCall;
         fData->requestParameterValueChangeCallbackFunc = requestParameterValueChangeCall;
-        fData->updateStateValueCallbackFunc = updateStateValueCall;
     }
 
     ~PluginExporter()
@@ -832,92 +762,6 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->programCount,);
 
         plugin_loadProgram(fPlugin, index);
-    }
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-    uint32_t getStateCount() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, 0);
-
-        return fData->stateCount;
-    }
-
-    uint32_t getStateHints(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, 0x0);
-
-        return fData->states[index].hints;
-    }
-
-    const String& getStateKey(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, sFallbackString);
-
-        return fData->states[index].key;
-    }
-
-    const String& getStateDefaultValue(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, sFallbackString);
-
-        return fData->states[index].defaultValue;
-    }
-
-    const String& getStateLabel(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, sFallbackString);
-
-        return fData->states[index].label;
-    }
-
-    const String& getStateDescription(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, sFallbackString);
-
-        return fData->states[index].description;
-    }
-
-   #ifdef __MOD_DEVICES__
-    const String& getStateFileTypes(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->stateCount, sFallbackString);
-
-        return fData->states[index].fileTypes;
-    }
-   #endif
-
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
-    String getStateValue(const char* const key) const
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, sFallbackString);
-        DISTRHO_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0', sFallbackString);
-
-        return plugin_getState(fPlugin, key);
-    }
-# endif
-
-    void setState(const char* const key, const char* const value)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr,);
-        DISTRHO_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0',);
-        DISTRHO_SAFE_ASSERT_RETURN(value != nullptr,);
-
-        plugin_setState(fPlugin, key, value);
-    }
-
-    bool wantStateKey(const char* const key) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, false);
-        DISTRHO_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0', false);
-
-        for (uint32_t i=0; i < fData->stateCount; ++i)
-        {
-            if (fData->states[i].key == key)
-                return true;
-        }
-
-        return false;
     }
 #endif
 

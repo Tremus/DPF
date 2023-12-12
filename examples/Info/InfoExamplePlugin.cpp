@@ -27,7 +27,7 @@ struct InfoExamplePlugin
 
     InfoExamplePlugin()
     {
-        PluginPrivateData_init(&data, kParameterCount, 0, 0);
+        PluginPrivateData_init(&data, kParameterCount, 0);
 
         // clear all parameters
         std::memset(fParameters, 0, sizeof(float)*kParameterCount);

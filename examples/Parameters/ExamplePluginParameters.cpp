@@ -29,8 +29,8 @@ struct ExamplePluginParameters
 
     ExamplePluginParameters()
     {
-        // 9 parameters, 2 programs, 0 states
-        PluginPrivateData_init(&data, 9, 2, 0);
+        // 9 parameters, 2 programs
+        PluginPrivateData_init(&data, 9, 2);
        /**
           Initialize all our parameters to their defaults.
           In this example all parameters have 0 as default, so we can simply zero them.

@@ -306,20 +306,6 @@ void UI::setParameterValue(uint32_t index, float value)
     uiData->setParamCallback(index + uiData->parameterOffset, value);
 }
 
-#if DISTRHO_PLUGIN_WANT_STATE
-void UI::setState(const char* key, const char* value)
-{
-    uiData->setStateCallback(key, value);
-}
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-bool UI::requestStateFile(const char* key)
-{
-    return uiData->fileRequestCallback(key);
-}
-#endif
-
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
 void UI::sendNote(uint8_t channel, uint8_t note, uint8_t velocity)
 {

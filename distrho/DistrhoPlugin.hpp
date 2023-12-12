@@ -51,9 +51,6 @@ START_NAMESPACE_DISTRHO
    DISTRHO_PLUGIN_WANT_PROGRAMS activates program related features.@n
    When enabled you need to implement initProgramName() and loadProgram().
 
-   DISTRHO_PLUGIN_WANT_STATE activates internal state features.@n
-   When enabled you need to implement initState() and setState().
-
    The process function run() changes wherever DISTRHO_PLUGIN_WANT_MIDI_INPUT is enabled or not.@n
    When enabled it provides midi input events.
  */
@@ -105,19 +102,6 @@ extern bool plugin_canRequestParameterValueChanges(void*);
     @note This function is only available if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST is enabled.
 */
 extern bool plugin_requestParameterValueChange(void*, uint32_t index, float value);
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-/**
-    Set state value and notify the host about the change.@n
-    This function will call `setState()` and also trigger an update on the UI side as necessary.@n
-    It must not be called during run.@n
-    The state must be host readable.
-    @note this function does nothing on DSSI plugin format, as DSSI only supports UI->DSP messages.
-
-    TODO API under construction
-*/
-extern bool plugin_updateStateValue(void*, const char* key, const char* value);
 #endif
 
 /* --------------------------------------------------------------------------------------------------------
@@ -203,15 +187,6 @@ extern void plugin_initPortGroup(void*, uint32_t groupId, PortGroup& portGroup);
 extern void plugin_initProgramName(void*, uint32_t index, String& programName);
 #endif
 
-#if DISTRHO_PLUGIN_WANT_STATE
-/**
-    Initialize the state @a index.@n
-    This function will be called once, shortly after the plugin is created.@n
-    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
-*/
-extern void plugin_initState(void*, uint32_t index, State& state);
-#endif
-
 /* --------------------------------------------------------------------------------------------------------
 * Internal data */
 
@@ -236,24 +211,6 @@ extern void plugin_setParameterValue(void*, uint32_t index, float value);
     Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_PROGRAMS is enabled.
 */
 extern void plugin_loadProgram(void*, uint32_t index);
-#endif
-
-#if DISTRHO_PLUGIN_WANT_FULL_STATE
-/**
-    Get the value of an internal state.@n
-    The host may call this function from any non-realtime context.@n
-    Must be implemented by your plugin class if DISTRHO_PLUGIN_WANT_FULL_STATE is enabled.
-    @note The use of this function breaks compatibility with the DSSI format.
-*/
-extern String plugin_getState(void*, const char* key);
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-/**
-    Change an internal state @a key to @a value.@n
-    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_STATE is enabled.
-*/
-extern void plugin_setState(void*, const char* key, const char* value);
 #endif
 
 /* --------------------------------------------------------------------------------------------------------
@@ -309,7 +266,7 @@ extern void plugin_sampleRateChanged(void*, double newSampleRate);
     Plugin class constructor.@n
     You must set all parameter values to their defaults, matching ParameterRanges::def.
 */
-void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount, uint32_t stateCount);
+void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount);
 
 void plugin_default_initAudioPort(bool input, uint32_t index, AudioPort& port);
 void plugin_default_initPortGroup(uint32_t groupId, PortGroup& portGroup);

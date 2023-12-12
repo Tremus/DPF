@@ -26,7 +26,7 @@ struct MidiThroughExamplePlugin
 
     MidiThroughExamplePlugin()
     {
-        PluginPrivateData_init(&data, 0, 0, 0);
+        PluginPrivateData_init(&data, 0, 0);
     }
 
     DISTRHO_DECLARE_NON_COPYABLE(MidiThroughExamplePlugin)

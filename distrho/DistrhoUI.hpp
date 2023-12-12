@@ -154,25 +154,6 @@ public:
     */
     void setParameterValue(uint32_t index, float value);
 
-#if DISTRHO_PLUGIN_WANT_STATE
-   /**
-      setState.
-      @TODO Document this.
-    */
-    void setState(const char* key, const char* value);
-
-   /**
-      Request a new file from the host, matching the properties of a state key.@n
-      This will use the native host file browser if available, otherwise a DPF built-in file browser is used.@n
-      Response will be sent asynchronously to stateChanged, with the matching key and the new file as the value.@n
-      It is not possible to know if the action was cancelled by the user.
-
-      @return Success if a file-browser was opened, otherwise false.
-      @note You cannot request more than one file at a time.
-    */
-    bool requestStateFile(const char* key);
-#endif
-
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
    /**
       Send a single MIDI note from the UI to the plugin DSP side.@n
@@ -252,14 +233,6 @@ protected:
       This is called by the host to inform the UI about program changes.
     */
     virtual void programLoaded(uint32_t index) = 0;
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-   /**
-      A state has changed on the plugin side.@n
-      This is called by the host to inform the UI about state changes.
-    */
-    virtual void stateChanged(const char* key, const char* value) = 0;
 #endif
 
    /* --------------------------------------------------------------------------------------------------------

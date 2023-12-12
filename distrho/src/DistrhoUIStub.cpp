@@ -20,9 +20,7 @@ START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
-#if ! DISTRHO_PLUGIN_WANT_STATE
 static constexpr const setStateFunc setStateCallback = nullptr;
-#endif
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -88,17 +86,6 @@ private:
     {
         static_cast<UIStub*>(ptr)->setSize(width, height);
     }
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void setState(const char*, const char*)
-    {
-    }
-
-    static void setStateCallback(void* const ptr, const char* key, const char* value)
-    {
-        static_cast<UIStub*>(ptr)->setState(key, value);
-    }
-   #endif
 
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     void sendNote(const uint8_t channel, const uint8_t note, const uint8_t velocity)

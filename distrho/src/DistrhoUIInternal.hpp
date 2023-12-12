@@ -203,17 +203,6 @@ public:
     }
    #endif
 
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void stateChanged(const char* const key, const char* const value)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
-        DISTRHO_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0',);
-        DISTRHO_SAFE_ASSERT_RETURN(value != nullptr,);
-
-        ui->stateChanged(key, value);
-    }
-   #endif
-
     // -------------------------------------------------------------------
 
    #if DISTRHO_UI_IS_STANDALONE

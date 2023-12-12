@@ -26,9 +26,6 @@ static constexpr const writeMidiFunc writeMidiCallback = nullptr;
 #if ! DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
 static constexpr const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
 #endif
-#if ! DISTRHO_PLUGIN_WANT_STATE
-static const updateStateValueFunc updateStateValueCallback = nullptr;
-#endif
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -38,11 +35,7 @@ static const updateStateValueFunc updateStateValueCallback = nullptr;
 class PluginStub
 {
 public:
-    PluginStub()
-        : fPlugin(this,
-                  writeMidiCallback,
-                  requestParameterValueChangeCallback,
-                  updateStateValueCallback)
+    PluginStub() : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback)
     {
     }
 
@@ -76,18 +69,6 @@ private:
     static bool requestParameterValueChangeCallback(void* const ptr, const uint32_t index, const float value)
     {
         return ((PluginStub*)ptr)->requestParameterValueChange(index, value);
-    }
-   #endif
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    bool updateState(const char*, const char*)
-    {
-        return true;
-    }
-
-    static bool updateStateValueCallback(void* const ptr, const char* const key, const char* const value)
-    {
-        return ((PluginStub*)ptr)->updateState(key, value);
     }
    #endif
 };

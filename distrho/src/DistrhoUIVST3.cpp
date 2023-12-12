@@ -53,9 +53,8 @@ START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
-#if ! DISTRHO_PLUGIN_WANT_STATE
+// TODO: deprecate state API
 static constexpr const setStateFunc setStateCallback = nullptr;
-#endif
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -613,56 +612,6 @@ public:
             return Steinberg_kResultOk;
         }
 
-       #if DISTRHO_PLUGIN_WANT_STATE
-        if (std::strcmp(msgid, "state-set") == 0)
-        {
-            int64_t keyLength = -1;
-            int64_t valueLength = -1;
-            Steinberg_tresult res;
-
-            res = attrs->lpVtbl->getInt(attrs, "key:length", &keyLength);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(keyLength >= 0, keyLength, Steinberg_kInternalError);
-
-            res = attrs->lpVtbl->getInt(attrs, "value:length", &valueLength);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-            DISTRHO_SAFE_ASSERT_INT_RETURN(valueLength >= 0, valueLength, Steinberg_kInternalError);
-
-            char16_t* const key16 = (char16_t*)std::malloc(sizeof(char16_t) * (keyLength + 1));
-            DISTRHO_SAFE_ASSERT_RETURN(key16 != nullptr, Steinberg_kOutOfMemory);
-
-            char16_t* const value16 = (char16_t*)std::malloc(sizeof(char16_t) * (valueLength + 1));
-            DISTRHO_SAFE_ASSERT_RETURN(value16 != nullptr, Steinberg_kOutOfMemory);
-
-            res = attrs->lpVtbl->getString(attrs, "key", key16, sizeof(char16_t) * (keyLength+1));
-            DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, keyLength, res);
-
-            if (valueLength != 0)
-            {
-                res = attrs->lpVtbl->getString(attrs, "value", value16, sizeof(char16_t) * (valueLength+1));
-                DISTRHO_SAFE_ASSERT_INT2_RETURN(res == Steinberg_kResultOk, res, valueLength, res);
-            }
-
-            // do cheap inline conversion
-            char* const key = (char*)key16;
-            char* const value = (char*)value16;
-
-            for (int64_t i=0; i<keyLength; ++i)
-                key[i] = key16[i];
-            for (int64_t i=0; i<valueLength; ++i)
-                value[i] = value16[i];
-
-            key[keyLength] = '\0';
-            value[valueLength] = '\0';
-
-            fUI.stateChanged(key, value);
-
-            std::free(key16);
-            std::free(value16);
-            return Steinberg_kResultOk;
-        }
-       #endif
-
         d_stderr("UIVst3 received unknown msg '%s'", msgid);
 
         return Steinberg_kNotImplemented;
@@ -830,33 +779,6 @@ private:
     {
         static_cast<UIVst3*>(ptr)->setParameterValue(rindex, value);
     }
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void setState(const char* const key, const char* const value)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fConnection != nullptr,);
-
-        Steinberg_Vst_IMessage* const message = createMessage("state-set");
-        DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
-
-        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
-
-        attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 1);
-        attrlist->lpVtbl->setInt(attrlist, "key:length", std::strlen(key));
-        attrlist->lpVtbl->setInt(attrlist, "value:length", std::strlen(value));
-        attrlist->lpVtbl->setString(attrlist, "key", ScopedUTF16String(key));
-        attrlist->lpVtbl->setString(attrlist, "value", ScopedUTF16String(value));
-        fConnection->lpVtbl->notify(fConnection, message);
-
-        message->lpVtbl->release(message);
-    }
-
-    static void setStateCallback(void* const ptr, const char* const key, const char* const value)
-    {
-        static_cast<UIVst3*>(ptr)->setState(key, value);
-    }
-   #endif
 
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     void sendNote(const uint8_t channel, const uint8_t note, const uint8_t velocity)

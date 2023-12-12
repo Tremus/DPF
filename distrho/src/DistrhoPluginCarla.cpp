@@ -43,9 +43,7 @@ static constexpr const updateStateValueFunc updateStateValueCallback = nullptr;
 // -----------------------------------------------------------------------
 // Carla UI
 
-#if ! DISTRHO_PLUGIN_WANT_STATE
 static const setStateFunc setStateCallback = nullptr;
-#endif
 #if ! DISTRHO_PLUGIN_IS_SYNTH
 static const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -97,13 +95,6 @@ public:
     }
 #endif
 
-#if DISTRHO_PLUGIN_WANT_STATE
-    void carla_setCustomData(const char* const key, const char* const value)
-    {
-        fUI.stateChanged(key, value);
-    }
-#endif
-
     void carla_setUiTitle(const char* const uiTitle)
     {
         fUI.setWindowTitle(uiTitle);
@@ -121,13 +112,6 @@ protected:
     {
         fHost->ui_parameter_changed(fHost->handle, rindex, value);
     }
-
-#if DISTRHO_PLUGIN_WANT_STATE
-    void handleSetState(const char* const key, const char* const value)
-    {
-        fHost->ui_custom_data_changed(fHost->handle, key, value);
-    }
-#endif
 
 #if DISTRHO_PLUGIN_IS_SYNTH
     void handleSendNote(const uint8_t, const uint8_t, const uint8_t)
@@ -159,13 +143,6 @@ private:
     {
         handlePtr->handleSetParameterValue(rindex, value);
     }
-
-#if DISTRHO_PLUGIN_WANT_STATE
-    static void setStateCallback(void* ptr, const char* key, const char* value)
-    {
-        handlePtr->handleSetState(key, value);
-    }
-#endif
 
 #if DISTRHO_PLUGIN_IS_SYNTH
     static void sendNoteCallback(void* ptr, uint8_t channel, uint8_t note, uint8_t velocity)
@@ -340,16 +317,6 @@ protected:
     }
 #endif
 
-#if DISTRHO_PLUGIN_WANT_STATE
-    void setCustomData(const char* const key, const char* const value) override
-    {
-        CARLA_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0',);
-        CARLA_SAFE_ASSERT_RETURN(value != nullptr,);
-
-        fPlugin.setState(key, value);
-    }
-#endif
-
     // -------------------------------------------------------------------
     // Plugin process calls
 
@@ -450,16 +417,6 @@ protected:
     }
 # endif
 
-# if DISTRHO_PLUGIN_WANT_STATE
-    void uiSetCustomData(const char* const key, const char* const value) override
-    {
-        CARLA_SAFE_ASSERT_RETURN(fUiPtr != nullptr,);
-        CARLA_SAFE_ASSERT_RETURN(key != nullptr && key[0] != '\0',);
-        CARLA_SAFE_ASSERT_RETURN(value != nullptr,);
-
-        fUiPtr->carla_setCustomData(key, value);
-    }
-# endif
 #endif
 
     // -------------------------------------------------------------------

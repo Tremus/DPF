@@ -40,7 +40,7 @@ const PortGroupWithId            PluginExporter::sFallbackPortGroup;
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin */
 
-void PluginPrivateData_init(PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount, uint32_t stateCount)
+void PluginPrivateData_init(PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount)
 {
    #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
     pData->audioPorts = new AudioPortWithBusId[DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS];
@@ -65,17 +65,6 @@ void PluginPrivateData_init(PluginPrivateData* pData, uint32_t parameterCount, u
         pData->programNames = new String[programCount];
        #else
         d_stderr2("DPF warning: Plugins with programs must define `DISTRHO_PLUGIN_WANT_PROGRAMS` to 1");
-        DPF_ABORT
-       #endif
-    }
-
-    if (stateCount > 0)
-    {
-       #if DISTRHO_PLUGIN_WANT_STATE
-        pData->stateCount = stateCount;
-        pData->states = new State[stateCount];
-       #else
-        d_stderr2("DPF warning: Plugins with state must define `DISTRHO_PLUGIN_WANT_STATE` to 1");
         DPF_ABORT
        #endif
     }
@@ -121,14 +110,6 @@ bool plugin_requestParameterValueChange(void* ptr, const uint32_t index, const f
 {
     PluginPrivateData* pData = getPluginPrivateData(ptr);
     return pData->requestParameterValueChangeCallback(index, value);
-}
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-bool plugin_updateStateValue(void* ptr, const char* const key, const char* const value)
-{
-    PluginPrivateData* pData = getPluginPrivateData(ptr);
-    return pData->updateStateValueCallback(key, value);
 }
 #endif
 
