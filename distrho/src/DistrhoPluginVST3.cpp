@@ -4170,46 +4170,43 @@ static const char* getPluginVersion()
 // dpf_factory
 
 struct dpf_factory {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_plugin_factory   v1;
-	v3_plugin_factory_2 v2;
-	v3_plugin_factory_3 v3;
+    Steinberg_IPluginFactory3Vtbl* lpVtbl;
+    Steinberg_IPluginFactory3Vtbl base;
 
     std::atomic_int refcounter;
 
     // cached values
-    v3_funknown** hostContext;
+    Steinberg_FUnknown* hostContext;
 
     dpf_factory()
         : refcounter(1),
           hostContext(nullptr)
     {
-        lpVtbl = &com;
-        // v3_funknown
-        com.query_interface = query_interface_factory;
-        com.ref = ref_factory;
-        com.unref = unref_factory;
+        lpVtbl = &base;
+        // Steinberg_FUnknown
+        base.queryInterface = query_interface_factory;
+        base.addRef = ref_factory;
+        base.release = unref_factory;
 
-        // v3_plugin_factory
-        v1.get_factory_info = get_factory_info;
-        v1.num_classes = num_classes;
-        v1.get_class_info = get_class_info;
-        v1.create_instance = create_instance;
+        // Steinberg_IPluginFactory
+        base.getFactoryInfo = get_factory_info;
+        base.countClasses = num_classes;
+        base.getClassInfo = get_class_info;
+        base.createInstance = create_instance;
 
-        // v3_plugin_factory_2
-        v2.get_class_info_2 = get_class_info_2;
+        // Steinberg_IPluginFactory2
+        base.getClassInfo2 = get_class_info_2;
 
-        // v3_plugin_factory_3
-        v3.get_class_info_utf16 = get_class_info_utf16;
-        v3.set_host_context = set_host_context;
+        // Steinberg_IPluginFactory3
+        base.getClassInfoUnicode = get_class_info_utf16;
+        base.setHostContext = set_host_context;
     }
 
     ~dpf_factory()
     {
         // unref old context if there is one
         if (hostContext != nullptr)
-            v3_cpp_obj_unref(hostContext);
+            hostContext->lpVtbl->release(hostContext);
 
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
         if (gControllerGarbage.size() != 0)
@@ -4243,9 +4240,9 @@ struct dpf_factory {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_funknown
+    // Steinberg_FUnknown
 
-    static Steinberg_tresult query_interface_factory(void* const self, const v3_tuid iid, void** const iface)
+    static Steinberg_tresult query_interface_factory(void* const self, const Steinberg_TUID iid, void** const iface)
     {
         dpf_factory* const factory = (dpf_factory*)(self);
 
@@ -4293,7 +4290,7 @@ struct dpf_factory {
     // ----------------------------------------------------------------------------------------------------------------
     // v3_plugin_factory
 
-    static Steinberg_tresult get_factory_info(void*, v3_factory_info* const info)
+    static Steinberg_tresult get_factory_info(void*, Steinberg_PFactoryInfo* const info)
     {
         d_debug("dpf_factory::get_factory_info => %p", info);
         std::memset(info, 0, sizeof(*info));
@@ -4315,7 +4312,7 @@ struct dpf_factory {
        #endif
     }
 
-    static Steinberg_tresult get_class_info(void*, const int32_t idx, v3_class_info* const info)
+    static Steinberg_tresult get_class_info(void*, const int32_t idx, Steinberg_PClassInfo* const info)
     {
         d_debug("dpf_factory::get_class_info => %i %p", idx, info);
         std::memset(info, 0, sizeof(*info));
@@ -4326,19 +4323,19 @@ struct dpf_factory {
 
         if (idx == 0)
         {
-            std::memcpy(info->class_id, dpf_tuid_class, sizeof(info->class_id));
+            std::memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
             d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
         }
         else
         {
-            std::memcpy(info->class_id, dpf_tuid_controller, sizeof(info->class_id));
+            std::memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
             d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
         }
 
         return Steinberg_kResultOk;
     }
 
-    static Steinberg_tresult create_instance(void* self, const v3_tuid class_id, const v3_tuid iid, void** const instance)
+    static Steinberg_tresult create_instance(void* self, const Steinberg_TUID class_id, const Steinberg_TUID iid, void** const instance)
     {
         d_debug("dpf_factory::create_instance => %p %s %s %p", self, tuid2str(class_id), tuid2str(iid), instance);
         dpf_factory* const factory = (dpf_factory*)(self);
@@ -4376,7 +4373,7 @@ struct dpf_factory {
     // ----------------------------------------------------------------------------------------------------------------
     // v3_plugin_factory_2
 
-    static Steinberg_tresult get_class_info_2(void*, const int32_t idx, v3_class_info_2* const info)
+    static Steinberg_tresult get_class_info_2(void*, const int32_t idx, Steinberg_PClassInfo2* const info)
     {
         d_debug("dpf_factory::get_class_info_2 => %i %p", idx, info);
         std::memset(info, 0, sizeof(*info));
@@ -4384,22 +4381,22 @@ struct dpf_factory {
 
         info->cardinality = 0x7FFFFFFF;
        #if DPF_VST3_USES_SEPARATE_CONTROLLER || !DISTRHO_PLUGIN_HAS_UI
-        info->class_flags = Steinberg_Vst_ComponentFlags_kDistributable;
+        info->classFlags = Steinberg_Vst_ComponentFlags_kDistributable;
        #endif
-        d_strncpy(info->sub_categories, getPluginCategories(), ARRAY_SIZE(info->sub_categories));
+        d_strncpy(info->subCategories, getPluginCategories(), ARRAY_SIZE(info->subCategories));
         d_strncpy(info->name, sPlugin->getName(), ARRAY_SIZE(info->name));
         d_strncpy(info->vendor, sPlugin->getMaker(), ARRAY_SIZE(info->vendor));
         d_strncpy(info->version, getPluginVersion(), ARRAY_SIZE(info->version));
-        d_strncpy(info->sdk_version, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdk_version));
+        d_strncpy(info->sdkVersion, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdkVersion));
 
         if (idx == 0)
         {
-            std::memcpy(info->class_id, dpf_tuid_class, sizeof(info->class_id));
+            std::memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
             d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
         }
         else
         {
-            std::memcpy(info->class_id, dpf_tuid_controller, sizeof(info->class_id));
+            std::memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
             d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
         }
 
@@ -4409,7 +4406,7 @@ struct dpf_factory {
     // ------------------------------------------------------------------------------------------------------------
     // v3_plugin_factory_3
 
-    static Steinberg_tresult get_class_info_utf16(void*, const int32_t idx, v3_class_info_3* const info)
+    static Steinberg_tresult get_class_info_utf16(void*, const int32_t idx, Steinberg_PClassInfoW* const info)
     {
         d_debug("dpf_factory::get_class_info_utf16 => %i %p", idx, info);
         std::memset(info, 0, sizeof(*info));
@@ -4417,43 +4414,43 @@ struct dpf_factory {
 
         info->cardinality = 0x7FFFFFFF;
        #if DPF_VST3_USES_SEPARATE_CONTROLLER || !DISTRHO_PLUGIN_HAS_UI
-        info->class_flags = Steinberg_Vst_ComponentFlags_kDistributable;
+        info->classFlags = Steinberg_Vst_ComponentFlags_kDistributable;
        #endif
-        d_strncpy(info->sub_categories, getPluginCategories(), ARRAY_SIZE(info->sub_categories));
-        DISTRHO_NAMESPACE::strncpy_utf16(info->name, sPlugin->getName(), ARRAY_SIZE(info->name));
-        DISTRHO_NAMESPACE::strncpy_utf16(info->vendor, sPlugin->getMaker(), ARRAY_SIZE(info->vendor));
-        DISTRHO_NAMESPACE::strncpy_utf16(info->version, getPluginVersion(), ARRAY_SIZE(info->version));
-        DISTRHO_NAMESPACE::strncpy_utf16(info->sdk_version, "Travesty 3.7.4", ARRAY_SIZE(info->sdk_version));
+        d_strncpy(info->subCategories, getPluginCategories(), ARRAY_SIZE(info->subCategories));
+        strncpy_utf16((int16_t*)info->name, sPlugin->getName(), ARRAY_SIZE(info->name));
+        strncpy_utf16((int16_t*)info->vendor, sPlugin->getMaker(), ARRAY_SIZE(info->vendor));
+        strncpy_utf16((int16_t*)info->version, getPluginVersion(), ARRAY_SIZE(info->version));
+        strncpy_utf16((int16_t*)info->sdkVersion, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdkVersion));
 
         if (idx == 0)
         {
-            std::memcpy(info->class_id, dpf_tuid_class, sizeof(info->class_id));
+            std::memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
             d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
         }
         else
         {
-            std::memcpy(info->class_id, dpf_tuid_controller, sizeof(info->class_id));
+            std::memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
             d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
         }
 
         return Steinberg_kResultOk;
     }
 
-    static Steinberg_tresult set_host_context(void* const self, v3_funknown** const context)
+    static Steinberg_tresult set_host_context(void* const self, Steinberg_FUnknown* const context)
     {
         d_debug("dpf_factory::set_host_context => %p %p", self, context);
         dpf_factory* const factory = *static_cast<dpf_factory**>(self);
 
         // unref old context if there is one
         if (factory->hostContext != nullptr)
-            v3_cpp_obj_unref(factory->hostContext);
+            factory->hostContext->lpVtbl->release(factory->hostContext);
 
         // store new context
         factory->hostContext = context;
 
         // make sure the object keeps being valid for a while
         if (context != nullptr)
-            v3_cpp_obj_ref(context);
+            context->lpVtbl->addRef(context);
 
         return Steinberg_kResultOk;
     }
@@ -4526,7 +4523,7 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
         d_nextCanRequestParameterValueChanges = true;
 
         // Create dummy plugin to get data from
-        sPlugin = new PluginExporter(nullptr, nullptr, nullptr, nullptr);
+        sPlugin = new PluginExporter(nullptr, nullptr, nullptr);
 
         // unset
         d_nextBufferSize = 0;
@@ -4540,13 +4537,6 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
         memcpy(&dpf_tuid_controller[2], &id, 4);
         memcpy(&dpf_tuid_processor[2], &id, 4);
         memcpy(&dpf_tuid_view[2], &id, 4);
-        // memcpy(&dpf_tuid_class[8], &id, 4);
-        // memcpy(&dpf_tuid_component[8], &id, 4);
-        // memcpy(&dpf_tuid_controller[8], &id, 4);
-        // memcpy(&dpf_tuid_processor[8], &id, 4);
-        // memcpy(&dpf_tuid_view[8], &id, 4);
-        // dpf_tuid_class[2] = dpf_tuid_component[2] = dpf_tuid_controller[2]
-        //     = dpf_tuid_processor[2] = dpf_tuid_view[2] = sPlugin->getUniqueId();
     }
 
     return true;
