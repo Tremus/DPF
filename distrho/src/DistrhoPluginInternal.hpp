@@ -143,7 +143,7 @@ struct PluginPrivateData {
     bool isProcessing;
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-    AudioPortWithBusId* audioPorts;
+    AudioPortWithBusId audioPorts[DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS];
 #endif
 
     uint32_t   parameterCount;
@@ -182,9 +182,6 @@ struct PluginPrivateData {
     PluginPrivateData() noexcept
         : canRequestParameterValueChanges(d_nextCanRequestParameterValueChanges),
           isProcessing(false),
-#if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-          audioPorts(nullptr),
-#endif
           parameterCount(0),
           parameterOffset(0),
           parameters(nullptr),
@@ -230,14 +227,6 @@ struct PluginPrivateData {
 
     ~PluginPrivateData() noexcept
     {
-#if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-        if (audioPorts != nullptr)
-        {
-            delete[] audioPorts;
-            audioPorts = nullptr;
-        }
-#endif
-
         if (parameters != nullptr)
         {
             delete[] parameters;

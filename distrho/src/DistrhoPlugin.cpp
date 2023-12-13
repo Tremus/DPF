@@ -40,10 +40,6 @@ const PortGroupWithId            PluginExporter::sFallbackPortGroup;
 
 void PluginPrivateData_init(PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount)
 {
-   #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-    pData->audioPorts = new AudioPortWithBusId[DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS];
-   #endif
-
    #if defined(DPF_ABORT_ON_ERROR) || defined(DPF_RUNTIME_TESTING)
     #define DPF_ABORT abort();
    #else
