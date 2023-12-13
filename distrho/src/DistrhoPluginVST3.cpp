@@ -2927,9 +2927,8 @@ struct dpf_ctrl2view_connection_point {
 struct dpf_midi_mapping {
     Steinberg_Vst_IMidiMappingVtbl* lpVtbl;
     Steinberg_Vst_IMidiMappingVtbl base;
-    dpf_midi_mapping()
+    dpf_midi_mapping() : lpVtbl(&base)
     {
-        lpVtbl = &base;
         // Steinberg_FUnknown
         base.queryInterface = query_interface_midi_mapping;
         base.addRef = dpf_static_ref;
@@ -3097,8 +3096,7 @@ struct dpf_edit_controller {
            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             d_debug("query_interface_edit_controller => %p %s %p | OK convert static", self, tuid2str(iid), iface);
             static dpf_midi_mapping midi_mapping;
-            static dpf_midi_mapping* midi_mapping_ptr = &midi_mapping;
-            *iface = &midi_mapping_ptr;
+            *iface = &midi_mapping;
             return Steinberg_kResultOk;
            #else
             d_debug("query_interface_edit_controller => %p %s %p | reject unused", self, tuid2str(iid), iface);
@@ -3117,7 +3115,7 @@ struct dpf_edit_controller {
                 controller->connectionComp2Ctrl = new dpf_comp2ctrl_connection_point(controller->vst3);
             else
                 ++controller->connectionComp2Ctrl->refcounter;
-            *iface = &controller->connectionComp2Ctrl;
+            *iface = controller->connectionComp2Ctrl;
             return Steinberg_kResultOk;
            #else
             d_debug("query_interface_edit_controller => %p %s %p | reject unwanted", self, tuid2str(iid), iface);
@@ -3196,7 +3194,7 @@ struct dpf_edit_controller {
         // query for host application
         Steinberg_Vst_IHostApplication* hostApplication = nullptr;
         if (context != nullptr)
-            ((Steinberg_FUnknown*)context)->lpVtbl->queryInterface((Steinberg_FUnknown*)context, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
+            context->lpVtbl->queryInterface(context, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
 
         d_debug("dpf_edit_controller::initialize => %p %p | host %p", self, context, hostApplication);
 
@@ -3588,8 +3586,7 @@ struct dpf_audio_processor {
         {
             d_debug("query_interface_audio_processor => %p %s %p | OK convert static", self, tuid2str(iid), iface);
             static dpf_process_context_requirements context_req;
-            static dpf_process_context_requirements* context_req_ptr = &context_req;
-            *iface = context_req_ptr;
+            *iface = &context_req;
             return Steinberg_kResultOk;
         }
 
@@ -3797,8 +3794,7 @@ struct dpf_component {
            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             d_debug("query_interface_component => %p %s %p | OK convert static", self, tuid2str(iid), iface);
             static dpf_midi_mapping midi_mapping;
-            static dpf_midi_mapping* midi_mapping_ptr = &midi_mapping;
-            *iface = &midi_mapping_ptr;
+            *iface = &midi_mapping;
             return Steinberg_kResultOk;
            #else
             d_debug("query_interface_component => %p %s %p | reject unused", self, tuid2str(iid), iface);
@@ -3816,7 +3812,7 @@ struct dpf_component {
                 component->processor = new dpf_audio_processor(component->vst3);
             else
                 ++component->processor->refcounter;
-            *iface = component->processor;
+            *iface = component->processor.get();
             return Steinberg_kResultOk;
         }
 
@@ -4358,7 +4354,7 @@ struct dpf_factory {
         if (tuid_match(class_id, dpf_tuid_controller) && (tuid_match(iid, Steinberg_Vst_IEditController_iid) ||
                                                                                tuid_match(iid, Steinberg_FUnknown_iid)))
         {
-            *instance = static_cast<void*>(new dpf_edit_controller(hostApplication));
+            *instance = (void*)(new dpf_edit_controller(hostApplication));
             return Steinberg_kResultOk;
         }
        #endif
@@ -4439,7 +4435,7 @@ struct dpf_factory {
     static Steinberg_tresult set_host_context(void* const self, Steinberg_FUnknown* const context)
     {
         d_debug("dpf_factory::set_host_context => %p %p", self, context);
-        dpf_factory* const factory = *static_cast<dpf_factory**>(self);
+        dpf_factory* const factory = static_cast<dpf_factory*>(self);
 
         // unref old context if there is one
         if (factory->hostContext != nullptr)

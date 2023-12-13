@@ -49,7 +49,6 @@ public:
                const double sampleRate,
                const editParamFunc editParamCall,
                const setParamFunc setParamCall,
-               const setStateFunc setStateCall,
                const sendNoteFunc sendNoteCall,
                const setSizeFunc setSizeCall,
                const fileRequestFunc fileRequestCall,
@@ -74,7 +73,6 @@ public:
         uiData->callbacksPtr            = callbacksPtr;
         uiData->editParamCallbackFunc   = editParamCall;
         uiData->setParamCallbackFunc    = setParamCall;
-        uiData->setStateCallbackFunc    = setStateCall;
         uiData->sendNoteCallbackFunc    = sendNoteCall;
         uiData->setSizeCallbackFunc     = setSizeCall;
         uiData->fileRequestCallbackFunc = fileRequestCall;

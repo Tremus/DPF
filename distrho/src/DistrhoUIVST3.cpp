@@ -53,8 +53,6 @@ START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
-// TODO: deprecate state API
-static constexpr const setStateFunc setStateCallback = nullptr;
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -342,7 +340,6 @@ public:
           fUI(this, winId, sampleRate,
               editParameterCallback,
               setParameterCallback,
-              setStateCallback,
               sendNoteCallback,
               setSizeCallback,
               nullptr, // TODO file request
@@ -1224,7 +1221,7 @@ struct dpf_plugin_view {
                 view->connection = new dpf_ui_connection_point(view->uivst3);
             else
                 ++view->connection->refcounter;
-            *iface = &view->connection;
+            *iface = view->connection;
             return Steinberg_kResultOk;
         }
 
@@ -1238,7 +1235,7 @@ struct dpf_plugin_view {
                 view->scale = new dpf_plugin_view_content_scale(view->uivst3);
             else
                 ++view->scale->refcounter;
-            *iface = &view->scale;
+            *iface = view->scale;
             return Steinberg_kResultOk;
         }
        #endif
