@@ -835,9 +835,7 @@ bool runSelfTests()
 
     // simple processing
     {
-        d_nextPluginIsSelfTest = true;
         PluginExporter plugin(nullptr, nullptr, nullptr, nullptr);
-        d_nextPluginIsSelfTest = false;
 
        #if DISTRHO_PLUGIN_HAS_UI
         UIExporter ui(nullptr, 0, plugin.getSampleRate(),

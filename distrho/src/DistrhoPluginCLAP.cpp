@@ -2422,7 +2422,6 @@ static bool CLAP_ABI clap_plugin_entry_init(const char* const plugin_path)
         // set valid but dummy values
         d_nextBufferSize = 512;
         d_nextSampleRate = 44100.0;
-        d_nextPluginIsDummy = true;
         d_nextCanRequestParameterValueChanges = true;
 
         // Create dummy plugin to get data from
@@ -2431,7 +2430,6 @@ static bool CLAP_ABI clap_plugin_entry_init(const char* const plugin_path)
         // unset
         d_nextBufferSize = 0;
         d_nextSampleRate = 0.0;
-        d_nextPluginIsDummy = false;
         d_nextCanRequestParameterValueChanges = false;
     }
 

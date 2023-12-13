@@ -1022,9 +1022,6 @@ static LV2_Handle lv2_instantiate(const LV2_Descriptor*, double sampleRate, cons
     d_nextBundlePath = bundlePath;
     d_nextCanRequestParameterValueChanges = ctrlInPortChangeReq != nullptr;
 
-    if (std::getenv("RUNNING_UNDER_LV2LINT") != nullptr)
-        d_nextPluginIsDummy = true;
-
     return new PluginLv2(sampleRate, uridMap, worker, ctrlInPortChangeReq, usingNominal);
 }
 

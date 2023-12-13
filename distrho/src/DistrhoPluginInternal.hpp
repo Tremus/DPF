@@ -38,8 +38,6 @@ static const uint32_t kMaxMidiEvents = 512;
 extern uint32_t    d_nextBufferSize;
 extern double      d_nextSampleRate;
 extern const char* d_nextBundlePath;
-extern bool        d_nextPluginIsDummy;
-extern bool        d_nextPluginIsSelfTest;
 extern bool        d_nextCanRequestParameterValueChanges;
 
 // -----------------------------------------------------------------------
@@ -142,23 +140,6 @@ void snprintf_u32(char* const dst, const uint32_t value, const size_t size)
 
 struct PluginPrivateData {
     const bool canRequestParameterValueChanges;
-
-    /**
-    Check if this plugin instance is a "dummy" one used for plugin meta-data/information export.@n
-    When true no processing will be done, the plugin is created only to extract information.@n
-    In DPF, LADSPA/DSSI, VST2 and VST3 formats create one global instance per plugin binary
-    while LV2 creates one when generating turtle meta-data.
-    */
-    const bool isDummy;
-    /**
-    Check if this plugin instance is a "selftest" one used for automated plugin tests.@n
-    To enable this mode build with `DPF_RUNTIME_TESTING` macro defined (i.e. set as compiler build flag),
-    and run the JACK/Standalone executable with "selftest" as its only and single argument.
-
-    A few basic DSP and UI tests will run in self-test mode, with once instance having this function returning true.@n
-    You can use this chance to do a few tests of your own as well.
-    */
-    const bool isSelfTest;
     bool isProcessing;
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
@@ -200,8 +181,6 @@ struct PluginPrivateData {
 
     PluginPrivateData() noexcept
         : canRequestParameterValueChanges(d_nextCanRequestParameterValueChanges),
-          isDummy(d_nextPluginIsDummy),
-          isSelfTest(d_nextPluginIsSelfTest),
           isProcessing(false),
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
           audioPorts(nullptr),

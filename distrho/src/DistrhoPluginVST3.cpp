@@ -4546,7 +4546,6 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
         // set valid but dummy values
         d_nextBufferSize = 512;
         d_nextSampleRate = 44100.0;
-        d_nextPluginIsDummy = true;
         d_nextCanRequestParameterValueChanges = true;
 
         // Create dummy plugin to get data from
@@ -4555,7 +4554,6 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
         // unset
         d_nextBufferSize = 0;
         d_nextSampleRate = 0.0;
-        d_nextPluginIsDummy = false;
         d_nextCanRequestParameterValueChanges = false;
 
         uint32_t id= sPlugin->getUniqueId();

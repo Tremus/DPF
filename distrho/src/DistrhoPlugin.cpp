@@ -24,8 +24,6 @@ START_NAMESPACE_DISTRHO
 uint32_t    d_nextBufferSize = 0;
 double      d_nextSampleRate = 0.0;
 const char* d_nextBundlePath = nullptr;
-bool        d_nextPluginIsDummy = false;
-bool        d_nextPluginIsSelfTest = false;
 bool        d_nextCanRequestParameterValueChanges = false;
 
 /* ------------------------------------------------------------------------------------------------------------
