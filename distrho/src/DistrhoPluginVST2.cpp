@@ -614,7 +614,7 @@ public:
 
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         case VST_EFFECT_OPCODE_19: // process events
-            if (! fPlugin.isActive())
+            if (! fPlugin.fIsActive)
             {
                 // host has not activated the plugin yet, nasty!
                 vst_dispatcher(VST_EFFECT_OPCODE_SUSPEND, 0, 1, nullptr, 0.0f);
@@ -756,7 +756,7 @@ public:
 
     void vst_processReplacing(const float** const inputs, float** const outputs, const int32_t sampleFrames)
     {
-        if (! fPlugin.isActive())
+        if (! fPlugin.fIsActive)
         {
             // host has not activated the plugin yet, nasty!
             vst_dispatcher(VST_EFFECT_OPCODE_SUSPEND, 0, 1, nullptr, 0.0f);

@@ -62,40 +62,6 @@ protected:
         repaint();
     }
 
-   /**
-      A program has been loaded on the plugin side.
-      This is called by the host to inform the UI about program changes.
-    */
-    void programLoaded(uint32_t index) override
-    {
-        switch (index)
-        {
-        case 0:
-            fParamGrid[0] = false;
-            fParamGrid[1] = false;
-            fParamGrid[2] = false;
-            fParamGrid[3] = false;
-            fParamGrid[4] = false;
-            fParamGrid[5] = false;
-            fParamGrid[6] = false;
-            fParamGrid[7] = false;
-            fParamGrid[8] = false;
-            break;
-        case 1:
-            fParamGrid[0] = true;
-            fParamGrid[1] = true;
-            fParamGrid[2] = false;
-            fParamGrid[3] = false;
-            fParamGrid[4] = true;
-            fParamGrid[5] = true;
-            fParamGrid[6] = true;
-            fParamGrid[7] = false;
-            fParamGrid[8] = true;
-            break;
-        }
-        repaint();
-    }
-
    /* --------------------------------------------------------------------------------------------------------
     * Widget Callbacks */
 

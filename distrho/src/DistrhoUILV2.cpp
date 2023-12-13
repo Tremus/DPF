@@ -216,17 +216,6 @@ public:
 
     // -------------------------------------------------------------------
 
-   #if DISTRHO_PLUGIN_WANT_PROGRAMS
-    void lv2ui_select_program(const uint32_t bank, const uint32_t program)
-    {
-        const uint32_t realProgram = bank * 128 + program;
-
-        fUI.programLoaded(realProgram);
-    }
-   #endif
-
-    // -------------------------------------------------------------------
-
 private:
     // LV2 features
     const LV2_URID_Map*        const fUridMap;
@@ -566,15 +555,6 @@ static uint32_t lv2_set_options(LV2UI_Handle ui, const LV2_Options_Option* optio
 
 // -----------------------------------------------------------------------
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-static void lv2ui_select_program(LV2UI_Handle ui, uint32_t bank, uint32_t program)
-{
-    uiPtr->lv2ui_select_program(bank, program);
-}
-#endif
-
-// -----------------------------------------------------------------------
-
 static const void* lv2ui_extension_data(const char* uri)
 {
     static const LV2_Options_Interface options = { lv2_get_options, lv2_set_options };
@@ -587,13 +567,6 @@ static const void* lv2ui_extension_data(const char* uri)
         return &uiIdle;
     if (std::strcmp(uri, LV2_UI__showInterface) == 0)
         return &uiShow;
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    static const LV2_Programs_UI_Interface uiPrograms = { lv2ui_select_program };
-
-    if (std::strcmp(uri, LV2_PROGRAMS__UIInterface) == 0)
-        return &uiPrograms;
-#endif
 
     return nullptr;
 }

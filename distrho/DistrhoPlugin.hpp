@@ -48,9 +48,6 @@ START_NAMESPACE_DISTRHO
 
    Some of this class functions are only available according to some macros.
 
-   DISTRHO_PLUGIN_WANT_PROGRAMS activates program related features.@n
-   When enabled you need to implement initProgramName() and loadProgram().
-
    The process function run() changes wherever DISTRHO_PLUGIN_WANT_MIDI_INPUT is enabled or not.@n
    When enabled it provides midi input events.
  */
@@ -178,15 +175,6 @@ extern void plugin_initParameter(void*, uint32_t index, Parameter& parameter);
 */
 extern void plugin_initPortGroup(void*, uint32_t groupId, PortGroup& portGroup);
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-/**
-    Set the name of the program @a index.@n
-    This function will be called once, shortly after the plugin is created.@n
-    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_PROGRAMS is enabled.
-*/
-extern void plugin_initProgramName(void*, uint32_t index, String& programName);
-#endif
-
 /* --------------------------------------------------------------------------------------------------------
 * Internal data */
 
@@ -203,15 +191,6 @@ extern float plugin_getParameterValue(void*, uint32_t index);
     @note This function will only be called for parameter inputs.
 */
 extern void plugin_setParameterValue(void*, uint32_t index, float value);
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-/**
-    Load a program.@n
-    The host may call this function from any context, including realtime processing.@n
-    Must be implemented by your plugin class only if DISTRHO_PLUGIN_WANT_PROGRAMS is enabled.
-*/
-extern void plugin_loadProgram(void*, uint32_t index);
-#endif
 
 /* --------------------------------------------------------------------------------------------------------
 * Audio/MIDI Processing */
@@ -261,12 +240,6 @@ extern void plugin_bufferSizeChanged(void*, uint32_t newBufferSize);
 extern void plugin_sampleRateChanged(void*, double newSampleRate);
 
 /** @} */
-
-/**
-    Plugin class constructor.@n
-    You must set all parameter values to their defaults, matching ParameterRanges::def.
-*/
-void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t programCount);
 
 void plugin_default_initAudioPort(bool input, uint32_t index, AudioPort& port);
 void plugin_default_initPortGroup(uint32_t groupId, PortGroup& portGroup);

@@ -32,7 +32,6 @@ struct LatencyExamplePlugin
           fBufferPos(0),
           fBufferSize(0)
     {
-        PluginPrivateData_init(&data, 0),
         // allocates buffer
         plugin_sampleRateChanged(this, data.sampleRate);
     }

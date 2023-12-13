@@ -36,31 +36,6 @@ const ParameterEnumerationValues PluginExporter::sFallbackEnumValues;
 const PortGroupWithId            PluginExporter::sFallbackPortGroup;
 
 /* ------------------------------------------------------------------------------------------------------------
- * Plugin */
-
-void PluginPrivateData_init(PluginPrivateData* pData, uint32_t programCount)
-{
-   #if defined(DPF_ABORT_ON_ERROR) || defined(DPF_RUNTIME_TESTING)
-    #define DPF_ABORT abort();
-   #else
-    #define DPF_ABORT
-   #endif
-
-    if (programCount > 0)
-    {
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        pData->programCount = programCount;
-        pData->programNames = new String[programCount];
-       #else
-        d_stderr2("DPF warning: Plugins with programs must define `DISTRHO_PLUGIN_WANT_PROGRAMS` to 1");
-        DPF_ABORT
-       #endif
-    }
-
-    #undef DPF_ABORT
-}
-
-/* ------------------------------------------------------------------------------------------------------------
  * Host state */
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS

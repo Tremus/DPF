@@ -589,12 +589,6 @@ public:
                     fUI.setSampleRate(value, true);
                     break;
                #endif
-               #if DISTRHO_PLUGIN_WANT_PROGRAMS
-                case kVst3InternalParameterProgram:
-                    DISTRHO_SAFE_ASSERT_RETURN(value >= 0.0, Steinberg_kInvalidArgument);
-                    fUI.programLoaded(static_cast<uint32_t>(value + 0.5));
-                    break;
-               #endif
                 }
 
                 // others like latency and buffer-size do not matter on UI side

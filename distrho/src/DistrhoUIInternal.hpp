@@ -192,15 +192,6 @@ public:
         ui->parameterChanged(index, value);
     }
 
-   #if DISTRHO_PLUGIN_WANT_PROGRAMS
-    void programLoaded(const uint32_t index)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
-
-        ui->programLoaded(index);
-    }
-   #endif
-
     // -------------------------------------------------------------------
 
    #if DISTRHO_UI_IS_STANDALONE

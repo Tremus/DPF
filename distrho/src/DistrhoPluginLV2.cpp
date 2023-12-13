@@ -661,45 +661,6 @@ public:
 
     // -------------------------------------------------------------------
 
-   #if DISTRHO_PLUGIN_WANT_PROGRAMS
-    const LV2_Program_Descriptor* lv2_get_program(const uint32_t index)
-    {
-        if (index >= fPlugin.getProgramCount())
-            return nullptr;
-
-        static LV2_Program_Descriptor desc;
-
-        desc.bank    = index / 128;
-        desc.program = index % 128;
-        desc.name    = fPlugin.getProgramName(index);
-
-        return &desc;
-    }
-
-    void lv2_select_program(const uint32_t bank, const uint32_t program)
-    {
-        const uint32_t realProgram(bank * 128 + program);
-
-        if (realProgram >= fPlugin.getProgramCount())
-            return;
-
-        fPlugin.loadProgram(realProgram);
-
-        // Update control inputs
-        for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
-        {
-            if (fPlugin.isParameterOutput(i))
-                continue;
-
-            fLastControlValues[i] = fPlugin.getParameterValue(i);
-
-            setPortControlValue(i, fLastControlValues[i]);
-        }
-    }
-   #endif
-
-    // -------------------------------------------------------------------
-
    #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
     void* lv2_get_instance_pointer()
     {
@@ -1066,20 +1027,6 @@ static uint32_t lv2_set_options(LV2_Handle instance, const LV2_Options_Option* o
 
 // -----------------------------------------------------------------------
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-static const LV2_Program_Descriptor* lv2_get_program(LV2_Handle instance, uint32_t index)
-{
-    return instancePtr->lv2_get_program(index);
-}
-
-static void lv2_select_program(LV2_Handle instance, uint32_t bank, uint32_t program)
-{
-    instancePtr->lv2_select_program(bank, program);
-}
-#endif
-
-// -----------------------------------------------------------------------
-
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
 static void* lv2_get_instance_pointer(LV2_Handle instance)
 {
@@ -1095,13 +1042,6 @@ static const void* lv2_extension_data(const char* uri)
 
     if (std::strcmp(uri, LV2_OPTIONS__interface) == 0)
         return &options;
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    static const LV2_Programs_Interface programs = { lv2_get_program, lv2_select_program };
-
-    if (std::strcmp(uri, LV2_PROGRAMS__Interface) == 0)
-        return &programs;
-#endif
 
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
     struct LV2_DirectAccess_Interface {

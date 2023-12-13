@@ -31,8 +31,6 @@ struct ExamplePluginMeters
           fOutRight(0.0f),
           fNeedsReset(true)
     {
-        // 3 parameters, 0 programs
-        PluginPrivateData_init(&data, 0);
     }
 
    /**

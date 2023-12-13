@@ -96,9 +96,6 @@
 static const char* const lv2ManifestPluginExtensionData[] =
 {
     "opts:interface",
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    LV2_PROGRAMS__Interface,
-#endif
 #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
     MOD_LICENSE__interface,
 #endif
@@ -138,9 +135,6 @@ static const char* const lv2ManifestUiExtensionData[] =
     "opts:interface",
     "ui:idleInterface",
     "ui:showInterface",
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    LV2_PROGRAMS__UIInterface,
-#endif
     nullptr
 };
 
@@ -272,9 +266,6 @@ void lv2_generate_ttl(const char* const basename)
 #if DISTRHO_PLUGIN_HAS_UI && DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
         manifestString += "@prefix opts: <" LV2_OPTIONS_PREFIX "> .\n";
 #endif
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-        manifestString += "@prefix pset: <" LV2_PRESETS_PREFIX "> .\n";
-#endif
 #if DISTRHO_PLUGIN_HAS_UI
         manifestString += "@prefix ui:   <" LV2_UI_PREFIX "> .\n";
 #endif
@@ -304,30 +295,6 @@ void lv2_generate_ttl(const char* const basename)
         manifestString += "    rdfs:seeAlso <" + uiTTL + "> .\n";
 # endif // DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
         manifestString += "\n";
-#endif
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-        const String presetSeparator(std::strstr(DISTRHO_PLUGIN_URI, "#") != nullptr ? ":" : "#");
-
-        char strBuf[0xff+1];
-        strBuf[0xff] = '\0';
-
-        String presetString;
-
-        // Presets
-        for (uint32_t i = 0; i < plugin.getProgramCount(); ++i)
-        {
-            std::snprintf(strBuf, 0xff, "%03i", i+1);
-
-            presetString  = "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
-            presetString += "    a pset:Preset ;\n";
-            presetString += "    lv2:appliesTo <" DISTRHO_PLUGIN_URI "> ;\n";
-            presetString += "    rdfs:label \"" + plugin.getProgramName(i) + "\" ;\n";
-            presetString += "    rdfs:seeAlso <presets.ttl> .\n";
-            presetString += "\n";
-
-            manifestString += presetString;
-        }
 #endif
 
         manifestFile << manifestString;
@@ -1462,87 +1429,6 @@ void lv2_generate_ttl(const char* const basename)
 
         uiFile << uiString;
         uiFile.close();
-        std::cout << " done!" << std::endl;
-    }
-#endif
-
-    // ---------------------------------------------
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    {
-        std::cout << "Writing presets.ttl..."; std::cout.flush();
-        std::fstream presetsFile("presets.ttl", std::ios::out);
-
-        String presetsString;
-        presetsString += "@prefix lv2:   <" LV2_CORE_PREFIX "> .\n";
-        presetsString += "@prefix pset:  <" LV2_PRESETS_PREFIX "> .\n";
-        presetsString += "\n";
-
-        const uint32_t numParameters = plugin.getParameterCount();
-        const uint32_t numPrograms   = plugin.getProgramCount();
-        const bool     valid         = numParameters != 0;
-
-        DISTRHO_CUSTOM_SAFE_ASSERT_RETURN("Programs require parameters or full state", valid, presetsFile.close());
-
-        const String presetSeparator(std::strstr(DISTRHO_PLUGIN_URI, "#") != nullptr ? ":" : "#");
-
-        char strBuf[0xff+1];
-        strBuf[0xff] = '\0';
-
-        String presetString;
-
-        for (uint32_t i=0; i<numPrograms; ++i)
-        {
-            std::snprintf(strBuf, 0xff, "%03i", i+1);
-
-            plugin.loadProgram(i);
-
-            presetString = "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
-
-            bool firstParameter = true;
-
-            for (uint32_t j=0; j <numParameters; ++j)
-            {
-                if (plugin.isParameterOutput(j))
-                    continue;
-
-                if (firstParameter)
-                {
-                    presetString += "    lv2:port [\n";
-                    firstParameter = false;
-                }
-                else
-                {
-                    presetString += "    [\n";
-                }
-
-                String parameterSymbol = plugin.getParameterSymbol(j);
-                float parameterValue = plugin.getParameterValue(j);
-
-                if (plugin.getParameterDesignation(j) == kParameterDesignationBypass)
-                {
-                    parameterSymbol = DISTRHO_BYPASS_PARAMETER_NAME;
-                    parameterValue = 1.0f - parameterValue;
-                }
-
-                presetString += "        lv2:symbol \"" + parameterSymbol + "\" ;\n";
-
-                if (plugin.getParameterHints(j) & kParameterIsInteger)
-                    presetString += "        pset:value " + String(int(parameterValue)) + " ;\n";
-                else
-                    presetString += "        pset:value " + String(parameterValue) + " ;\n";
-
-                if (j+1 == numParameters || plugin.isParameterOutput(j+1))
-                    presetString += "    ] .\n\n";
-                else
-                    presetString += "    ] ,\n";
-            }
-
-            presetsString += presetString;
-        }
-
-        presetsFile << presetsString;
-        presetsFile.close();
         std::cout << " done!" << std::endl;
     }
 #endif

@@ -128,10 +128,6 @@ struct ClapEventQueue
    #endif
   #endif
 
-   #if DISTRHO_PLUGIN_WANT_PROGRAMS
-    uint32_t fCurrentProgram;
-   #endif
-
     struct CachedParameters {
         uint numParams;
         bool* changed;
@@ -170,9 +166,6 @@ struct ClapEventQueue
        #if DISTRHO_PLUGIN_HAS_UI && DISTRHO_PLUGIN_WANT_MIDI_INPUT && ! defined(DISTRHO_PROPER_CPP11_SUPPORT)
         std::memset(&fNotesBuffer, 0, sizeof(fNotesBuffer));
        #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        fCurrentProgram = 0;
-       #endif
     }
 
     virtual ~ClapEventQueue() {}
@@ -204,9 +197,6 @@ public:
           fPluginEventQueue(eventQueue),
           fEventQueue(eventQueue->fEventQueue),
           fCachedParameters(eventQueue->fCachedParameters),
-         #if DISTRHO_PLUGIN_WANT_PROGRAMS
-          fCurrentProgram(eventQueue->fCurrentProgram),
-         #endif
           fHost(host),
           fHostGui(hostGui),
          #if DPF_CLAP_USING_HOST_TIMER
@@ -500,14 +490,6 @@ public:
             ui->parameterChanged(index, value);
     }
 
-   #if DISTRHO_PLUGIN_WANT_PROGRAMS
-    void setProgramFromPlugin(const uint index)
-    {
-        if (UIExporter* const ui = fUI.get())
-            ui->programLoaded(index);
-    }
-   #endif
-
     // ----------------------------------------------------------------------------------------------------------------
 
 private:
@@ -516,9 +498,6 @@ private:
     ClapEventQueue* const fPluginEventQueue;
     ClapEventQueue::Queue& fEventQueue;
     ClapEventQueue::CachedParameters& fCachedParameters;
-   #if DISTRHO_PLUGIN_WANT_PROGRAMS
-    uint32_t& fCurrentProgram;
-   #endif
     const clap_host_t* const fHost;
     const clap_host_gui_t* const fHostGui;
    #if DPF_CLAP_USING_HOST_TIMER
@@ -557,10 +536,6 @@ private:
                              d_nextBundlePath,
                              fPlugin.getInstancePointer(),
                              fScaleFactor);
-
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        fUI->programLoaded(fCurrentProgram);
-       #endif
 
         for (uint32_t i=0; i<fCachedParameters.numParams; ++i)
         {
@@ -1200,7 +1175,7 @@ public:
         }
 
        #if DISTRHO_PLUGIN_WANT_LATENCY
-        const bool active = fPlugin.isActive();
+        const bool active = fPlugin.fIsActive;
         checkForLatencyChanges(active, !active);
        #endif
     }
@@ -1348,16 +1323,6 @@ public:
         }
 
         String state;
-
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        {
-            String tmpStr("__dpf_program__\xff");
-            tmpStr += String(fCurrentProgram);
-            tmpStr += "\xff";
-
-            state += tmpStr;
-        }
-       #endif
 
         if (paramCount != 0)
         {
@@ -1513,19 +1478,6 @@ public:
                         queryingType = 'n';
 
                         d_debug("found program '%s'", value.buffer());
-
-                      #if DISTRHO_PLUGIN_WANT_PROGRAMS
-                        const int program = std::atoi(value.buffer());
-                        DISTRHO_SAFE_ASSERT_CONTINUE(program >= 0);
-
-                        fCurrentProgram = static_cast<uint32_t>(program);
-                        fPlugin.loadProgram(fCurrentProgram);
-
-                       #if DISTRHO_PLUGIN_HAS_UI
-                        if (ui != nullptr)
-                            ui->setProgramFromPlugin(fCurrentProgram);
-                       #endif
-                      #endif
                     }
                     else if (queryingType == 'p')
                     {
@@ -1574,7 +1526,7 @@ public:
             fHostExtensions.params->rescan(fHost, CLAP_PARAM_RESCAN_VALUES|CLAP_PARAM_RESCAN_TEXT);
 
        #if DISTRHO_PLUGIN_WANT_LATENCY
-        checkForLatencyChanges(fPlugin.isActive(), true);
+        checkForLatencyChanges(fPlugin.fIsActive, true);
         reportLatencyChangeIfNeeded();
        #endif
 

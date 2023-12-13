@@ -133,13 +133,6 @@ public:
         fUI.parameterChanged(index, value);
     }
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    void dssiui_program(ulong bank, ulong program)
-    {
-        fUI.programLoaded(bank * 128 + program);
-    }
-#endif
-
     void dssiui_samplerate(const double sampleRate)
     {
         fUI.setSampleRate(sampleRate, true);
@@ -286,21 +279,6 @@ int osc_control_handler(const char*, const char*, lo_arg** argv, int, lo_message
     return 0;
 }
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-int osc_program_handler(const char*, const char*, lo_arg** argv, int, lo_message, void*)
-{
-    const int32_t bank    = argv[0]->i;
-    const int32_t program = argv[1]->f;
-    d_debug("osc_program_handler(%i, %i)", bank, program);
-
-    initUiIfNeeded();
-
-    globalUI->dssiui_program(bank, program);
-
-    return 0;
-}
-#endif
-
 int osc_sample_rate_handler(const char*, const char*, lo_arg** argv, int, lo_message, void*)
 {
     sampleRate = argv[0]->i;
@@ -397,13 +375,6 @@ int main(int argc, char* argv[])
     d_stdout("pluginPath:     \"%s\"", pluginPath);
     d_stdout("oscPathControl: \"%s\"", oscPathControl);
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    char oscPathProgram[oscPathSize+9];
-    strcpy(oscPathProgram, oscPath);
-    strcat(oscPathProgram, "/program");
-    lo_server_add_method(oscServer, oscPathProgram, "ii", osc_program_handler, nullptr);
-#endif
-
     char oscPathSampleRate[oscPathSize+13];
     strcpy(oscPathSampleRate, oscPath);
     strcat(oscPathSampleRate, "/sample-rate");
@@ -459,9 +430,6 @@ int main(int argc, char* argv[])
     }
 
     lo_server_del_method(oscServer, oscPathControl, "if");
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    lo_server_del_method(oscServer, oscPathProgram, "ii");
-#endif
     lo_server_del_method(oscServer, oscPathSampleRate, "i");
     lo_server_del_method(oscServer, oscPathShow, "");
     lo_server_del_method(oscServer, oscPathHide, "");

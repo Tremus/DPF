@@ -281,43 +281,6 @@ public:
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
 
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-    const DSSI_Program_Descriptor* dssi_get_program(const ulong index)
-    {
-        if (index >= fPlugin.getProgramCount())
-            return nullptr;
-
-        static DSSI_Program_Descriptor desc;
-
-        desc.Bank    = index / 128;
-        desc.Program = index % 128;
-        desc.Name    = fPlugin.getProgramName(index);
-
-        return &desc;
-    }
-
-    void dssi_select_program(const ulong bank, const ulong program)
-    {
-        const ulong realProgram(bank * 128 + program);
-
-        DISTRHO_SAFE_ASSERT_RETURN(realProgram < fPlugin.getProgramCount(),);
-
-        fPlugin.loadProgram(realProgram);
-
-        // Update control inputs
-        for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
-        {
-            if (fPlugin.isParameterOutput(i))
-                continue;
-
-            fLastControlValues[i] = fPlugin.getParameterValue(i);
-
-            if (fPortControls[i] != nullptr)
-                *fPortControls[i] = fLastControlValues[i];
-        }
-    }
-# endif
-
     int dssi_get_midi_controller_for_port(const ulong port) noexcept
     {
         const uint32_t parameterOffset = fPlugin.getParameterOffset();
@@ -436,18 +399,6 @@ static void ladspa_cleanup(LADSPA_Handle instance)
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
 
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-static const DSSI_Program_Descriptor* dssi_get_program(LADSPA_Handle instance, ulong index)
-{
-    return instancePtr->dssi_get_program(index);
-}
-
-static void dssi_select_program(LADSPA_Handle instance, ulong bank, ulong program)
-{
-    instancePtr->dssi_select_program(bank, program);
-}
-# endif
-
 static int dssi_get_midi_controller_for_port(LADSPA_Handle instance, ulong port)
 {
     return instancePtr->dssi_get_midi_controller_for_port(port);
@@ -496,13 +447,9 @@ static DSSI_Descriptor sDssiDescriptor = {
     1,
     &sLadspaDescriptor,
     /* configure                    */ nullptr,
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-    dssi_get_program,
-    dssi_select_program,
-# else
+    // TODO: deprecate
     /* get_program                  */ nullptr,
     /* select_program               */ nullptr,
-# endif
     dssi_get_midi_controller_for_port,
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     dssi_run_synth,

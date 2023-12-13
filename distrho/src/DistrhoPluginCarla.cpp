@@ -87,13 +87,6 @@ public:
         fUI.parameterChanged(index, value);
     }
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    void carla_setMidiProgram(const uint32_t realProgram)
-    {
-        fUI.programLoaded(realProgram);
-    }
-#endif
-
     void carla_setUiTitle(const char* const uiTitle)
     {
         fUI.setWindowTitle(uiTitle);
@@ -273,29 +266,6 @@ protected:
     }
 
     // -------------------------------------------------------------------
-    // Plugin midi-program calls
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    uint32_t getMidiProgramCount() const override
-    {
-        return fPlugin.getProgramCount();
-    }
-
-    const NativeMidiProgram* getMidiProgramInfo(const uint32_t index) const override
-    {
-        CARLA_SAFE_ASSERT_RETURN(index < getMidiProgramCount(), nullptr);
-
-        static NativeMidiProgram midiProgram;
-
-        midiProgram.bank    = index / 128;
-        midiProgram.program = index % 128;
-        midiProgram.name    = fPlugin.getProgramName(index);
-
-        return &midiProgram;
-    }
-#endif
-
-    // -------------------------------------------------------------------
     // Plugin state calls
 
     void setParameterValue(const uint32_t index, const float value) override
@@ -304,17 +274,6 @@ protected:
 
         fPlugin.setParameterValue(index, value);
     }
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    void setMidiProgram(const uint8_t, const uint32_t bank, const uint32_t program) override
-    {
-        const uint32_t realProgram(bank * 128 + program);
-
-        CARLA_SAFE_ASSERT_RETURN(realProgram < getMidiProgramCount(),);
-
-        fPlugin.loadProgram(realProgram);
-    }
-#endif
 
     // -------------------------------------------------------------------
     // Plugin process calls
@@ -402,19 +361,6 @@ protected:
 
         fUiPtr->carla_setParameterValue(index, value);
     }
-
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-    void uiSetMidiProgram(const uint8_t, const uint32_t bank, const uint32_t program) override
-    {
-        CARLA_SAFE_ASSERT_RETURN(fUiPtr != nullptr,);
-
-        const uint32_t realProgram(bank * 128 + program);
-
-        CARLA_SAFE_ASSERT_RETURN(realProgram < getMidiProgramCount(),);
-
-        fUiPtr->carla_setMidiProgram(realProgram);
-    }
-# endif
 
 #endif
 

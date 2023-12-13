@@ -155,11 +155,6 @@ struct PluginPrivateData {
     uint32_t         portGroupCount;
     PortGroupWithId* portGroups;
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    uint32_t programCount;
-    String*  programNames;
-#endif
-
 #if DISTRHO_PLUGIN_WANT_LATENCY
     uint32_t latency;
 #endif
@@ -187,10 +182,6 @@ struct PluginPrivateData {
           parameterOffset(0),
           portGroupCount(0),
           portGroups(nullptr),
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-          programCount(0),
-          programNames(nullptr),
-#endif
 #if DISTRHO_PLUGIN_WANT_LATENCY
           latency(0),
 #endif
@@ -232,14 +223,6 @@ struct PluginPrivateData {
             delete[] portGroups;
             portGroups = nullptr;
         }
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-        if (programNames != nullptr)
-        {
-            delete[] programNames;
-            programNames = nullptr;
-        }
-#endif
 
         if (bundlePath != nullptr)
         {
@@ -308,22 +291,6 @@ public:
             }
         }
 
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-        if (fData->programCount != 0)
-        {
-            if ((void*)(fPlugin->*(&Plugin::initProgramName)) == (void*)&Plugin::initProgramName)
-            {
-                d_stderr2("DPF warning: Plugins with programs must implement `initProgramName`");
-                abort();
-            }
-            if ((void*)(fPlugin->*(&Plugin::loadProgram)) == (void*)&Plugin::loadProgram)
-            {
-                d_stderr2("DPF warning: Plugins with programs must implement `loadProgram`");
-                abort();
-            }
-        }
-# endif
-
 #endif
 
 #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
@@ -375,11 +342,6 @@ public:
             }
         }
 #endif // DISTRHO_PLUGIN_NUM_PARAMS > 0
-
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-        for (uint32_t i=0, count=fData->programCount; i < count; ++i)
-            plugin_initProgramName(fPlugin, i, fData->programNames[i]);
-#endif
 
         fData->callbacksPtr = callbacksPtr;
         fData->writeMidiCallbackFunc = writeMidiCall;
@@ -708,30 +670,6 @@ public:
         return getPortGroupById(groupId).symbol;
     }
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-    uint32_t getProgramCount() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, 0);
-
-        return fData->programCount;
-    }
-
-    const String& getProgramName(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->programCount, sFallbackString);
-
-        return fData->programNames[index];
-    }
-
-    void loadProgram(const uint32_t index)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->programCount,);
-
-        plugin_loadProgram(fPlugin, index);
-    }
-#endif
-
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
     void setTimePosition(const TimePosition& timePosition) noexcept
     {
@@ -742,11 +680,6 @@ public:
 #endif
 
     // -------------------------------------------------------------------
-
-    bool isActive() const noexcept
-    {
-        return fIsActive;
-    }
 
     void activate()
     {
@@ -864,7 +797,6 @@ public:
         }
     }
 
-private:
     // -------------------------------------------------------------------
     // Plugin and DistrhoPlugin data
 
@@ -875,6 +807,7 @@ private:
     // -------------------------------------------------------------------
     // Static fallback data, see DistrhoPlugin.cpp
 
+private:
     static const String                     sFallbackString;
     static /* */ AudioPortWithBusId         sFallbackAudioPort;
     static const ParameterRanges            sFallbackRanges;

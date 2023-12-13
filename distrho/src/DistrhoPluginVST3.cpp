@@ -649,10 +649,6 @@ public:
        #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
         , fHostEventOutputHandle(nullptr)
        #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        , fCurrentProgram(0)
-        , fProgramCountMinusOne(fPlugin.getProgramCount()-1)
-       #endif
     {
        #if !DPF_VST3_USES_SEPARATE_CONTROLLER
         DISTRHO_SAFE_ASSERT(isComponent);
@@ -677,9 +673,6 @@ public:
            #endif
            #if DISTRHO_PLUGIN_WANT_LATENCY
             fCachedParameterValues[kVst3InternalParameterLatency]    = fLastKnownLatency;
-           #endif
-           #if DISTRHO_PLUGIN_WANT_PROGRAMS
-            fCachedParameterValues[kVst3InternalParameterProgram]    = 0.0f;
            #endif
 
             for (uint32_t i=0; i < fParameterCount; ++i)
@@ -1051,7 +1044,7 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(setup->symbolicSampleSize == Steinberg_Vst_SymbolicSampleSizes_kSample32, Steinberg_kInvalidArgument);
 
-        const bool active = fPlugin.isActive();
+        const bool active = fPlugin.fIsActive;
         fPlugin.deactivateIfNeeded();
 
         // TODO process_mode can be Steinberg_Vst_ProcessModes_kRealtime, Steinberg_Vst_ProcessModes_kPrefetch, Steinberg_Vst_ProcessModes_kOffline
@@ -1083,7 +1076,7 @@ public:
     {
         if (processing)
         {
-            if (! fPlugin.isActive())
+            if (! fPlugin.fIsActive)
                 fPlugin.activate();
         }
         else
@@ -1100,7 +1093,7 @@ public:
         // d_debug("process %i", data->symbolicSampleSize);
 
         // activate plugin if not done yet
-        if (! fPlugin.isActive())
+        if (! fPlugin.fIsActive)
             fPlugin.activate();
 
        #if DISTRHO_PLUGIN_WANT_TIMEPOS
@@ -1385,7 +1378,7 @@ public:
         // TODO hash the parameter symbol
         info->id = rindex;
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
+      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -1409,14 +1402,6 @@ public:
             strncpy_utf16((int16_t*)info->title, "Latency", 128);
             strncpy_utf16((int16_t*)info->shortTitle, "Latency", 128);
             strncpy_utf16((int16_t*)info->units, "frames", 128);
-            return Steinberg_kResultOk;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        case kVst3InternalParameterProgram:
-            info->flags = Steinberg_Vst_ParameterInfo_ParameterFlags_kCanAutomate | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsList | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsProgramChange | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
-            info->stepCount = fProgramCountMinusOne;
-            strncpy_utf16((int16_t*)info->title, "Current Program", 128);
-            strncpy_utf16((int16_t*)info->shortTitle, "Program", 128);
             return Steinberg_kResultOk;
        #endif
         }
@@ -1489,7 +1474,7 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(normalized >= 0.0 && normalized <= 1.0, Steinberg_kInvalidArgument);
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
+      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -1503,12 +1488,6 @@ public:
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
             snprintf_f32_utf16((int16_t*)output, std::round(normalized * DPF_VST3_MAX_LATENCY), 128);
-            return Steinberg_kResultOk;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        case kVst3InternalParameterProgram:
-            const uint32_t program = std::round(normalized * fProgramCountMinusOne);
-            strncpy_utf16((int16_t*)output, fPlugin.getProgramName(program), 128);
             return Steinberg_kResultOk;
        #endif
         }
@@ -1559,7 +1538,7 @@ public:
 
     Steinberg_tresult getParameterValueForString(const uint32_t rindex, char16_t* const input, double* const output)
     {
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
+      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -1574,18 +1553,6 @@ public:
         case kVst3InternalParameterLatency:
             *output = std::atof(ScopedUTF8String(input)) / DPF_VST3_MAX_LATENCY;
             return Steinberg_kResultOk;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        case kVst3InternalParameterProgram:
-            for (uint32_t i=0, count=fPlugin.getProgramCount(); i < count; ++i)
-            {
-                if (strcmp_utf16((int16_t*)input, fPlugin.getProgramName(i)))
-                {
-                    *output = static_cast<double>(i) / static_cast<double>(fProgramCountMinusOne);
-                    return Steinberg_kResultOk;
-                }
-            }
-            return Steinberg_kInvalidArgument;
        #endif
         }
       #endif
@@ -1629,7 +1596,7 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(normalized >= 0.0 && normalized <= 1.0, 0.0);
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
+      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -1641,10 +1608,6 @@ public:
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
             return normalized * DPF_VST3_MAX_LATENCY;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        case kVst3InternalParameterProgram:
-            return std::round(normalized * fProgramCountMinusOne);
        #endif
         }
       #endif
@@ -1676,7 +1639,7 @@ public:
 
     double plainParameterToNormalized(const uint32_t rindex, const double plain)
     {
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
+      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -1688,10 +1651,6 @@ public:
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
             return std::max(0.0, std::min(1.0, plain / DPF_VST3_MAX_LATENCY));
-       #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        case kVst3InternalParameterProgram:
-            return std::max(0.0, std::min(1.0, plain / fProgramCountMinusOne));
        #endif
         }
       #endif
@@ -1719,7 +1678,7 @@ public:
             return 0.0;
        #endif
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
+      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
        #if DPF_VST3_USES_SEPARATE_CONTROLLER
@@ -1728,9 +1687,6 @@ public:
        #endif
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
-       #endif
-       #if DISTRHO_PLUGIN_WANT_PROGRAMS
-        case kVst3InternalParameterProgram:
        #endif
             return plainParameterToNormalized(rindex, fCachedParameterValues[rindex]);
         }
@@ -1756,7 +1712,7 @@ public:
             return Steinberg_kInvalidArgument;
        #endif
 
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_PROGRAMS
+       #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
         if (rindex < kVst3InternalParameterBaseCount)
         {
             fCachedParameterValues[rindex] = normalizedParameterToPlain(rindex, normalized);
@@ -1775,24 +1731,6 @@ public:
            #if DISTRHO_PLUGIN_WANT_LATENCY
             case kVst3InternalParameterLatency:
                 flags = Steinberg_Vst_RestartFlags_kLatencyChanged;
-                break;
-           #endif
-           #if DISTRHO_PLUGIN_WANT_PROGRAMS
-            case kVst3InternalParameterProgram:
-                flags = Steinberg_Vst_RestartFlags_kParamValuesChanged;
-                fCurrentProgram = fCachedParameterValues[rindex];
-                fPlugin.loadProgram(fCurrentProgram);
-
-                for (uint32_t i=0; i<fParameterCount; ++i)
-                {
-                    if (fPlugin.isParameterOutputOrTrigger(i))
-                        continue;
-                    fCachedParameterValues[kVst3InternalParameterBaseCount + i] = fPlugin.getParameterValue(i);
-                }
-
-               #if DISTRHO_PLUGIN_HAS_UI
-                fParameterValueChangesForUI[kVst3InternalParameterProgram] = true;
-               #endif
                 break;
            #endif
             }
@@ -1893,11 +1831,6 @@ public:
                                  fCachedParameterValues[kVst3InternalParameterSampleRate]);
            #endif
 
-           #if DISTRHO_PLUGIN_WANT_PROGRAMS
-            fParameterValueChangesForUI[kVst3InternalParameterProgram] = false;
-            sendParameterSetToUI(kVst3InternalParameterProgram, fCurrentProgram);
-           #endif
-
             for (uint32_t i=0; i<fParameterCount; ++i)
             {
                 fParameterValueChangesForUI[kVst3InternalParameterBaseCount + i] = false;
@@ -1922,14 +1855,6 @@ public:
                 fParameterValueChangesForUI[kVst3InternalParameterSampleRate] = false;
                 sendParameterSetToUI(kVst3InternalParameterSampleRate,
                                      fCachedParameterValues[kVst3InternalParameterSampleRate]);
-            }
-           #endif
-
-           #if DISTRHO_PLUGIN_WANT_PROGRAMS
-            if (fParameterValueChangesForUI[kVst3InternalParameterProgram])
-            {
-                fParameterValueChangesForUI[kVst3InternalParameterProgram] = false;
-                sendParameterSetToUI(kVst3InternalParameterProgram, fCurrentProgram);
             }
            #endif
 
@@ -2086,10 +2011,6 @@ private:
   #endif
    #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
     Steinberg_Vst_IEventList* fHostEventOutputHandle;
-   #endif
-   #if DISTRHO_PLUGIN_WANT_PROGRAMS
-    uint32_t fCurrentProgram;
-    const uint32_t fProgramCountMinusOne;
    #endif
    #if DISTRHO_PLUGIN_WANT_TIMEPOS
     TimePosition fTimePosition;

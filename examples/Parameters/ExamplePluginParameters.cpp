@@ -29,8 +29,6 @@ struct ExamplePluginParameters
 
     ExamplePluginParameters()
     {
-        // 9 parameters, 2 programs
-        PluginPrivateData_init(&data, 2);
        /**
           Initialize all our parameters to their defaults.
           In this example all parameters have 0 as default, so we can simply zero them.
@@ -207,19 +205,6 @@ void plugin_initPortGroup(void* ptr, uint32_t groupId, PortGroup& portGroup)
     }
 }
 
-void plugin_initProgramName(void* ptr, uint32_t index, String& programName)
-{
-    switch (index)
-    {
-    case 0:
-        programName = "Default";
-        break;
-    case 1:
-        programName = "Custom";
-        break;
-    }
-}
-
 /* --------------------------------------------------------------------------------------------------------
 * Internal data */
 
@@ -233,37 +218,6 @@ void plugin_setParameterValue(void* ptr, uint32_t index, float value)
 {
     ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
     plugin->fParamGrid[index] = value;
-}
-
-void plugin_loadProgram(void* ptr, uint32_t index)
-{
-    ExamplePluginParameters* plugin = (ExamplePluginParameters*)ptr;
-
-    switch (index)
-    {
-    case 0:
-        plugin->fParamGrid[0] = 0.0f;
-        plugin->fParamGrid[1] = 0.0f;
-        plugin->fParamGrid[2] = 0.0f;
-        plugin->fParamGrid[3] = 0.0f;
-        plugin->fParamGrid[4] = 0.0f;
-        plugin->fParamGrid[5] = 0.0f;
-        plugin->fParamGrid[6] = 0.0f;
-        plugin->fParamGrid[7] = 0.0f;
-        plugin->fParamGrid[8] = 0.0f;
-        break;
-    case 1:
-        plugin->fParamGrid[0] = 1.0f;
-        plugin->fParamGrid[1] = 1.0f;
-        plugin->fParamGrid[2] = 0.0f;
-        plugin->fParamGrid[3] = 0.0f;
-        plugin->fParamGrid[4] = 1.0f;
-        plugin->fParamGrid[5] = 1.0f;
-        plugin->fParamGrid[6] = 1.0f;
-        plugin->fParamGrid[7] = 0.0f;
-        plugin->fParamGrid[8] = 1.0f;
-        break;
-    }
 }
 
 /* --------------------------------------------------------------------------------------------------------

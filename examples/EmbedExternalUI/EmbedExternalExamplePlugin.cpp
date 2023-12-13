@@ -29,7 +29,6 @@ struct EmbedExternalExamplePlugin
           fWidth(512.0f),
           fHeight(256.0f)
     {
-        PluginPrivateData_init(&data, 0);
     }
 
     // Parameters

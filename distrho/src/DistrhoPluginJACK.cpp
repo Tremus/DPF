@@ -179,19 +179,6 @@ public:
         fPortMidiOutBuffer = nullptr;
 #endif
 
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-        if (fPlugin.getProgramCount() > 0)
-        {
-            fPlugin.loadProgram(0);
-# if DISTRHO_PLUGIN_HAS_UI
-            fUI.programLoaded(0);
-# endif
-        }
-# if DISTRHO_PLUGIN_HAS_UI
-        fProgramChanged = -1;
-# endif
-#endif
-
         if (const uint32_t count = fPlugin.getParameterCount())
         {
             fLastOutputValues = new float[count];
@@ -305,14 +292,6 @@ protected:
     {
         if (gCloseSignalReceived)
             return fUI.quit();
-
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-        if (fProgramChanged >= 0)
-        {
-            fUI.programLoaded(fProgramChanged);
-            fProgramChanged = -1;
-        }
-# endif
 
         for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
         {
@@ -474,21 +453,6 @@ protected:
                         break;
                     }
                 }
-#if DISTRHO_PLUGIN_WANT_PROGRAMS
-                // Check if message is program change on channel 1
-                else if (jevent.buffer[0] == 0xC0 && jevent.size == 2)
-                {
-                    const uint8_t program = jevent.buffer[1];
-
-                    if (program < fPlugin.getProgramCount())
-                    {
-                        fPlugin.loadProgram(program);
-# if DISTRHO_PLUGIN_HAS_UI
-                        fProgramChanged = program;
-# endif
-                    }
-                }
-#endif
 
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
                 MidiEvent& midiEvent(midiEvents[midiEventCount++]);
@@ -594,9 +558,6 @@ private:
 #if DISTRHO_PLUGIN_HAS_UI
     // Store DSP changes to send to UI
     bool* fParametersChanged;
-# if DISTRHO_PLUGIN_WANT_PROGRAMS
-    int fProgramChanged;
-# endif
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     SmallStackRingBuffer fNotesRingBuffer;
 # endif
