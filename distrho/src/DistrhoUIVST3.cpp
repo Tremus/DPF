@@ -16,7 +16,6 @@
 
 #include "DistrhoUIInternal.hpp"
 #include "DistrhoPluginVST.hpp"
-#include "DistrhoUIInternal.hpp"
 
 #include "travesty/view.h"
 #include "vst3_c_api/vst3_c_api.h"
@@ -615,7 +614,7 @@ public:
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_view_content_scale_steinberg interface calls
+    // Steinberg_IPlugViewContentScaleSupport interface calls
 
     Steinberg_tresult setContentScaleFactor(const float factor)
     {
@@ -866,7 +865,7 @@ struct dpf_ui_connection_point {
           uivst3(v),
           other(nullptr)
     {
-        // v3_funknown, single instance
+        // Steinberg_FUnknown, single instance
         base.queryInterface = query_interface_connection_point;
         base.addRef = addRef_ui_connection_point;
         base.release = release_ui_connection_point;
@@ -878,7 +877,7 @@ struct dpf_ui_connection_point {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_funknown
+    // Steinberg_FUnknown
 
     static Steinberg_tresult query_interface_connection_point(void* const self, const Steinberg_TUID iid, void** const iface)
     {
@@ -962,9 +961,6 @@ struct dpf_ui_connection_point {
 struct dpf_plugin_view_content_scale {
     Steinberg_IPlugViewContentScaleSupportVtbl* lpVtbl;
     Steinberg_IPlugViewContentScaleSupportVtbl base;
-    // v3_funknown* lpVtbl;
-    // v3_funknown com;
-    // v3_plugin_view_content_scale scale;
     std::atomic_int refcounter;
     ScopedPointer<UIVst3>& uivst3;
     // cached values
@@ -976,17 +972,17 @@ struct dpf_plugin_view_content_scale {
           uivst3(v),
           scaleFactor(0.0f)
     {
-        // v3_funknown, single instance
+        // Steinberg_FUnknown, single instance
         base.queryInterface = query_interface_view_content_scale;
         base.addRef = addRef_view_content_scale;
         base.release = release_view_content_scale;
 
-        // v3_plugin_view_content_scale
+        // Steinberg_IPlugViewContentScaleSupport
         base.setContentScaleFactor = set_content_scale_factor;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_funknown
+    // Steinberg_FUnknown
 
     static Steinberg_tresult query_interface_view_content_scale(void* const self, const Steinberg_TUID iid, void** const iface)
     {
@@ -1020,7 +1016,7 @@ struct dpf_plugin_view_content_scale {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_view_content_scale
+    // Steinberg_IPlugViewContentScaleSupport
 
     static Steinberg_tresult set_content_scale_factor(void* const self, const float factor)
     {
@@ -1161,7 +1157,7 @@ struct dpf_plugin_view {
         if (hostApplication != nullptr)
             hostApplication->lpVtbl->addRef(hostApplication);
 
-        // v3_funknown, everything custom
+        // Steinberg_FUnknown, everything custom
         base.queryInterface = query_interface_view;
         base.addRef  = ref_view;
         base.release = unref_view;
@@ -1197,7 +1193,7 @@ struct dpf_plugin_view {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_funknown
+    // Steinberg_FUnknown
 
     static Steinberg_tresult query_interface_view(void* self, const Steinberg_TUID iid, void** iface)
     {

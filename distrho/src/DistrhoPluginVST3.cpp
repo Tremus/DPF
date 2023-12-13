@@ -50,9 +50,13 @@
 # include "../extra/RingBuffer.hpp"
 #endif
 
-#include "travesty/audio_processor.h"
-#include "travesty/edit_controller.h"
 #include "vst3_c_api/vst3_c_api.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpragma-pack"
+// Linux only. Not provided by official VST3 C API
+#include "travesty/edit_controller.h" // v3_event_handler_iid, v3_run_loop_iid, v3_timer_handler_iid
+#pragma clang diagnostic pop
 
 #include <vector>
 #include <atomic>
@@ -252,6 +256,34 @@ const char* tuid2str(const Steinberg_TUID iid)
                   (uint32_t)d_cconst(iid[ 8], iid[ 9], iid[10], iid[11]),
                   (uint32_t)d_cconst(iid[12], iid[13], iid[14], iid[15]));
     return buf;
+}
+
+static inline
+const char* get_media_type_str(int32_t type)
+{
+	switch (type)
+	{
+	case Steinberg_Vst_MediaTypes_kAudio:
+		return "MediaTypes_kAudio";
+	case Steinberg_Vst_MediaTypes_kEvent:
+		return "MediaTypes_kEvent";
+	default:
+		return "[unknown]";
+	}
+}
+
+static inline
+const char* get_bus_direction_str(int32_t d)
+{
+	switch (d)
+	{
+	case Steinberg_Vst_BusDirections_kInput:
+		return "BusDirections_kInput";
+	case Steinberg_Vst_BusDirections_kOutput:
+		return "BusDirections_kOutput";
+	default:
+		return "[unknown]";
+	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -768,7 +800,7 @@ public:
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_component interface calls
+    // Steinberg_Vst_IComponent interface calls
 
     int32_t getBusCount(const int32_t mediaType, const int32_t busDirection) const noexcept
     {
@@ -872,7 +904,7 @@ public:
         output->bus_idx = 0;
         output->channel = -1;
         d_stdout("getRoutingInfo %s %d %d",
-                 v3_media_type_str(input->media_type), input->bus_idx, input->channel);
+                 get_media_type_str(input->media_type), input->bus_idx, input->channel);
         */
         return Steinberg_kNotImplemented;
     }
@@ -1338,7 +1370,7 @@ public:
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_edit_controller interface calls
+    // Steinberg_Vst_IEditController interface calls
 
     int32_t getParameterCount() const noexcept
     {
@@ -2680,7 +2712,7 @@ private:
  */
 
 // --------------------------------------------------------------------------------------------------------------------
-// v3_funknown for static instances
+// Steinberg_FUnknown for static instances
 
 static uint32_t dpf_static_ref(void*) { return 1; }
 static uint32_t dpf_static_unref(void*) { return 0; }
@@ -2934,7 +2966,7 @@ struct dpf_midi_mapping {
         base.addRef = dpf_static_ref;
         base.release = dpf_static_unref;
 
-        // v3_midi_mapping
+        // Steinberg_Vst_IMidiMapping
         base.getMidiControllerAssignment = get_midi_controller_assignment;
     }
 
@@ -2958,7 +2990,7 @@ struct dpf_midi_mapping {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_midi_mapping
+    // Steinberg_Vst_IMidiMapping
 
     static Steinberg_tresult get_midi_controller_assignment(void*, const int32_t bus, const int16_t channel, const int16_t cc, uint32_t* const id)
     {
@@ -3483,24 +3515,23 @@ struct dpf_edit_controller {
 // dpf_process_context_requirements
 
 struct dpf_process_context_requirements {
-    v3_funknown* lpVtbl;
-    v3_funknown com;
-    v3_process_context_requirements req;
-    dpf_process_context_requirements() : lpVtbl(&com)
+    Steinberg_Vst_IProcessContextRequirementsVtbl* lpVtbl;
+    Steinberg_Vst_IProcessContextRequirementsVtbl base;
+    dpf_process_context_requirements() : lpVtbl(&base)
     {
-        // v3_funknown
-        com.query_interface = query_interface_process_context_requirements;
-        com.ref = dpf_static_ref;
-        com.unref = dpf_static_unref;
+        // Steinberg_FUnknown
+        base.queryInterface = query_interface_process_context_requirements;
+        base.addRef = dpf_static_ref;
+        base.release = dpf_static_unref;
 
-        // v3_process_context_requirements
-        req.get_process_context_requirements = get_process_context_requirements;
+        // Steinberg_Vst_IProcessContextRequirements
+        base.getProcessContextRequirements = get_process_context_requirements;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_funknown
+    // Steinberg_FUnknown
 
-    static Steinberg_tresult query_interface_process_context_requirements(void* const self, const v3_tuid iid, void** const iface)
+    static Steinberg_tresult query_interface_process_context_requirements(void* const self, const Steinberg_TUID iid, void** const iface)
     {
         if (tuid_match(iid, Steinberg_FUnknown_iid) ||
             tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
@@ -3517,7 +3548,7 @@ struct dpf_process_context_requirements {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_process_context_requirements
+    // Steinberg_Vst_IProcessContextRequirements
 
     static uint32_t get_process_context_requirements(void*)
     {
@@ -3582,7 +3613,7 @@ struct dpf_audio_processor {
             return Steinberg_kResultOk;
         }
 
-        if (tuid_match(iid, v3_process_context_requirements_iid))
+        if (tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
         {
             d_debug("query_interface_audio_processor => %p %s %p | OK convert static", self, tuid2str(iid), iface);
             static dpf_process_context_requirements context_req;
@@ -3630,7 +3661,7 @@ struct dpf_audio_processor {
                                                 const int32_t idx, Steinberg_Vst_Speaker* const arr)
     {
         d_debug("dpf_audio_processor::get_bus_arrangement => %p %s %i %p",
-                self, v3_bus_direction_str(bus_direction), idx, arr);
+                self, get_bus_direction_str(bus_direction), idx, arr);
         dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
         PluginVst3* const vst3 = processor->vst3;
@@ -3741,11 +3772,11 @@ struct dpf_component {
         base.addRef = ref_component;
         base.release = unref_component;
 
-        // v3_plugin_base
+        // Steinberg_IPluginBase
         base.initialize = initialize;
         base.terminate = terminate;
 
-        // v3_component
+        // Steinberg_Vst_IComponent
         base.getControllerClassId = get_controller_class_id;
         base.setIoMode = set_io_mode;
         base.getBusCount = get_bus_count;
@@ -3926,7 +3957,7 @@ struct dpf_component {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_base
+    // Steinberg_IPluginBase
 
     static Steinberg_tresult initialize(void* const self, Steinberg_FUnknown* const context)
     {
@@ -4006,7 +4037,7 @@ struct dpf_component {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_component
+    // Steinberg_Vst_IComponent
 
     static Steinberg_tresult get_controller_class_id(void*, Steinberg_TUID class_id)
     {
@@ -4036,7 +4067,7 @@ struct dpf_component {
     {
         // NOTE runs during RT
         // d_debug("dpf_component::get_bus_count => %p %s %s",
-        //          self, v3_media_type_str(media_type), v3_bus_direction_str(bus_direction));
+        //          self, get_media_type_str(media_type), get_bus_direction_str(bus_direction));
         dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
@@ -4051,7 +4082,7 @@ struct dpf_component {
                                          const int32_t bus_idx, Steinberg_Vst_BusInfo* const info)
     {
         d_debug("dpf_component::get_bus_info => %p %s %s %i %p",
-                self, v3_media_type_str(media_type), v3_bus_direction_str(bus_direction), bus_idx, info);
+                self, get_media_type_str(media_type), get_bus_direction_str(bus_direction), bus_idx, info);
         dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
@@ -4072,11 +4103,11 @@ struct dpf_component {
     }
 
     static Steinberg_tresult activate_bus(void* const self, const int32_t media_type, const int32_t bus_direction,
-                                         const int32_t bus_idx, const v3_bool state)
+                                         const int32_t bus_idx, const Steinberg_TBool state)
     {
         // NOTE this is called a bunch of times
         // d_debug("dpf_component::activate_bus => %p %s %s %i %u",
-        //         self, v3_media_type_str(media_type), v3_bus_direction_str(bus_direction), bus_idx, state);
+        //         self, get_media_type_str(media_type), get_bus_direction_str(bus_direction), bus_idx, state);
         dpf_component* const component = static_cast<dpf_component*>(self);
 
         PluginVst3* const vst3 = component->vst3;
@@ -4085,7 +4116,7 @@ struct dpf_component {
         return vst3->activateBus(media_type, bus_direction, bus_idx, state);
     }
 
-    static Steinberg_tresult set_active(void* const self, const v3_bool state)
+    static Steinberg_tresult set_active(void* const self, const Steinberg_TBool state)
     {
         d_debug("dpf_component::set_active => %p %u", self, state);
         dpf_component* const component = static_cast<dpf_component*>(self);
@@ -4284,7 +4315,7 @@ struct dpf_factory {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_factory
+    // Steinberg_IPluginFactory
 
     static Steinberg_tresult get_factory_info(void*, Steinberg_PFactoryInfo* const info)
     {
@@ -4367,7 +4398,7 @@ struct dpf_factory {
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // v3_plugin_factory_2
+    // Steinberg_IPluginFactory2
 
     static Steinberg_tresult get_class_info_2(void*, const int32_t idx, Steinberg_PClassInfo2* const info)
     {
@@ -4400,7 +4431,7 @@ struct dpf_factory {
     }
 
     // ------------------------------------------------------------------------------------------------------------
-    // v3_plugin_factory_3
+    // Steinberg_IPluginFactory3
 
     static Steinberg_tresult get_class_info_utf16(void*, const int32_t idx, Steinberg_PClassInfoW* const info)
     {
