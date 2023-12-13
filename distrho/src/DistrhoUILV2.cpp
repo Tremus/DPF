@@ -42,9 +42,6 @@ typedef struct _LV2_Atom_MidiEvent {
     uint8_t  data[3]; /**< MIDI data (body). */
 } LV2_Atom_MidiEvent;
 
-#if ! DISTRHO_PLUGIN_WANT_STATE
-static constexpr const setStateFunc setStateCallback = nullptr;
-#endif
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -94,7 +91,6 @@ public:
           fUI(this, winId, sampleRate,
               editParameterCallback,
               setParameterCallback,
-              setStateCallback,
               sendNoteCallback,
               nullptr, // resize is very messy, hosts can do it without extensions
               fileRequestCallback,
@@ -102,11 +98,6 @@ public:
     {
         if (widget != nullptr)
             *widget = (LV2UI_Widget)fUI.getNativeWindowHandle();
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        // tell the DSP we're ready to receive msgs
-        setState("__dpf_ui_data__", "");
-       #endif
 
         if (winId != 0)
             return;
@@ -170,61 +161,6 @@ public:
 
             fUI.parameterChanged(rindex-parameterOffset, value);
         }
-       #if DISTRHO_PLUGIN_WANT_STATE
-        else if (format == fURIDs.atomEventTransfer)
-        {
-            const LV2_Atom* const atom = (const LV2_Atom*)buffer;
-
-            if (atom->type == fURIDs.dpfKeyValue)
-            {
-                const char* const key   = (const char*)LV2_ATOM_BODY_CONST(atom);
-                const char* const value = key+(std::strlen(key)+1);
-
-                fUI.stateChanged(key, value);
-            }
-            else if (atom->type == fURIDs.atomObject && fUridUnmap != nullptr)
-            {
-                const LV2_Atom_Object* const obj = (const LV2_Atom_Object*)atom;
-
-                const LV2_Atom* property = nullptr;
-                const LV2_Atom* atomvalue = nullptr;
-                lv2_atom_object_get(obj, fURIDs.patchProperty, &property, fURIDs.patchValue, &atomvalue, 0);
-
-                DISTRHO_SAFE_ASSERT_RETURN(property != nullptr,);
-                DISTRHO_SAFE_ASSERT_RETURN(atomvalue != nullptr,);
-
-                DISTRHO_SAFE_ASSERT_RETURN(property->type == fURIDs.atomURID,);
-                DISTRHO_SAFE_ASSERT_RETURN(atomvalue->type == fURIDs.atomPath || atomvalue->type == fURIDs.atomString,);
-
-                if (property != nullptr && property->type == fURIDs.atomURID &&
-                    atomvalue != nullptr && (atomvalue->type == fURIDs.atomPath || atomvalue->type == fURIDs.atomString))
-                {
-                    const LV2_URID dpf_lv2_urid = ((const LV2_Atom_URID*)property)->body;
-                    DISTRHO_SAFE_ASSERT_RETURN(dpf_lv2_urid != 0,);
-
-                    const char* const dpf_lv2_key = fUridUnmap->unmap(fUridUnmap->handle, dpf_lv2_urid);
-                    DISTRHO_SAFE_ASSERT_RETURN(dpf_lv2_key != nullptr,);
-
-                    /*constexpr*/ const size_t reqLen = std::strlen(DISTRHO_PLUGIN_URI "#");
-                    DISTRHO_SAFE_ASSERT_RETURN(std::strlen(dpf_lv2_key) > reqLen,);
-
-                    const char* const key   = dpf_lv2_key + reqLen;
-                    const char* const value = (const char*)LV2_ATOM_BODY_CONST(atomvalue);
-
-                    fUI.stateChanged(key, value);
-                }
-            }
-            else if (atom->type == fURIDs.midiEvent)
-            {
-                // ignore
-            }
-            else
-            {
-                d_stdout("DPF :: received atom not handled :: %s",
-                         fUridUnmap != nullptr ? fUridUnmap->unmap(fUridUnmap->handle, atom->type) : "(null)");
-            }
-        }
-       #endif
     }
 
     // -------------------------------------------------------------------
@@ -379,52 +315,6 @@ private:
     {
         static_cast<UiLv2*>(ptr)->setParameterValue(rindex, value);
     }
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void setState(const char* const key, const char* const value)
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fWriteFunction != nullptr,);
-
-        const uint32_t eventInPortIndex = DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS;
-
-        // join key and value
-        String tmpStr;
-        tmpStr += key;
-        tmpStr += "\xff";
-        tmpStr += value;
-
-        tmpStr[std::strlen(key)] = '\0';
-
-        // set msg size (key + separator + value + null terminator)
-        const uint32_t msgSize = static_cast<uint32_t>(tmpStr.length()) + 1U;
-
-        // reserve atom space
-        const uint32_t atomSize = sizeof(LV2_Atom) + msgSize;
-        char* const  atomBuf = (char*)malloc(atomSize);
-        DISTRHO_SAFE_ASSERT_RETURN(atomBuf != nullptr,);
-
-        std::memset(atomBuf, 0, atomSize);
-
-        // set atom info
-        LV2_Atom* const atom = (LV2_Atom*)atomBuf;
-        atom->size = msgSize;
-        atom->type = fURIDs.dpfKeyValue;
-
-        // set atom data
-        std::memcpy(atomBuf + sizeof(LV2_Atom), tmpStr.buffer(), msgSize);
-
-        // send to DSP side
-        fWriteFunction(fController, eventInPortIndex, atomSize, fURIDs.atomEventTransfer, atom);
-
-        // free atom space
-        free(atomBuf);
-    }
-
-    static void setStateCallback(void* const ptr, const char* const key, const char* const value)
-    {
-        static_cast<UiLv2*>(ptr)->setState(key, value);
-    }
-   #endif
 
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     void sendNote(const uint8_t channel, const uint8_t note, const uint8_t velocity)

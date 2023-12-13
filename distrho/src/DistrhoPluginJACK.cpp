@@ -76,9 +76,6 @@ START_NAMESPACE_DISTRHO
 #if DISTRHO_PLUGIN_HAS_UI && ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static const sendNoteFunc sendNoteCallback = nullptr;
 #endif
-#if DISTRHO_PLUGIN_HAS_UI && ! DISTRHO_PLUGIN_WANT_STATE
-static const setStateFunc setStateCallback = nullptr;
-#endif
 #if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 static const writeMidiFunc writeMidiCallback = nullptr;
 #endif
@@ -134,14 +131,13 @@ class PluginJack
 {
 public:
     PluginJack(jack_client_t* const client, const uintptr_t winId)
-        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback, nullptr),
+        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback),
 #if DISTRHO_PLUGIN_HAS_UI
           fUI(this,
               winId,
               d_nextSampleRate,
               nullptr, // edit param
               setParameterValueCallback,
-              setStateCallback,
               sendNoteCallback,
               nullptr, // window size
               nullptr, // file request
@@ -548,12 +544,6 @@ protected:
     }
 # endif
 
-# if DISTRHO_PLUGIN_WANT_STATE
-    void setState(const char* const key, const char* const value)
-    {
-        fPlugin.setState(key, value);
-    }
-# endif
 #endif // DISTRHO_PLUGIN_HAS_UI
 
     // NOTE: no trigger support for JACK, simulate it here
@@ -748,13 +738,6 @@ private:
     static void sendNoteCallback(void* ptr, uint8_t channel, uint8_t note, uint8_t velocity)
     {
         thisPtr->sendNote(channel, note, velocity);
-    }
-# endif
-
-# if DISTRHO_PLUGIN_WANT_STATE
-    static void setStateCallback(void* ptr, const char* key, const char* value)
-    {
-        thisPtr->setState(key, value);
     }
 # endif
 #endif // DISTRHO_PLUGIN_HAS_UI

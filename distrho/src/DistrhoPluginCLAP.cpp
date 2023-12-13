@@ -132,13 +132,6 @@ struct ClapEventQueue
     uint32_t fCurrentProgram;
    #endif
 
-  #if DISTRHO_PLUGIN_WANT_STATE
-    StringMap fStateMap;
-   #if DISTRHO_PLUGIN_HAS_UI
-    virtual void setStateFromUI(const char* key, const char* value) = 0;
-   #endif
-  #endif
-
     struct CachedParameters {
         uint numParams;
         bool* changed;
@@ -189,9 +182,6 @@ struct ClapEventQueue
 
 #if DISTRHO_PLUGIN_HAS_UI
 
-#if ! DISTRHO_PLUGIN_WANT_STATE
-static constexpr const setStateFunc setStateCallback = nullptr;
-#endif
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -216,9 +206,6 @@ public:
           fCachedParameters(eventQueue->fCachedParameters),
          #if DISTRHO_PLUGIN_WANT_PROGRAMS
           fCurrentProgram(eventQueue->fCurrentProgram),
-         #endif
-         #if DISTRHO_PLUGIN_WANT_STATE
-          fStateMap(eventQueue->fStateMap),
          #endif
           fHost(host),
           fHostGui(hostGui),
@@ -286,7 +273,7 @@ public:
             scaleFactor = 1.0;
        #else
         UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
-                         nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
+                         nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
                          fPlugin.getInstancePointer(), scaleFactor);
         *width = tmpUI.getWidth();
         *height = tmpUI.getHeight();
@@ -521,14 +508,6 @@ public:
     }
    #endif
 
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void setStateFromPlugin(const char* const key, const char* const value)
-    {
-        if (UIExporter* const ui = fUI.get())
-            ui->stateChanged(key, value);
-    }
-   #endif
-
     // ----------------------------------------------------------------------------------------------------------------
 
 private:
@@ -539,9 +518,6 @@ private:
     ClapEventQueue::CachedParameters& fCachedParameters;
    #if DISTRHO_PLUGIN_WANT_PROGRAMS
     uint32_t& fCurrentProgram;
-   #endif
-   #if DISTRHO_PLUGIN_WANT_STATE
-    StringMap& fStateMap;
    #endif
     const clap_host_t* const fHost;
     const clap_host_gui_t* const fHostGui;
@@ -575,7 +551,6 @@ private:
                              fPlugin.getSampleRate(),
                              editParameterCallback,
                              setParameterCallback,
-                             setStateCallback,
                              sendNoteCallback,
                              setSizeCallback,
                              nullptr, // TODO fileRequestCallback,
@@ -585,28 +560,6 @@ private:
 
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
         fUI->programLoaded(fCurrentProgram);
-       #endif
-
-       #if DISTRHO_PLUGIN_WANT_FULL_STATE
-        // Update current state from plugin side
-        for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-        {
-            const String& key = cit->first;
-            fStateMap[key] = fPlugin.getStateValue(key);
-        }
-       #endif
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        // Set state
-        for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-        {
-            const String& key   = cit->first;
-            const String& value = cit->second;
-
-            // TODO skip DSP only states
-
-            fUI->stateChanged(key, value);
-        }
        #endif
 
         for (uint32_t i=0; i<fCachedParameters.numParams; ++i)
@@ -679,18 +632,6 @@ private:
         static_cast<ClapUI*>(ptr)->setSizeFromPlugin(width, height);
     }
 
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void setState(const char* const key, const char* const value)
-    {
-        fPluginEventQueue->setStateFromUI(key, value);
-    }
-
-    static void setStateCallback(void* const ptr, const char* key, const char* value)
-    {
-        static_cast<ClapUI*>(ptr)->setState(key, value);
-    }
-   #endif
-
    #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     void sendNote(const uint8_t channel, const uint8_t note, const uint8_t velocity)
     {
@@ -731,9 +672,6 @@ static constexpr const writeMidiFunc writeMidiCallback = nullptr;
 #if ! DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
 static constexpr const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
 #endif
-#if ! DISTRHO_PLUGIN_WANT_STATE
-static constexpr const updateStateValueFunc updateStateValueCallback = nullptr;
-#endif
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -746,8 +684,7 @@ public:
     PluginCLAP(const clap_host_t* const host)
         : fPlugin(this,
                   writeMidiCallback,
-                  requestParameterValueChangeCallback,
-                  updateStateValueCallback),
+                  requestParameterValueChangeCallback),
           fHost(host),
           fOutputEvents(nullptr),
          #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS != 0
@@ -766,14 +703,6 @@ public:
 
        #if DISTRHO_PLUGIN_HAS_UI && DISTRHO_PLUGIN_WANT_MIDI_INPUT
         fNotesRingBuffer.setRingBuffer(&fNotesBuffer, true);
-       #endif
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        for (uint32_t i=0, count=fPlugin.getStateCount(); i<count; ++i)
-        {
-            const String& dkey(fPlugin.getStateKey(i));
-            fStateMap[dkey] = fPlugin.getStateDefaultValue(i);
-        }
        #endif
 
        #if DISTRHO_PLUGIN_NUM_INPUTS != 0
@@ -1411,26 +1340,12 @@ public:
     bool stateSave(const clap_ostream_t* const stream)
     {
         const uint32_t paramCount = fPlugin.getParameterCount();
-       #if DISTRHO_PLUGIN_WANT_STATE
-        const uint32_t stateCount = fPlugin.getStateCount();
-       #else
-        const uint32_t stateCount = 0;
-       #endif
 
-        if (stateCount == 0 && paramCount == 0)
+        if (paramCount == 0)
         {
             char buffer = '\0';
             return stream->write(stream, &buffer, 1) == 1;
         }
-
-       #if DISTRHO_PLUGIN_WANT_FULL_STATE
-        // Update current state
-        for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-        {
-            const String& key = cit->first;
-            fStateMap[key] = fPlugin.getStateValue(key);
-        }
-       #endif
 
         String state;
 
@@ -1441,30 +1356,6 @@ public:
             tmpStr += "\xff";
 
             state += tmpStr;
-        }
-       #endif
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        if (stateCount != 0)
-        {
-            state += "__dpf_state_begin__\xff";
-
-            for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key   = cit->first;
-                const String& value = cit->second;
-
-                // join key and value
-                String tmpStr;
-                tmpStr  = key;
-                tmpStr += "\xff";
-                tmpStr += value;
-                tmpStr += "\xff";
-
-                state += tmpStr;
-            }
-
-            state += "__dpf_state_end__\xff";
         }
        #endif
 
@@ -1636,23 +1527,6 @@ public:
                        #endif
                       #endif
                     }
-                    else if (queryingType == 's')
-                    {
-                        d_debug("found state '%s' '%s'", key.buffer(), value.buffer());
-
-                       #if DISTRHO_PLUGIN_WANT_STATE
-                        if (fPlugin.wantStateKey(key))
-                        {
-                            fStateMap[key] = value;
-                            fPlugin.setState(key, value);
-
-                           #if DISTRHO_PLUGIN_HAS_UI
-                            if (ui != nullptr)
-                                ui->setStateFromPlugin(key, value);
-                           #endif
-                        }
-                       #endif
-                    }
                     else if (queryingType == 'p')
                     {
                         d_debug("found parameter '%s' '%s'", key.buffer(), value.buffer());
@@ -1750,31 +1624,6 @@ public:
     ClapUI* getUI() const noexcept
     {
         return fUI.get();
-    }
-   #endif
-
-   #if DISTRHO_PLUGIN_HAS_UI && DISTRHO_PLUGIN_WANT_STATE
-    void setStateFromUI(const char* const key, const char* const value) override
-    {
-        fPlugin.setState(key, value);
-
-        // check if we want to save this key
-        if (! fPlugin.wantStateKey(key))
-            return;
-
-        // check if key already exists
-        for (StringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
-        {
-            const String& dkey(it->first);
-
-            if (dkey == key)
-            {
-                it->second = value;
-                return;
-            }
-        }
-
-        d_stderr("Failed to find plugin state with key \"%s\"", key);
     }
    #endif
 
@@ -2034,18 +1883,6 @@ private:
     static bool requestParameterValueChangeCallback(void* const ptr, const uint32_t index, const float value)
     {
         return static_cast<PluginCLAP*>(ptr)->requestParameterValueChange(index, value);
-    }
-   #endif
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    bool updateState(const char*, const char*)
-    {
-        return true;
-    }
-
-    static bool updateStateValueCallback(void* const ptr, const char* const key, const char* const value)
-    {
-        return static_cast<PluginCLAP*>(ptr)->updateState(key, value);
     }
    #endif
 };
@@ -2589,7 +2426,7 @@ static bool CLAP_ABI clap_plugin_entry_init(const char* const plugin_path)
         d_nextCanRequestParameterValueChanges = true;
 
         // Create dummy plugin to get data from
-        sPlugin = new PluginExporter(nullptr, nullptr, nullptr, nullptr);
+        sPlugin = new PluginExporter(nullptr, nullptr, nullptr);
 
         // unset
         d_nextBufferSize = 0;

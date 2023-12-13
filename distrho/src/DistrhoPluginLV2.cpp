@@ -48,8 +48,8 @@
 # define DISTRHO_PLUGIN_LV2_STATE_PREFIX "urn:distrho:"
 #endif
 
-#define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS || DISTRHO_PLUGIN_WANT_STATE)
-#define DISTRHO_LV2_USE_EVENTS_OUT (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
+#define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS)
+#define DISTRHO_LV2_USE_EVENTS_OUT DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 
 START_NAMESPACE_DISTRHO
 
@@ -62,9 +62,6 @@ static const writeMidiFunc writeMidiCallback = nullptr;
 #if ! DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
 static const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
 #endif
-#if ! DISTRHO_PLUGIN_WANT_STATE
-static const updateStateValueFunc updateStateValueCallback = nullptr;
-#endif
 
 // -----------------------------------------------------------------------
 
@@ -76,7 +73,7 @@ public:
               const LV2_Worker_Schedule* const worker,
               const LV2_ControlInputPort_Change_Request* const ctrlInPortChangeReq,
               const bool usingNominal)
-        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback, updateStateValueCallback),
+        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback),
           fUsingNominal(usingNominal),
 #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
           fRunCount(0),
@@ -128,37 +125,8 @@ public:
 #if DISTRHO_PLUGIN_WANT_LATENCY
         fPortLatency = nullptr;
 #endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-        std::memset(&fAtomForge, 0, sizeof(fAtomForge));
-        lv2_atom_forge_init(&fAtomForge, uridMap);
-
-        if (const uint32_t count = fPlugin.getStateCount())
-        {
-            fUrids = new LV2_URID[count];
-            fNeededUiSends = new bool[count];
-
-            for (uint32_t i=0; i < count; ++i)
-            {
-                fNeededUiSends[i] = false;
-
-                const String& statekey(fPlugin.getStateKey(i));
-                fStateMap[statekey] = fPlugin.getStateDefaultValue(i);
-
-                const String lv2key(DISTRHO_PLUGIN_URI "#" + statekey);
-                const LV2_URID urid = fUrids[i] = uridMap->map(uridMap->handle, lv2key.buffer());
-                fUridStateMap[urid] = statekey;
-            }
-        }
-        else
-        {
-            fUrids = nullptr;
-            fNeededUiSends = nullptr;
-        }
-#else
         // unused
         (void)fWorker;
-#endif
 
 #if ! DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
         // unused
@@ -179,22 +147,6 @@ public:
             delete[] fLastControlValues;
             fLastControlValues = nullptr;
         }
-
-#if DISTRHO_PLUGIN_WANT_STATE
-        if (fNeededUiSends != nullptr)
-        {
-            delete[] fNeededUiSends;
-            fNeededUiSends = nullptr;
-        }
-
-        if (fUrids != nullptr)
-        {
-            delete[] fUrids;
-            fUrids = nullptr;
-        }
-
-        fStateMap.clear();
-#endif
     }
 
     // -------------------------------------------------------------------
@@ -553,54 +505,6 @@ public:
 # endif
         }
 #endif
-
-        // check for messages from UI or host
-#if DISTRHO_PLUGIN_WANT_STATE
-        LV2_ATOM_SEQUENCE_FOREACH(fPortEventsIn, event)
-        {
-            if (event == nullptr)
-                break;
-
-           #if DISTRHO_PLUGIN_HAS_UI
-            if (event->body.type == fURIDs.dpfKeyValue)
-            {
-                const void* const data = (const void*)(event + 1);
-
-                // check if this is our special message
-                if (std::strcmp((const char*)data, "__dpf_ui_data__") == 0)
-                {
-                    for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
-                    {
-                        if (fPlugin.getStateHints(i) & kStateIsOnlyForDSP)
-                            continue;
-                        fNeededUiSends[i] = true;
-                    }
-                }
-                // no, send to DSP as usual
-                else if (fWorker != nullptr)
-                {
-                    fWorker->schedule_work(fWorker->handle, sizeof(LV2_Atom)+event->body.size, &event->body);
-                }
-            }
-            else
-           #endif
-            if (event->body.type == fURIDs.atomObject && fWorker != nullptr)
-            {
-                const LV2_Atom_Object* const object = (const LV2_Atom_Object*)&event->body;
-
-                const LV2_Atom* property = nullptr;
-                const LV2_Atom* value    = nullptr;
-                lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, nullptr);
-
-                if (property != nullptr && property->type == fURIDs.atomURID &&
-                    value != nullptr && (value->type == fURIDs.atomPath || value->type == fURIDs.atomString))
-                {
-                    fWorker->schedule_work(fWorker->handle, sizeof(LV2_Atom)+event->body.size, &event->body);
-                }
-            }
-        }
-#endif
-
         // Check for updated parameters
         float curValue;
 
@@ -695,109 +599,6 @@ public:
         }
 
         updateParameterOutputsAndTriggers();
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        fEventsOutData.initIfNeeded(fURIDs.atomSequence);
-
-        LV2_Atom_Event* aev;
-        const uint32_t capacity = fEventsOutData.capacity;
-
-        for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
-        {
-            if (! fNeededUiSends[i])
-                continue;
-
-            const uint32_t hints = fPlugin.getStateHints(i);
-
-           #if ! DISTRHO_PLUGIN_HAS_UI
-            if ((hints & kStateIsHostReadable) == 0x0)
-            {
-                fNeededUiSends[i] = false;
-                continue;
-            }
-           #endif
-
-            const String& curKey(fPlugin.getStateKey(i));
-
-            for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key(cit->first);
-
-                if (curKey != key)
-                    continue;
-
-                const String& value(cit->second);
-
-                // set msg size
-                uint32_t msgSize;
-
-                if (hints & kStateIsHostReadable)
-                {
-                    // object, prop key, prop urid, value key, value
-                    msgSize = sizeof(LV2_Atom_Object)
-                            + sizeof(LV2_Atom_Property_Body) * 4
-                            + sizeof(LV2_Atom_URID) * 3
-                            + sizeof(LV2_Atom_String)
-                            + value.length() + 1;
-                }
-                else
-                {
-                    // key + value + 2x null terminator + separator
-                    msgSize = static_cast<uint32_t>(key.length()+value.length())+3U;
-                }
-
-                if (sizeof(LV2_Atom_Event) + msgSize > capacity - fEventsOutData.offset)
-                {
-                    d_stdout("Sending key '%s' to UI failed, out of space (needs %u bytes)",
-                             key.buffer(), msgSize);
-                    break;
-                }
-
-                // put data
-                aev = (LV2_Atom_Event*)(LV2_ATOM_CONTENTS(LV2_Atom_Sequence, fEventsOutData.port) + fEventsOutData.offset);
-                aev->time.frames = 0;
-
-                if (hints & kStateIsHostReadable)
-                {
-                    uint8_t* const msgBuf = (uint8_t*)&aev->body;
-                    LV2_Atom_Forge atomForge = fAtomForge;
-                    lv2_atom_forge_set_buffer(&atomForge, msgBuf, msgSize);
-
-                    LV2_Atom_Forge_Frame forgeFrame;
-                    lv2_atom_forge_object(&atomForge, &forgeFrame, 0, fURIDs.patchSet);
-
-                    lv2_atom_forge_key(&atomForge, fURIDs.patchProperty);
-                    lv2_atom_forge_urid(&atomForge, fUrids[i]);
-
-                    lv2_atom_forge_key(&atomForge, fURIDs.patchValue);
-                    if ((hints & kStateIsFilenamePath) == kStateIsFilenamePath)
-                        lv2_atom_forge_path(&atomForge, value.buffer(), static_cast<uint32_t>(value.length()+1));
-                    else
-                        lv2_atom_forge_string(&atomForge, value.buffer(), static_cast<uint32_t>(value.length()+1));
-
-                    lv2_atom_forge_pop(&atomForge, &forgeFrame);
-
-                    msgSize = ((LV2_Atom*)msgBuf)->size;
-                }
-                else
-                {
-                    aev->body.type = fURIDs.dpfKeyValue;
-                    aev->body.size = msgSize;
-
-                    uint8_t* const msgBuf = LV2_ATOM_BODY(&aev->body);
-                    std::memset(msgBuf, 0, msgSize);
-
-                    // write key and value in atom buffer
-                    std::memcpy(msgBuf, key.buffer(), key.length()+1);
-                    std::memcpy(msgBuf+(key.length()+1), value.buffer(), value.length()+1);
-                }
-
-                fEventsOutData.growBy(lv2_atom_pad_size(sizeof(LV2_Atom_Event) + msgSize));
-                fNeededUiSends[i] = false;
-                break;
-            }
-        }
-       #endif
 
        #if DISTRHO_LV2_USE_EVENTS_OUT
         fEventsOutData.endRun();
@@ -894,275 +695,6 @@ public:
 
             setPortControlValue(i, fLastControlValues[i]);
         }
-
-       #if DISTRHO_PLUGIN_WANT_FULL_STATE
-        // Update state
-        for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-        {
-            const String& key = cit->first;
-            fStateMap[key] = fPlugin.getStateValue(key);
-        }
-       #endif
-    }
-   #endif
-
-    // -------------------------------------------------------------------
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    LV2_State_Status lv2_save(const LV2_State_Store_Function store,
-                              const LV2_State_Handle handle,
-                              const LV2_Feature* const* const features)
-    {
-       #if DISTRHO_PLUGIN_WANT_FULL_STATE
-        // Update current state
-        for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-        {
-            const String& key = cit->first;
-            fStateMap[key] = fPlugin.getStateValue(key);
-        }
-       #endif
-
-        String lv2key;
-        LV2_URID urid;
-
-        for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
-        {
-            const String& curKey(fPlugin.getStateKey(i));
-
-            for (StringToStringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key(cit->first);
-
-                if (curKey != key)
-                    continue;
-
-                const uint32_t hints = fPlugin.getStateHints(i);
-
-               #if ! DISTRHO_PLUGIN_HAS_UI && ! DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
-                // do not save UI-only messages if there is no UI available
-                if (hints & kStateIsOnlyForUI)
-                    break;
-               #endif
-
-                if (hints & kStateIsHostReadable)
-                {
-                    lv2key = DISTRHO_PLUGIN_URI "#";
-                    urid = (hints & kStateIsFilenamePath) == kStateIsFilenamePath
-                         ? fURIDs.atomPath
-                         : fURIDs.atomString;
-                }
-                else
-                {
-                    lv2key = DISTRHO_PLUGIN_LV2_STATE_PREFIX;
-                    urid = fURIDs.atomString;
-                }
-
-                lv2key += key;
-
-                const String& value(cit->second);
-
-                if (urid == fURIDs.atomPath)
-                {
-                    const LV2_State_Map_Path* mapPath = nullptr;
-                    const LV2_State_Free_Path* freePath = nullptr;
-                    for (int i=0; features[i] != nullptr; ++i)
-                    {
-                        if (std::strcmp(features[i]->URI, LV2_STATE__mapPath) == 0)
-                            mapPath = (const LV2_State_Map_Path*)features[i]->data;
-                        else if (std::strcmp(features[i]->URI, LV2_STATE__freePath) == 0)
-                            freePath = (const LV2_State_Free_Path*)features[i]->data;
-                    }
-
-                    if (char* const abstractPath = mapPath != nullptr
-                                                 ? mapPath->abstract_path(mapPath->handle, value.buffer())
-                                                 : nullptr)
-                    {
-                        // some hosts need +1 for the null terminator, even though the type is string/path
-                        store(handle,
-                              fUridMap->map(fUridMap->handle, lv2key.buffer()),
-                              abstractPath,
-                              std::strlen(abstractPath)+1,
-                              urid,
-                              LV2_STATE_IS_POD|LV2_STATE_IS_PORTABLE);
-
-                        if (freePath != nullptr)
-                            freePath->free_path(freePath->handle, abstractPath);
-                       #ifndef DISTRHO_OS_WINDOWS
-                        else
-                            std::free(abstractPath);
-                       #endif
-
-                        break;
-                    }
-                }
-
-                // some hosts need +1 for the null terminator, even though the type is string
-                store(handle,
-                      fUridMap->map(fUridMap->handle, lv2key.buffer()),
-                      value.buffer(),
-                      value.length()+1,
-                      urid,
-                      LV2_STATE_IS_POD|LV2_STATE_IS_PORTABLE);
-
-                break;
-            }
-        }
-
-        return LV2_STATE_SUCCESS;
-    }
-
-    LV2_State_Status lv2_restore(const LV2_State_Retrieve_Function retrieve,
-                                 const LV2_State_Handle handle,
-                                 const LV2_Feature* const* const features)
-    {
-        size_t size;
-        uint32_t type, flags;
-
-        String lv2key;
-        LV2_URID urid;
-
-        for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
-        {
-            const String& key(fPlugin.getStateKey(i));
-
-            const uint32_t hints = fPlugin.getStateHints(i);
-
-            if (hints & kStateIsHostReadable)
-            {
-                lv2key = DISTRHO_PLUGIN_URI "#";
-                urid = (hints & kStateIsFilenamePath) == kStateIsFilenamePath
-                     ? fURIDs.atomPath
-                     : fURIDs.atomString;
-            }
-            else
-            {
-                lv2key = DISTRHO_PLUGIN_LV2_STATE_PREFIX;
-                urid = fURIDs.atomString;
-            }
-
-            lv2key += key;
-
-            size  = 0;
-            type  = 0;
-            flags = LV2_STATE_IS_POD|LV2_STATE_IS_PORTABLE;
-            const void* data = retrieve(handle,
-                                        fUridMap->map(fUridMap->handle, lv2key.buffer()),
-                                        &size, &type, &flags);
-
-            if (data == nullptr || size == 0)
-                continue;
-
-            DISTRHO_SAFE_ASSERT_CONTINUE(type == urid);
-
-            const char* const value  = (const char*)data;
-            const std::size_t length = std::strlen(value);
-            DISTRHO_SAFE_ASSERT_CONTINUE(length == size || length+1 == size);
-
-           #if DISTRHO_PLUGIN_WANT_STATE
-            if (urid == fURIDs.atomPath)
-            {
-                const LV2_State_Map_Path* mapPath = nullptr;
-                const LV2_State_Free_Path* freePath = nullptr;
-                for (int i=0; features[i] != nullptr; ++i)
-                {
-                    if (std::strcmp(features[i]->URI, LV2_STATE__mapPath) == 0)
-                        mapPath = (const LV2_State_Map_Path*)features[i]->data;
-                    else if (std::strcmp(features[i]->URI, LV2_STATE__freePath) == 0)
-                        freePath = (const LV2_State_Free_Path*)features[i]->data;
-                }
-
-                if (char* const absolutePath = mapPath != nullptr
-                                             ? mapPath->absolute_path(mapPath->handle, value)
-                                             : nullptr)
-                {
-                    setState(key, absolutePath);
-
-                    if (freePath != nullptr)
-                        freePath->free_path(freePath->handle, absolutePath);
-                   #ifndef DISTRHO_OS_WINDOWS
-                    else
-                        std::free(absolutePath);
-                   #endif
-
-                    // signal msg needed for UI
-                    fNeededUiSends[i] = true;
-                    continue;
-                }
-            }
-           #endif
-
-            setState(key, value);
-
-           #if DISTRHO_PLUGIN_WANT_STATE
-            // signal msg needed for UI
-            if ((hints & kStateIsOnlyForDSP) == 0x0)
-                fNeededUiSends[i] = true;
-           #endif
-        }
-
-        return LV2_STATE_SUCCESS;
-    }
-
-    // -------------------------------------------------------------------
-
-    LV2_Worker_Status lv2_work(const void* const data)
-    {
-        const LV2_Atom* const eventBody = (const LV2_Atom*)data;
-
-        if (eventBody->type == fURIDs.dpfKeyValue)
-        {
-            const char* const key   = (const char*)(eventBody + 1);
-            const char* const value = key + (std::strlen(key) + 1U);
-
-            setState(key, value);
-            return LV2_WORKER_SUCCESS;
-        }
-
-        if (eventBody->type == fURIDs.atomObject)
-        {
-            const LV2_Atom_Object* const object = (const LV2_Atom_Object*)eventBody;
-
-            const LV2_Atom* property = nullptr;
-            const LV2_Atom* value    = nullptr;
-            lv2_atom_object_get(object, fURIDs.patchProperty, &property, fURIDs.patchValue, &value, nullptr);
-            DISTRHO_SAFE_ASSERT_RETURN(property != nullptr, LV2_WORKER_ERR_UNKNOWN);
-            DISTRHO_SAFE_ASSERT_RETURN(property->type == fURIDs.atomURID, LV2_WORKER_ERR_UNKNOWN);
-            DISTRHO_SAFE_ASSERT_RETURN(value != nullptr, LV2_WORKER_ERR_UNKNOWN);
-            DISTRHO_SAFE_ASSERT_RETURN(value->type == fURIDs.atomPath ||
-                                       value->type == fURIDs.atomString, LV2_WORKER_ERR_UNKNOWN);
-
-            const LV2_URID urid        = ((const LV2_Atom_URID*)property)->body;
-            const char* const filename = (const char*)(value + 1);
-
-            String key;
-
-            try {
-                key = fUridStateMap[urid];
-            } DISTRHO_SAFE_EXCEPTION_RETURN("lv2_work fUridStateMap[urid]", LV2_WORKER_ERR_UNKNOWN);
-
-            setState(key, filename);
-
-            /* FIXME host should be responsible for updating UI side, not us
-            for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
-            {
-                if (fPlugin.getStateKey(i) == key)
-                {
-                    if ((fPlugin.getStateHints(i) & kStateIsOnlyForDSP) == 0x0)
-                        fNeededUiSends[i] = true;
-                    break;
-                }
-            }
-            */
-
-            return LV2_WORKER_SUCCESS;
-        }
-
-        return LV2_WORKER_ERR_UNKNOWN;
-    }
-
-    LV2_Worker_Status lv2_work_response(uint32_t, const void*)
-    {
-        return LV2_WORKER_SUCCESS;
     }
    #endif
 
@@ -1342,61 +874,6 @@ private:
     const LV2_URID_Map* const fUridMap;
     const LV2_Worker_Schedule* const fWorker;
 
-   #if DISTRHO_PLUGIN_WANT_STATE
-    LV2_Atom_Forge fAtomForge;
-    StringToStringMap fStateMap;
-    UridToStringMap fUridStateMap;
-    LV2_URID* fUrids;
-    bool* fNeededUiSends;
-
-    void setState(const char* const key, const char* const newValue)
-    {
-        fPlugin.setState(key, newValue);
-
-        // save this key if necessary
-        if (fPlugin.wantStateKey(key))
-            updateInternalState(key, newValue, false);
-    }
-
-    bool updateState(const char* const key, const char* const newValue)
-    {
-        fPlugin.setState(key, newValue);
-        return updateInternalState(key, newValue, true);
-    }
-
-    bool updateInternalState(const char* const key, const char* const newValue, const bool sendToUI)
-    {
-        // key must already exist
-        for (StringToStringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
-        {
-            const String& dkey(it->first);
-
-            if (dkey == key)
-            {
-                it->second = newValue;
-
-                if (sendToUI)
-                {
-                    for (uint32_t i=0, count=fPlugin.getStateCount(); i < count; ++i)
-                    {
-                        if (fPlugin.getStateKey(i) == key)
-                        {
-                            if ((fPlugin.getStateHints(i) & kStateIsOnlyForDSP) == 0x0)
-                                fNeededUiSends[i] = true;
-                            break;
-                        }
-                    }
-                }
-
-                return true;
-            }
-        }
-
-        d_stderr("Failed to find plugin state with key \"%s\"", key);
-        return false;
-    }
-   #endif
-
     void updateParameterOutputsAndTriggers()
     {
         float curValue;
@@ -1432,13 +909,6 @@ private:
     static bool requestParameterValueChangeCallback(void* const ptr, const uint32_t index, const float value)
     {
         return (((PluginLv2*)ptr)->requestParameterValueChange(index, value) == 0);
-    }
-   #endif
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    static bool updateStateValueCallback(void* const ptr, const char* const key, const char* const value)
-    {
-        return ((PluginLv2*)ptr)->updateState(key, value);
     }
    #endif
 
@@ -1507,14 +977,6 @@ static LV2_Handle lv2_instantiate(const LV2_Descriptor*, double sampleRate, cons
         d_stderr("URID Map feature missing, cannot continue!");
         return nullptr;
     }
-
-#if DISTRHO_PLUGIN_WANT_STATE
-    if (worker == nullptr)
-    {
-        d_stderr("Worker feature missing, cannot continue!");
-        return nullptr;
-    }
-#endif
 
 #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
     mod_license_check(features, DISTRHO_PLUGIN_URI);
@@ -1621,30 +1083,6 @@ static void lv2_select_program(LV2_Handle instance, uint32_t bank, uint32_t prog
 
 // -----------------------------------------------------------------------
 
-#if DISTRHO_PLUGIN_WANT_STATE
-static LV2_State_Status lv2_save(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle, uint32_t, const LV2_Feature* const* const features)
-{
-    return instancePtr->lv2_save(store, handle, features);
-}
-
-static LV2_State_Status lv2_restore(LV2_Handle instance, LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle, uint32_t, const LV2_Feature* const* const features)
-{
-    return instancePtr->lv2_restore(retrieve, handle, features);
-}
-
-LV2_Worker_Status lv2_work(LV2_Handle instance, LV2_Worker_Respond_Function, LV2_Worker_Respond_Handle, uint32_t, const void* data)
-{
-    return instancePtr->lv2_work(data);
-}
-
-LV2_Worker_Status lv2_work_response(LV2_Handle instance, uint32_t size, const void* body)
-{
-    return instancePtr->lv2_work_response(size, body);
-}
-#endif
-
-// -----------------------------------------------------------------------
-
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
 static void* lv2_get_instance_pointer(LV2_Handle instance)
 {
@@ -1666,16 +1104,6 @@ static const void* lv2_extension_data(const char* uri)
 
     if (std::strcmp(uri, LV2_PROGRAMS__Interface) == 0)
         return &programs;
-#endif
-
-#if DISTRHO_PLUGIN_WANT_STATE
-    static const LV2_State_Interface state = { lv2_save, lv2_restore };
-    static const LV2_Worker_Interface worker = { lv2_work, lv2_work_response, nullptr };
-
-    if (std::strcmp(uri, LV2_STATE__interface) == 0)
-        return &state;
-    if (std::strcmp(uri, LV2_WORKER__interface) == 0)
-        return &worker;
 #endif
 
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS

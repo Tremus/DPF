@@ -1481,7 +1481,7 @@ struct dpf_plugin_view {
             scaleFactor = 1.0;
        #else
         UIExporter tmpUI(nullptr, 0, view->sampleRate,
-                         nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
+                         nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
                          view->instancePointer, scaleFactor);
         rect->right = tmpUI.getWidth();
         rect->bottom = tmpUI.getHeight();

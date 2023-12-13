@@ -20,7 +20,6 @@ START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
-static constexpr const setStateFunc setStateCallback = nullptr;
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -41,7 +40,6 @@ public:
         : fUI(this, winId, sampleRate,
               editParameterCallback,
               setParameterCallback,
-              setStateCallback,
               sendNoteCallback,
               setSizeCallback,
               fileRequestCallback,

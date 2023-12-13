@@ -98,7 +98,7 @@ class UIDssi : public DGL_NAMESPACE::IdleCallback
 public:
     UIDssi(const OscData& oscData, const char* const uiTitle, const double sampleRate)
         : fUI(this, 0, sampleRate, nullptr,
-              setParameterCallback, setStateCallback, sendNoteCallback, nullptr, nullptr),
+              setParameterCallback, sendNoteCallback, nullptr, nullptr),
           fHostClosed(false),
           fOscData(oscData)
     {
@@ -127,13 +127,6 @@ public:
     }
 
     // -------------------------------------------------------------------
-
-#if DISTRHO_PLUGIN_WANT_STATE
-    void dssiui_configure(const char* key, const char* value)
-    {
-        fUI.stateChanged(key, value);
-    }
-#endif
 
     void dssiui_control(ulong index, float value)
     {
@@ -224,11 +217,6 @@ private:
         uiPtr->setParameterValue(rindex, value);
     }
 
-    static void setStateCallback(void* ptr, const char* key, const char* value)
-    {
-        uiPtr->setState(key, value);
-    }
-
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     static void sendNoteCallback(void* ptr, uint8_t channel, uint8_t note, uint8_t velocity)
     {
@@ -274,21 +262,6 @@ void osc_error_handler(int num, const char* msg, const char* path)
 {
     d_stderr("osc_error_handler(%i, \"%s\", \"%s\")", num, msg, path);
 }
-
-#if DISTRHO_PLUGIN_WANT_STATE
-int osc_configure_handler(const char*, const char*, lo_arg** argv, int, lo_message, void*)
-{
-    const char* const key   = &argv[0]->s;
-    const char* const value = &argv[1]->s;
-    d_debug("osc_configure_handler(\"%s\", \"%s\")", key, value);
-
-    initUiIfNeeded();
-
-    globalUI->dssiui_configure(key, value);
-
-    return 0;
-}
-#endif
 
 int osc_control_handler(const char*, const char*, lo_arg** argv, int, lo_message, void*)
 {
@@ -415,13 +388,6 @@ int main(int argc, char* argv[])
     strcpy(pluginPath, oscServerPath);
     strcat(pluginPath, oscPath+1);
 
-#if DISTRHO_PLUGIN_WANT_STATE
-    char oscPathConfigure[oscPathSize+11];
-    strcpy(oscPathConfigure, oscPath);
-    strcat(oscPathConfigure, "/configure");
-    lo_server_add_method(oscServer, oscPathConfigure, "ss", osc_configure_handler, nullptr);
-#endif
-
     char oscPathControl[oscPathSize+9];
     strcpy(oscPathControl, oscPath);
     strcat(oscPathControl, "/control");
@@ -492,9 +458,6 @@ int main(int argc, char* argv[])
         ret = 0;
     }
 
-#if DISTRHO_PLUGIN_WANT_STATE
-    lo_server_del_method(oscServer, oscPathConfigure, "ss");
-#endif
     lo_server_del_method(oscServer, oscPathControl, "if");
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
     lo_server_del_method(oscServer, oscPathProgram, "ii");

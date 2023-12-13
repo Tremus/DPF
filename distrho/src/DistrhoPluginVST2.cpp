@@ -141,10 +141,6 @@ struct ParameterAndNotesHelper
         }
        #endif
     }
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    virtual void setStateFromUI(const char* key, const char* value) = 0;
-   #endif
 };
 
 #if DISTRHO_PLUGIN_HAS_UI
@@ -152,9 +148,6 @@ struct ParameterAndNotesHelper
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static const sendNoteFunc sendNoteCallback = nullptr;
-#endif
-#if ! DISTRHO_PLUGIN_WANT_STATE
-static const setStateFunc setStateCallback = nullptr;
 #endif
 
 class UIVst
@@ -172,7 +165,6 @@ public:
           fUI(this, winId, plugin->getSampleRate(),
               editParameterCallback,
               setParameterCallback,
-              setStateCallback,
               sendNoteCallback,
               setSizeCallback,
               nullptr, // TODO file request
@@ -234,13 +226,6 @@ public:
 
     // ----------------------------------------------------------------------------------------------------------------
     // functions called from the plugin side, may block
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void setStateFromPlugin(const char* const key, const char* const value)
-    {
-        fUI.stateChanged(key, value);
-    }
-   #endif
 
    #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     int handlePluginKeyEvent(const bool down, const int32_t index, const intptr_t value)
@@ -328,13 +313,6 @@ protected:
     }
    #endif
 
-   #if DISTRHO_PLUGIN_WANT_STATE
-    void setState(const char* const key, const char* const value)
-    {
-        fUiHelper->setStateFromUI(key, value);
-    }
-   #endif
-
 private:
     // Vst stuff
     const vst_host_callback fAudioMaster;
@@ -375,13 +353,6 @@ private:
         static_cast<UIVst*>(ptr)->sendNote(channel, note, velocity);
     }
    #endif
-
-   #if DISTRHO_PLUGIN_WANT_STATE
-    static void setStateCallback(void* const ptr, const char* const key, const char* const value)
-    {
-        static_cast<UIVst*>(ptr)->setState(key, value);
-    }
-   #endif
 };
 #endif // DISTRHO_PLUGIN_HAS_UI
 
@@ -391,7 +362,7 @@ class PluginVst : public ParameterAndNotesHelper
 {
 public:
     PluginVst(const vst_host_callback audioMaster, vst_effect* const effect)
-        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback, nullptr),
+        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback),
           fAudioMaster(audioMaster),
           fEffect(effect)
     {
@@ -441,37 +412,12 @@ public:
         fNotesRingBuffer.setRingBuffer(&notesRingBuffer, true);
        #endif
       #endif // DISTRHO_PLUGIN_HAS_UI
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        fStateChunk = nullptr;
-
-        for (uint32_t i=0, count=fPlugin.getStateCount(); i<count; ++i)
-        {
-            const String& dkey(fPlugin.getStateKey(i));
-            fStateMap[dkey] = fPlugin.getStateDefaultValue(i);
-        }
-       #endif
     }
 
-    ~PluginVst()
-    {
-       #if DISTRHO_PLUGIN_WANT_STATE
-        if (fStateChunk != nullptr)
-        {
-            delete[] fStateChunk;
-            fStateChunk = nullptr;
-        }
-
-        fStateMap.clear();
-       #endif
-    }
+    ~PluginVst() {}
 
     intptr_t vst_dispatcher(const int32_t opcode, const int32_t index, const intptr_t value, void* const ptr, const float opt)
     {
-       #if DISTRHO_PLUGIN_WANT_STATE
-        intptr_t ret = 0;
-       #endif
-
         switch (opcode)
         {
         case VST_EFFECT_OPCODE_03: // get program
@@ -605,7 +551,7 @@ public:
                     scaleFactor = 1.0;
                #else
                 UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
-                                 nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
+                                 nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
                                  fPlugin.getInstancePointer(), scaleFactor);
                 fVstRect.right = tmpUI.getWidth();
                 fVstRect.bottom = tmpUI.getHeight();
@@ -632,28 +578,6 @@ public:
             }
            #endif
             fVstUI = new UIVst(fAudioMaster, fEffect, this, &fPlugin, (intptr_t)ptr, fLastScaleFactor);
-
-           #if DISTRHO_PLUGIN_WANT_FULL_STATE
-            // Update current state from plugin side
-            for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key = cit->first;
-                fStateMap[key] = fPlugin.getStateValue(key);
-            }
-           #endif
-
-           #if DISTRHO_PLUGIN_WANT_STATE
-            // Set state
-            for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-            {
-                const String& key(cit->first);
-                const String& value(cit->second);
-
-                // TODO skip DSP only states
-
-                fVstUI->setStateFromPlugin(key, value);
-            }
-           #endif
 
             for (uint32_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
                 setParameterValueFromPlugin(i, fPlugin.getParameterValue(i));
@@ -687,183 +611,6 @@ public:
             break;
        #endif
       #endif // DISTRHO_PLUGIN_HAS_UI
-
-       #if DISTRHO_PLUGIN_WANT_STATE
-        case VST_EFFECT_OPCODE_17: // get chunk
-        {
-            if (ptr == nullptr)
-                return 0;
-
-            if (fStateChunk != nullptr)
-            {
-                delete[] fStateChunk;
-                fStateChunk = nullptr;
-            }
-
-            const uint32_t paramCount = fPlugin.getParameterCount();
-
-            if (fPlugin.getStateCount() == 0 && paramCount == 0)
-            {
-                fStateChunk    = new char[1];
-                fStateChunk[0] = '\0';
-                ret = 1;
-            }
-            else
-            {
-               #if DISTRHO_PLUGIN_WANT_FULL_STATE
-                // Update current state
-                for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-                {
-                    const String& key = cit->first;
-                    fStateMap[key] = fPlugin.getStateValue(key);
-                }
-               #endif
-
-                String chunkStr;
-
-                for (StringMap::const_iterator cit=fStateMap.begin(), cite=fStateMap.end(); cit != cite; ++cit)
-                {
-                    const String& key   = cit->first;
-                    const String& value = cit->second;
-
-                    // join key and value
-                    String tmpStr;
-                    tmpStr  = key;
-                    tmpStr += "\xff";
-                    tmpStr += value;
-                    tmpStr += "\xff";
-
-                    chunkStr += tmpStr;
-                }
-
-                if (paramCount != 0)
-                {
-                    // add another separator
-                    chunkStr += "\xff";
-
-                    for (uint32_t i=0; i<paramCount; ++i)
-                    {
-                        if (fPlugin.isParameterOutputOrTrigger(i))
-                            continue;
-
-                        // join key and value
-                        String tmpStr;
-                        tmpStr  = fPlugin.getParameterSymbol(i);
-                        tmpStr += "\xff";
-                        tmpStr += String(fPlugin.getParameterValue(i));
-                        tmpStr += "\xff";
-
-                        chunkStr += tmpStr;
-                    }
-                }
-
-                const std::size_t chunkSize = chunkStr.length()+1;
-
-                fStateChunk = new char[chunkSize];
-                std::memcpy(fStateChunk, chunkStr.buffer(), chunkStr.length());
-                fStateChunk[chunkSize-1] = '\0';
-
-                for (std::size_t i=0; i<chunkSize; ++i)
-                {
-                    if (fStateChunk[i] == '\xff')
-                        fStateChunk[i] = '\0';
-                }
-
-                ret = chunkSize;
-            }
-
-            *(void**)ptr = fStateChunk;
-            return ret;
-        }
-
-        case VST_EFFECT_OPCODE_18: // set chunk
-        {
-            if (value <= 1 || ptr == nullptr)
-                return 0;
-
-            const size_t chunkSize = static_cast<size_t>(value);
-
-            const char* key   = (const char*)ptr;
-            const char* value = nullptr;
-            size_t size, bytesRead = 0;
-
-            while (bytesRead < chunkSize)
-            {
-                if (key[0] == '\0')
-                    break;
-
-                size  = std::strlen(key)+1;
-                value = key + size;
-                bytesRead += size;
-
-                setStateFromUI(key, value);
-
-               #if DISTRHO_PLUGIN_HAS_UI
-                if (fVstUI != nullptr)
-                {
-                    // TODO skip DSP only states
-                    fVstUI->setStateFromPlugin(key, value);
-                }
-               #endif
-
-                // get next key
-                size = std::strlen(value)+1;
-                key  = value + size;
-                bytesRead += size;
-            }
-
-            const uint32_t paramCount = fPlugin.getParameterCount();
-
-            if (bytesRead+4 < chunkSize && paramCount != 0)
-            {
-                ++key;
-                float fvalue;
-
-                while (bytesRead < chunkSize)
-                {
-                    if (key[0] == '\0')
-                        break;
-
-                    size  = std::strlen(key)+1;
-                    value = key + size;
-                    bytesRead += size;
-
-                    // find parameter with this symbol, and set its value
-                    for (uint32_t i=0; i<paramCount; ++i)
-                    {
-                        if (fPlugin.isParameterOutputOrTrigger(i))
-                            continue;
-                        if (fPlugin.getParameterSymbol(i) != key)
-                            continue;
-
-                        if (fPlugin.getParameterHints(i) & kParameterIsInteger)
-                        {
-                            fvalue = std::atoi(value);
-                        }
-                        else
-                        {
-                            const ScopedSafeLocale ssl;
-                            fvalue = std::atof(value);
-                        }
-
-                        fPlugin.setParameterValue(i, fvalue);
-                       #if DISTRHO_PLUGIN_HAS_UI
-                        if (fVstUI != nullptr)
-                            setParameterValueFromPlugin(i, fvalue);
-                       #endif
-                        break;
-                    }
-
-                    // get next key
-                    size = std::strlen(value)+1;
-                    key  = value + size;
-                    bytesRead += size;
-                }
-            }
-
-            return 1;
-        }
-       #endif // DISTRHO_PLUGIN_WANT_STATE
 
        #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         case VST_EFFECT_OPCODE_19: // process events
@@ -1145,11 +892,6 @@ private:
    #endif
   #endif
 
-   #if DISTRHO_PLUGIN_WANT_STATE
-    char*     fStateChunk;
-    StringMap fStateMap;
-   #endif
-
     // ----------------------------------------------------------------------------------------------------------------
     // host callback
 
@@ -1268,38 +1010,6 @@ private:
         return static_cast<PluginVst*>(ptr)->writeMidi(midiEvent);
     }
    #endif
-
-  #if DISTRHO_PLUGIN_WANT_STATE
-    // ----------------------------------------------------------------------------------------------------------------
-    // functions called from the UI side, may block
-
-   #if DISTRHO_PLUGIN_HAS_UI
-    void setStateFromUI(const char* const key, const char* const value) override
-   #else
-    void setStateFromUI(const char* const key, const char* const value)
-   #endif
-    {
-        fPlugin.setState(key, value);
-
-        // check if we want to save this key
-        if (! fPlugin.wantStateKey(key))
-            return;
-
-        // check if key already exists
-        for (StringMap::iterator it=fStateMap.begin(), ite=fStateMap.end(); it != ite; ++it)
-        {
-            const String& dkey(it->first);
-
-            if (dkey == key)
-            {
-                it->second = value;
-                return;
-            }
-        }
-
-        d_stderr("Failed to find plugin state with key \"%s\"", key);
-    }
-  #endif
 };
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -1654,7 +1364,7 @@ const vst_effect* VSTPluginMain(const vst_host_callback audioMaster)
         d_nextCanRequestParameterValueChanges = true;
 
         // Create dummy plugin to get data from
-        sPlugin = new PluginExporter(nullptr, nullptr, nullptr, nullptr);
+        sPlugin = new PluginExporter(nullptr, nullptr, nullptr);
 
         // unset
         d_nextBufferSize = 0;
@@ -1708,9 +1418,6 @@ const vst_effect* VSTPluginMain(const vst_host_callback audioMaster)
    #endif
    #if DISTRHO_PLUGIN_HAS_UI
     effect->flags |= 1 << 0;
-   #endif
-   #if DISTRHO_PLUGIN_WANT_STATE
-    effect->flags |= 1 << 5;
    #endif
 
     // static calls

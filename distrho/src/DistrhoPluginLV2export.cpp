@@ -87,8 +87,8 @@
 # define DISTRHO_LV2_UI_TYPE "UI"
 #endif
 
-#define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS || DISTRHO_PLUGIN_WANT_STATE)
-#define DISTRHO_LV2_USE_EVENTS_OUT (DISTRHO_PLUGIN_WANT_MIDI_OUTPUT || DISTRHO_PLUGIN_WANT_STATE)
+#define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS)
+#define DISTRHO_LV2_USE_EVENTS_OUT DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 
 #define DISTRHO_BYPASS_PARAMETER_NAME "lv2_enabled"
 
@@ -96,10 +96,6 @@
 static const char* const lv2ManifestPluginExtensionData[] =
 {
     "opts:interface",
-#if DISTRHO_PLUGIN_WANT_STATE
-    LV2_STATE__interface,
-    LV2_WORKER__interface,
-#endif
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
     LV2_PROGRAMS__Interface,
 #endif
@@ -115,10 +111,6 @@ static const char* const lv2ManifestPluginOptionalFeatures[] =
     LV2_CORE__hardRTCapable,
 #endif
     LV2_BUF_SIZE__boundedBlockLength,
-#if DISTRHO_PLUGIN_WANT_STATE
-    LV2_STATE__mapPath,
-    LV2_STATE__freePath,
-#endif
     nullptr
 };
 
@@ -126,9 +118,6 @@ static const char* const lv2ManifestPluginRequiredFeatures[] =
 {
     "opts:options",
     LV2_URID__map,
-#if DISTRHO_PLUGIN_WANT_STATE
-    LV2_WORKER__schedule,
-#endif
 #ifdef DISTRHO_PLUGIN_LICENSED_FOR_MOD
     MOD_LICENSE__feature,
 #endif
@@ -256,7 +245,7 @@ void lv2_generate_ttl(const char* const basename)
     d_nextBufferSize = 512;
     d_nextSampleRate = 44100.0;
     d_nextPluginIsDummy = true;
-    PluginExporter plugin(nullptr, nullptr, nullptr, nullptr);
+    PluginExporter plugin(nullptr, nullptr, nullptr);
     d_nextBufferSize = 0;
     d_nextSampleRate = 0.0;
     d_nextPluginIsDummy = false;
@@ -380,48 +369,6 @@ void lv2_generate_ttl(const char* const basename)
         pluginString += "@prefix unit:  <" LV2_UNITS_PREFIX "> .\n";
         pluginString += "\n";
 
-#if DISTRHO_PLUGIN_WANT_STATE
-        bool hasHostVisibleState = false;
-
-        for (uint32_t i=0, count=plugin.getStateCount(); i < count; ++i)
-        {
-            const uint32_t hints = plugin.getStateHints(i);
-
-            if ((hints & kStateIsHostReadable) == 0x0)
-                continue;
-
-            pluginString += "<" DISTRHO_PLUGIN_URI "#" + plugin.getStateKey(i) + ">\n";
-            pluginString += "    a lv2:Parameter ;\n";
-            pluginString += "    rdfs:label \"" + plugin.getStateLabel(i) + "\" ;\n";
-
-            const String& comment(plugin.getStateDescription(i));
-
-            if (comment.isNotEmpty())
-            {
-                if (comment.contains('"') || comment.contains('\n'))
-                    pluginString += "    rdfs:comment \"\"\"" + comment + "\"\"\" ;\n";
-                else
-                    pluginString += "    rdfs:comment \"" + comment + "\" ;\n";
-            }
-
-            if ((hints & kStateIsFilenamePath) == kStateIsFilenamePath)
-            {
-               #ifdef __MOD_DEVICES__
-                const String& fileTypes(plugin.getStateFileTypes(i));
-                if (fileTypes.isNotEmpty())
-                    pluginString += "    mod:fileTypes \"" + fileTypes + "\" ; \n";
-               #endif
-                pluginString += "    rdfs:range atom:Path .\n\n";
-            }
-            else
-            {
-                pluginString += "    rdfs:range atom:String .\n\n";
-            }
-
-            hasHostVisibleState = true;
-        }
-#endif
-
         // plugin
         pluginString += "<" DISTRHO_PLUGIN_URI ">\n";
 #ifdef DISTRHO_PLUGIN_LV2_CATEGORY
@@ -437,27 +384,6 @@ void lv2_generate_ttl(const char* const basename)
         addAttribute(pluginString, "lv2:optionalFeature", lv2ManifestPluginOptionalFeatures, 4);
         addAttribute(pluginString, "lv2:requiredFeature", lv2ManifestPluginRequiredFeatures, 4);
         addAttribute(pluginString, "opts:supportedOption", lv2ManifestPluginSupportedOptions, 4);
-
-#if DISTRHO_PLUGIN_WANT_STATE
-        if (hasHostVisibleState)
-        {
-            for (uint32_t i=0, count=plugin.getStateCount(); i < count; ++i)
-            {
-                const uint32_t hints = plugin.getStateHints(i);
-
-                if ((hints & kStateIsHostReadable) == 0x0)
-                    continue;
-
-                const String& key(plugin.getStateKey(i));
-
-                if ((hints & kStateIsHostWritable) == kStateIsHostWritable)
-                    pluginString += "    patch:writable <" DISTRHO_PLUGIN_URI "#" + key + "> ;\n";
-                else
-                    pluginString += "    patch:readable <" DISTRHO_PLUGIN_URI "#" + key + "> ;\n";
-            }
-            pluginString += "\n";
-        }
-#endif
 
         // UI
 #if DISTRHO_PLUGIN_HAS_UI
@@ -659,21 +585,11 @@ void lv2_generate_ttl(const char* const basename)
             pluginString += "        lv2:symbol \"lv2_events_in\" ;\n";
             pluginString += "        rsz:minimumSize " + String(DISTRHO_PLUGIN_MINIMUM_BUFFER_SIZE) + " ;\n";
             pluginString += "        atom:bufferType atom:Sequence ;\n";
-# if (DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI)
-            pluginString += "        atom:supports atom:String ;\n";
-# endif
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             pluginString += "        atom:supports midi:MidiEvent ;\n";
 # endif
 # if DISTRHO_PLUGIN_WANT_TIMEPOS
             pluginString += "        atom:supports <" LV2_TIME__Position "> ;\n";
-# endif
-# if DISTRHO_PLUGIN_WANT_STATE
-            if (hasHostVisibleState)
-            {
-                pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
-                pluginString += "        lv2:designation lv2:control ;\n";
-            }
 # endif
             pluginString += "    ] ;\n\n";
             ++portIndex;
@@ -687,18 +603,8 @@ void lv2_generate_ttl(const char* const basename)
             pluginString += "        lv2:symbol \"lv2_events_out\" ;\n";
             pluginString += "        rsz:minimumSize " + String(DISTRHO_PLUGIN_MINIMUM_BUFFER_SIZE) + " ;\n";
             pluginString += "        atom:bufferType atom:Sequence ;\n";
-# if (DISTRHO_PLUGIN_WANT_STATE && DISTRHO_PLUGIN_HAS_UI)
-            pluginString += "        atom:supports atom:String ;\n";
-# endif
 # if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
             pluginString += "        atom:supports midi:MidiEvent ;\n";
-# endif
-# if DISTRHO_PLUGIN_WANT_STATE
-            if (hasHostVisibleState)
-            {
-                pluginString += "        atom:supports <" LV2_PATCH__Message "> ;\n";
-                pluginString += "        lv2:designation lv2:control ;\n";
-            }
 # endif
             pluginString += "    ] ;\n\n";
             ++portIndex;
@@ -1572,22 +1478,11 @@ void lv2_generate_ttl(const char* const basename)
         String presetsString;
         presetsString += "@prefix lv2:   <" LV2_CORE_PREFIX "> .\n";
         presetsString += "@prefix pset:  <" LV2_PRESETS_PREFIX "> .\n";
-# if DISTRHO_PLUGIN_WANT_STATE
-        presetsString += "@prefix owl:   <http://www.w3.org/2002/07/owl#> .\n";
-        presetsString += "@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .\n";
-        presetsString += "@prefix state: <" LV2_STATE_PREFIX "> .\n";
-        presetsString += "@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .\n";
-# endif
         presetsString += "\n";
 
         const uint32_t numParameters = plugin.getParameterCount();
         const uint32_t numPrograms   = plugin.getProgramCount();
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
-        const uint32_t numStates     = plugin.getStateCount();
-        const bool     valid         = numParameters != 0 || numStates != 0;
-# else
         const bool     valid         = numParameters != 0;
-# endif
 
         DISTRHO_CUSTOM_SAFE_ASSERT_RETURN("Programs require parameters or full state", valid, presetsFile.close());
 
@@ -1598,23 +1493,6 @@ void lv2_generate_ttl(const char* const basename)
 
         String presetString;
 
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
-        for (uint32_t i=0; i<numStates; ++i)
-        {
-            if (plugin.getStateHints(i) & kStateIsHostReadable)
-                continue;
-
-            // readable states are defined as lv2 parameters.
-            // non-readable states have no definition, but one is needed for presets and ttl validation.
-            presetString  = "<" DISTRHO_PLUGIN_LV2_STATE_PREFIX + plugin.getStateKey(i) + ">\n";
-            presetString += "    a owl:DatatypeProperty ;\n";
-            presetString += "    rdfs:label \"Plugin state key-value string pair\" ;\n";
-            presetString += "    rdfs:domain state:State ;\n";
-            presetString += "    rdfs:range xsd:string .\n\n";
-            presetsString += presetString;
-        }
-# endif
-
         for (uint32_t i=0; i<numPrograms; ++i)
         {
             std::snprintf(strBuf, 0xff, "%03i", i+1);
@@ -1622,34 +1500,6 @@ void lv2_generate_ttl(const char* const basename)
             plugin.loadProgram(i);
 
             presetString = "<" DISTRHO_PLUGIN_URI + presetSeparator + "preset" + strBuf + ">\n";
-
-# if DISTRHO_PLUGIN_WANT_FULL_STATE
-            presetString += "    state:state [\n";
-            for (uint32_t j=0; j<numStates; ++j)
-            {
-                const String key   = plugin.getStateKey(j);
-                const String value = plugin.getStateValue(key);
-
-                presetString += "        <";
-
-                if (plugin.getStateHints(j) & kStateIsHostReadable)
-                    presetString += DISTRHO_PLUGIN_URI "#";
-                else
-                    presetString += DISTRHO_PLUGIN_LV2_STATE_PREFIX;
-
-                presetString += key + ">";
-
-                if (value.length() < 10)
-                    presetString += " \"" + value + "\" ;\n";
-                else
-                    presetString += "\n\"\"\"" + value + "\"\"\" ;\n";
-            }
-
-            if (numParameters > 0)
-                presetString += "    ] ;\n\n";
-            else
-                presetString += "    ] .\n\n";
-# endif
 
             bool firstParameter = true;
 

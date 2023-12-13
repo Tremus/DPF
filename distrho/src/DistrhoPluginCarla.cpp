@@ -43,7 +43,6 @@ static constexpr const updateStateValueFunc updateStateValueCallback = nullptr;
 // -----------------------------------------------------------------------
 // Carla UI
 
-static const setStateFunc setStateCallback = nullptr;
 #if ! DISTRHO_PLUGIN_IS_SYNTH
 static const sendNoteFunc sendNoteCallback = nullptr;
 #endif
@@ -54,7 +53,7 @@ public:
     UICarla(const NativeHostDescriptor* const host, PluginExporter* const plugin)
         : fHost(host),
           fUI(this, 0, plugin->getSampleRate(),
-              editParameterCallback, setParameterCallback, setStateCallback, sendNoteCallback,
+              editParameterCallback, setParameterCallback, sendNoteCallback,
               nullptr, // window size
               nullptr, // TODO file request
               nullptr, // bundle path

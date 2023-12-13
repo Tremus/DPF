@@ -1374,9 +1374,9 @@ public:
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
             info->flags = Steinberg_Vst_ParameterInfo_ParameterFlags_kNoFlags | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
-            strncpy_utf16(info->title, "Latency", 128);
-            strncpy_utf16(info->short_title, "Latency", 128);
-            strncpy_utf16(info->units, "frames", 128);
+            strncpy_utf16((int16_t*)info->title, "Latency", 128);
+            strncpy_utf16((int16_t*)info->shortTitle, "Latency", 128);
+            strncpy_utf16((int16_t*)info->units, "frames", 128);
             return Steinberg_kResultOk;
        #endif
        #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -1470,7 +1470,7 @@ public:
        #endif
        #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
-            snprintf_f32_utf16(output, std::round(normalized * DPF_VST3_MAX_LATENCY), 128);
+            snprintf_f32_utf16((int16_t*)output, std::round(normalized * DPF_VST3_MAX_LATENCY), 128);
             return Steinberg_kResultOk;
        #endif
        #if DISTRHO_PLUGIN_WANT_PROGRAMS

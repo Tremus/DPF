@@ -335,7 +335,6 @@ struct UI::PrivateData {
     void*           callbacksPtr;
     editParamFunc   editParamCallbackFunc;
     setParamFunc    setParamCallbackFunc;
-    setStateFunc    setStateCallbackFunc;
     sendNoteFunc    sendNoteCallbackFunc;
     setSizeFunc     setSizeCallbackFunc;
     fileRequestFunc fileRequestCallbackFunc;
@@ -355,7 +354,6 @@ struct UI::PrivateData {
           callbacksPtr(nullptr),
           editParamCallbackFunc(nullptr),
           setParamCallbackFunc(nullptr),
-          setStateCallbackFunc(nullptr),
           sendNoteCallbackFunc(nullptr),
           setSizeCallbackFunc(nullptr),
           fileRequestCallbackFunc(nullptr)
@@ -396,12 +394,6 @@ struct UI::PrivateData {
     {
         if (setParamCallbackFunc != nullptr)
             setParamCallbackFunc(callbacksPtr, rindex, value);
-    }
-
-    void setStateCallback(const char* const key, const char* const value)
-    {
-        if (setStateCallbackFunc != nullptr)
-            setStateCallbackFunc(callbacksPtr, key, value);
     }
 
     void sendNoteCallback(const uint8_t channel, const uint8_t note, const uint8_t velocity)

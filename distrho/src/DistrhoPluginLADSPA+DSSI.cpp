@@ -22,9 +22,6 @@
 #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 # error Cannot use MIDI Output with LADSPA or DSSI
 #endif
-#if DISTRHO_PLUGIN_WANT_FULL_STATE && !defined(DISTRHO_PLUGIN_WANT_FULL_STATE_WITH_LADSPA)
-# error Cannot use full state with LADSPA or DSSI
-#endif
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS && !defined(DISTRHO_NO_WARNINGS)
 # warning LADSPA/DSSI does not support TimePos
@@ -37,9 +34,6 @@
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
 #  error Cannot use MIDI with LADSPA
 # endif
-# if DISTRHO_PLUGIN_WANT_STATE && !defined(DISTRHO_NO_WARNINGS)
-#  warning LADSPA cannot handle states
-# endif
 #endif
 
 START_NAMESPACE_DISTRHO
@@ -50,7 +44,7 @@ class PluginLadspaDssi
 {
 public:
     PluginLadspaDssi()
-        : fPlugin(nullptr, nullptr, nullptr, nullptr),
+        : fPlugin(nullptr, nullptr, nullptr),
           fPortControls(nullptr),
           fLastControlValues(nullptr)
     {
@@ -286,18 +280,6 @@ public:
     // -------------------------------------------------------------------
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
-# if DISTRHO_PLUGIN_WANT_STATE
-    char* dssi_configure(const char* const key, const char* const value)
-    {
-        if (std::strncmp(key, DSSI_RESERVED_CONFIGURE_PREFIX, std::strlen(DSSI_RESERVED_CONFIGURE_PREFIX)) == 0)
-            return nullptr;
-        if (std::strncmp(key, DSSI_GLOBAL_CONFIGURE_PREFIX, std::strlen(DSSI_GLOBAL_CONFIGURE_PREFIX)) == 0)
-            return nullptr;
-
-        fPlugin.setState(key, value);
-        return nullptr;
-    }
-# endif
 
 # if DISTRHO_PLUGIN_WANT_PROGRAMS
     const DSSI_Program_Descriptor* dssi_get_program(const ulong index)
@@ -453,12 +435,6 @@ static void ladspa_cleanup(LADSPA_Handle instance)
 }
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
-# if DISTRHO_PLUGIN_WANT_STATE
-static char* dssi_configure(LADSPA_Handle instance, const char* key, const char* value)
-{
-    return instancePtr->dssi_configure(key, value);
-}
-# endif
 
 # if DISTRHO_PLUGIN_WANT_PROGRAMS
 static const DSSI_Program_Descriptor* dssi_get_program(LADSPA_Handle instance, ulong index)
@@ -519,11 +495,7 @@ static LADSPA_Descriptor sLadspaDescriptor = {
 static DSSI_Descriptor sDssiDescriptor = {
     1,
     &sLadspaDescriptor,
-# if DISTRHO_PLUGIN_WANT_STATE
-    dssi_configure,
-# else
     /* configure                    */ nullptr,
-# endif
 # if DISTRHO_PLUGIN_WANT_PROGRAMS
     dssi_get_program,
     dssi_select_program,
@@ -554,7 +526,7 @@ static const struct DescriptorInitializer
         d_nextBufferSize = 512;
         d_nextSampleRate = 44100.0;
         d_nextPluginIsDummy = true;
-        const PluginExporter plugin(nullptr, nullptr, nullptr, nullptr);
+        const PluginExporter plugin(nullptr, nullptr, nullptr);
         d_nextBufferSize = 0;
         d_nextSampleRate = 0.0;
         d_nextPluginIsDummy = false;
