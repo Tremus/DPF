@@ -105,7 +105,7 @@ public:
    /**
       Get size.
     */
-    Size<uint> getSize() const noexcept;
+    Size<uint32_t> getSize() const noexcept;
 
    /**
       Get the OpenGL texture handle.
@@ -114,7 +114,7 @@ public:
 
 private:
     Handle fHandle;
-    Size<uint> fSize;
+    Size<uint32_t> fSize;
     friend class NanoVG;
 
    /** @internal */
@@ -340,7 +340,7 @@ public:
    /**
       Begin drawing a new frame.
     */
-    void beginFrame(const uint width, const uint height, const float scaleFactor = 1.0f);
+    void beginFrame(const uint32_t width, const uint32_t height, const float scaleFactor = 1.0f);
 
    /**
       Begin drawing a new frame inside a widget.
@@ -590,19 +590,19 @@ public:
    /**
       Creates image by loading it from the specified chunk of memory.
     */
-    NanoImage::Handle createImageFromMemory(const uchar* data, uint dataSize, ImageFlags imageFlags);
+    NanoImage::Handle createImageFromMemory(const uint8_t* data, uint32_t dataSize, ImageFlags imageFlags);
 
    /**
       Creates image by loading it from the specified chunk of memory.
       Overloaded function for convenience.
       @see ImageFlags
     */
-    NanoImage::Handle createImageFromMemory(const uchar* data, uint dataSize, int imageFlags);
+    NanoImage::Handle createImageFromMemory(const uint8_t* data, uint32_t dataSize, int imageFlags);
 
    /**
       Creates image from specified raw format image data.
     */
-    NanoImage::Handle createImageFromRawMemory(uint w, uint h, const uchar* data,
+    NanoImage::Handle createImageFromRawMemory(uint32_t w, uint32_t h, const uint8_t* data,
                                                ImageFlags imageFlags, ImageFormat format);
 
    /**
@@ -610,32 +610,32 @@ public:
       Overloaded function for convenience.
       @see ImageFlags
     */
-    NanoImage::Handle createImageFromRawMemory(uint w, uint h, const uchar* data,
+    NanoImage::Handle createImageFromRawMemory(uint32_t w, uint32_t h, const uint8_t* data,
                                                int imageFlags, ImageFormat format);
 
    /**
       Creates image from specified RGBA image data.
     */
-    NanoImage::Handle createImageFromRGBA(uint w, uint h, const uchar* data, ImageFlags imageFlags);
+    NanoImage::Handle createImageFromRGBA(uint32_t w, uint32_t h, const uint8_t* data, ImageFlags imageFlags);
 
    /**
       Creates image from specified RGBA image data.
       Overloaded function for convenience.
       @see ImageFlags
     */
-    NanoImage::Handle createImageFromRGBA(uint w, uint h, const uchar* data, int imageFlags);
+    NanoImage::Handle createImageFromRGBA(uint32_t w, uint32_t h, const uint8_t* data, int imageFlags);
 
    /**
       Creates image from an OpenGL texture handle.
     */
-    NanoImage::Handle createImageFromTextureHandle(GLuint textureId, uint w, uint h, ImageFlags imageFlags, bool deleteTexture = false);
+    NanoImage::Handle createImageFromTextureHandle(GLuint textureId, uint32_t w, uint32_t h, ImageFlags imageFlags, bool deleteTexture = false);
 
    /**
       Creates image from an OpenGL texture handle.
       Overloaded function for convenience.
       @see ImageFlags
     */
-    NanoImage::Handle createImageFromTextureHandle(GLuint textureId, uint w, uint h, int imageFlags, bool deleteTexture = false);
+    NanoImage::Handle createImageFromTextureHandle(GLuint textureId, uint32_t w, uint32_t h, int imageFlags, bool deleteTexture = false);
 
    /* --------------------------------------------------------------------
     * Paints */
@@ -787,7 +787,7 @@ public:
       Creates font by loading it from the specified memory chunk.
       Returns handle to the font.
     */
-    FontId createFontFromMemory(const char* name, const uchar* data, uint dataSize, bool freeData);
+    FontId createFontFromMemory(const char* name, const uint8_t* data, uint32_t dataSize, bool freeData);
 
    /**
       Finds a loaded font of specified name, and returns handle to it, or -1 if the font is not found.
@@ -966,8 +966,8 @@ private:
     void onDisplay() override;
 
     // these should not be used
-    void beginFrame(uint,uint) {}
-    void beginFrame(uint,uint,float) {}
+    void beginFrame(uint32_t,uint32_t) {}
+    void beginFrame(uint32_t,uint32_t,float) {}
     void beginFrame(Widget*) {}
     void cancelFrame() {}
     void endFrame() {}
@@ -984,9 +984,6 @@ private:
 typedef NanoBaseWidget<SubWidget> NanoSubWidget;
 typedef NanoBaseWidget<TopLevelWidget> NanoTopLevelWidget;
 typedef NanoBaseWidget<StandaloneWindow> NanoStandaloneWindow;
-
-DISTRHO_DEPRECATED_BY("NanoSubWidget")
-typedef NanoSubWidget NanoWidget;
 
 // -----------------------------------------------------------------------
 

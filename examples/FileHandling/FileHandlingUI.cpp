@@ -46,8 +46,8 @@ class FileHandlingExampleUI : public UI,
                               public ButtonEventHandler::Callback
 {
 public:
-    static const uint kInitialWidth  = 600;
-    static const uint kInitialHeight = 350;
+    static const uint32_t kInitialWidth  = 600;
+    static const uint32_t kInitialHeight = 350;
 
     FileHandlingExampleUI()
         : UI(kInitialWidth, kInitialHeight),

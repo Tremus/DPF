@@ -185,7 +185,7 @@ Window::PrivateData::PrivateData(Application& a, Window* const s,
 
 Window::PrivateData::PrivateData(Application& a, Window* const s,
                                  const uintptr_t parentWindowHandle,
-                                 const uint width, const uint height,
+                                 const uint32_t width, const uint32_t height,
                                  const double scale, const bool resizable, const bool usesSizeRequest_)
     : app(a),
       appData(a.pData),
@@ -244,7 +244,7 @@ Window::PrivateData::~PrivateData()
 
 // -----------------------------------------------------------------------
 
-void Window::PrivateData::initPre(const uint width, const uint height, const bool resizable)
+void Window::PrivateData::initPre(const uint32_t width, const uint32_t height, const bool resizable)
 {
     appData->windows.push_back(self);
     appData->idleCallbacks.push_back(this);
@@ -339,7 +339,7 @@ void Window::PrivateData::show()
 
         // FIXME
 //         PuglRect rect = puglGetFrame(view);
-//         puglSetWindowSize(view, static_cast<uint>(rect.width), static_cast<uint>(rect.height));
+//         puglSetWindowSize(view, static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height));
 
 #if defined(DISTRHO_OS_WINDOWS)
         puglWin32ShowCentered(view);
@@ -433,7 +433,7 @@ void Window::PrivateData::idleCallback()
 // -----------------------------------------------------------------------
 // idle callback stuff
 
-bool Window::PrivateData::addIdleCallback(IdleCallback* const callback, const uint timerFrequencyInMs)
+bool Window::PrivateData::addIdleCallback(IdleCallback* const callback, const uint32_t timerFrequencyInMs)
 {
     if (ignoreIdleCallbacks || view == nullptr)
         return false;
@@ -577,8 +577,8 @@ void Window::PrivateData::onPuglConfigure(const double width, const double heigh
         autoScaleFactor = scaleHorizontal < scaleVertical ? scaleHorizontal : scaleVertical;
     }
 
-    const uint uwidth = static_cast<uint>(width + 0.5);
-    const uint uheight = static_cast<uint>(height + 0.5);
+    const uint32_t uwidth = static_cast<uint32_t>(width + 0.5);
+    const uint32_t uheight = static_cast<uint32_t>(height + 0.5);
 
     self->onReshape(uwidth, uheight);
 
@@ -622,7 +622,7 @@ void Window::PrivateData::onPuglExpose()
     {
         const PuglRect rect = puglGetFrame(view);
         filenameToRenderInto = nullptr;
-        renderToPicture(filename, getGraphicsContext(), static_cast<uint>(rect.width), static_cast<uint>(rect.height));
+        renderToPicture(filename, getGraphicsContext(), static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height));
         std::free(filename);
     }
 #endif
@@ -940,7 +940,7 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
         Widget::KeyboardEvent ev;
         ev.mod     = event->key.state;
         ev.flags   = event->key.flags;
-        ev.time    = static_cast<uint>(event->key.time * 1000.0 + 0.5);
+        ev.time    = static_cast<uint32_t>(event->key.time * 1000.0 + 0.5);
         ev.press   = event->type == PUGL_KEY_PRESS;
         ev.key     = event->key.key;
         ev.keycode = event->key.keycode;
@@ -963,7 +963,7 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
         Widget::CharacterInputEvent ev;
         ev.mod       = event->text.state;
         ev.flags     = event->text.flags;
-        ev.time      = static_cast<uint>(event->text.time * 1000.0 + 0.5);
+        ev.time      = static_cast<uint32_t>(event->text.time * 1000.0 + 0.5);
         ev.keycode   = event->text.keycode;
         ev.character = event->text.character;
         std::strncpy(ev.string, event->text.string, sizeof(ev.string));
@@ -986,7 +986,7 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
         Widget::MouseEvent ev;
         ev.mod    = event->button.state;
         ev.flags  = event->button.flags;
-        ev.time   = static_cast<uint>(event->button.time * 1000.0 + 0.5);
+        ev.time   = static_cast<uint32_t>(event->button.time * 1000.0 + 0.5);
         ev.button = event->button.button + 1;
         ev.press  = event->type == PUGL_BUTTON_PRESS;
         ev.pos    = Point<double>(event->button.x, event->button.y);
@@ -1001,7 +1001,7 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
         Widget::MotionEvent ev;
         ev.mod   = event->motion.state;
         ev.flags = event->motion.flags;
-        ev.time  = static_cast<uint>(event->motion.time * 1000.0 + 0.5);
+        ev.time  = static_cast<uint32_t>(event->motion.time * 1000.0 + 0.5);
         ev.pos   = Point<double>(event->motion.x, event->motion.y);
         ev.absolutePos = ev.pos;
         pData->onPuglMotion(ev);
@@ -1014,7 +1014,7 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
         Widget::ScrollEvent ev;
         ev.mod       = event->scroll.state;
         ev.flags     = event->scroll.flags;
-        ev.time      = static_cast<uint>(event->scroll.time * 1000.0 + 0.5);
+        ev.time      = static_cast<uint32_t>(event->scroll.time * 1000.0 + 0.5);
         ev.pos       = Point<double>(event->scroll.x, event->scroll.y);
         ev.delta     = Point<double>(event->scroll.dx, event->scroll.dy);
         ev.direction = static_cast<ScrollDirection>(event->scroll.direction);

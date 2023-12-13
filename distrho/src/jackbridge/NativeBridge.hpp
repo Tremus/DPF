@@ -37,16 +37,16 @@ using DISTRHO_NAMESPACE::HeapRingBuffer;
 
 struct NativeBridge {
     // Current status information
-    uint bufferSize;
-    uint sampleRate;
+    uint32_t bufferSize;
+    uint32_t sampleRate;
 
     // Port caching information
-    uint numAudioIns;
-    uint numAudioOuts;
-    uint numCvIns;
-    uint numCvOuts;
-    uint numMidiIns;
-    uint numMidiOuts;
+    uint32_t numAudioIns;
+    uint32_t numAudioOuts;
+    uint32_t numCvIns;
+    uint32_t numCvOuts;
+    uint32_t numMidiIns;
+    uint32_t numMidiOuts;
 
     // JACK callbacks
     JackProcessCallback jackProcessCallback = nullptr;
@@ -234,7 +234,7 @@ struct NativeBridge {
            #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
             audioBufferStorage = new float[bufferSize*(DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS)];
 
-            for (uint i=0; i<DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+            for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
                 audioBuffers[i] = audioBufferStorage + (bufferSize * i);
            #endif
 
@@ -270,7 +270,7 @@ struct NativeBridge {
        #endif
     }
 
-    jack_port_t* registerPort(const char* const type, const ulong flags)
+    jack_port_t* registerPort(const char* const type, const uint64_t flags)
     {
         uintptr_t ret = 0;
 

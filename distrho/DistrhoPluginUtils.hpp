@@ -120,7 +120,7 @@ struct AudioMidiSyncHelper
           remainingMidiEventCount(mc),
           totalFramesUsed(0)
     {
-        for (uint i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+        for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
             outputs[i] = o[i];
     }
 

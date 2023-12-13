@@ -194,7 +194,7 @@ void d_safe_assert_int(const char* const assertion, const char* const file,
  */
 static inline
 void d_safe_assert_uint(const char* const assertion, const char* const file,
-                        const int line, const uint value) noexcept
+                        const int line, const uint32_t value) noexcept
 {
     d_stderr2("assertion failure: \"%s\" in file %s, line %i, value %u", assertion, file, line, value);
 }
@@ -214,7 +214,7 @@ void d_safe_assert_int2(const char* const assertion, const char* const file,
  */
 static inline
 void d_safe_assert_uint2(const char* const assertion, const char* const file,
-                         const int line, const uint v1, const uint v2) noexcept
+                         const int line, const uint32_t v1, const uint32_t v2) noexcept
 {
     d_stderr2("assertion failure: \"%s\" in file %s, line %i, v1 %u, v2 %u", assertion, file, line, v1, v2);
 }

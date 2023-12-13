@@ -234,12 +234,12 @@ struct ImageBaseKnob<ImageType>::PrivateData : public KnobEventHandler::Callback
 
     bool alwaysRepaint;
     bool isImgVertical;
-    uint imgLayerWidth;
-    uint imgLayerHeight;
-    uint imgLayerCount;
+    uint32_t imgLayerWidth;
+    uint32_t imgLayerHeight;
+    uint32_t imgLayerCount;
     bool isReady;
 
-    uint glTextureId;
+    uint32_t glTextureId;
 
     explicit PrivateData(const ImageType& img)
         : callback(nullptr),
@@ -368,7 +368,7 @@ void ImageBaseKnob<ImageType>::setCallback(Callback* callback) noexcept
 }
 
 template <class ImageType>
-void ImageBaseKnob<ImageType>::setImageLayerCount(uint count) noexcept
+void ImageBaseKnob<ImageType>::setImageLayerCount(uint32_t count) noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(count > 1,);
 

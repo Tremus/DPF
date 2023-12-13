@@ -43,8 +43,8 @@ template<bool horizontal>
 struct Layout
 {
     std::list<SubWidgetWithSizeHint> widgets;
-    uint setAbsolutePos(int x, int y, uint padding);
-    void setSize(uint size, uint padding);
+    uint32_t setAbsolutePos(int x, int y, uint32_t padding);
+    void setSize(uint32_t size, uint32_t padding);
 };
 
 typedef Layout<true> HorizontalLayout;
@@ -53,15 +53,15 @@ typedef Layout<false> VerticalLayout;
 struct HorizontallyStackedVerticalLayout
 {
     std::list<VerticalLayout*> items;
-    Size<uint> adjustSize(uint padding); // TODO
-    void setAbsolutePos(int x, int y, uint padding);
+    Size<uint32_t> adjustSize(uint32_t padding); // TODO
+    void setAbsolutePos(int x, int y, uint32_t padding);
 };
 
 struct VerticallyStackedHorizontalLayout
 {
     std::list<HorizontalLayout*> items;
-    Size<uint> adjustSize(uint padding);
-    void setAbsolutePos(int x, int y, uint padding);
+    Size<uint32_t> adjustSize(uint32_t padding);
+    void setAbsolutePos(int x, int y, uint32_t padding);
 };
 
 // --------------------------------------------------------------------------------------------------------------------

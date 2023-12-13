@@ -82,30 +82,12 @@
 # define unlikely(x) x
 #endif
 
-/* Define DISTRHO_DEPRECATED */
-#if defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 480
-# define DISTRHO_DEPRECATED __attribute__((deprecated))
-#elif defined(_MSC_VER)
-# define DISTRHO_DEPRECATED [[deprecated]] /* Note: __declspec(deprecated) it not applicable to enum members */
-#else
-# define DISTRHO_DEPRECATED
-#endif
-
-/* Define DISTRHO_DEPRECATED_BY */
-#if defined(__clang__) && (__clang_major__ * 100 + __clang_minor__) >= 502
-# define DISTRHO_DEPRECATED_BY(other) __attribute__((deprecated("", other)))
-#elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 408
-# define DISTRHO_DEPRECATED_BY(other) __attribute__((deprecated("Use " other)))
-#else
-# define DISTRHO_DEPRECATED_BY(other) DISTRHO_DEPRECATED
-#endif
-
 /* Define DISTRHO_SAFE_ASSERT* */
 #define DISTRHO_SAFE_ASSERT(cond)               if (unlikely(!(cond))) d_safe_assert      (#cond, __FILE__, __LINE__);
 #define DISTRHO_SAFE_ASSERT_INT(cond, value)    if (unlikely(!(cond))) d_safe_assert_int  (#cond, __FILE__, __LINE__, static_cast<int>(value));
 #define DISTRHO_SAFE_ASSERT_INT2(cond, v1, v2)  if (unlikely(!(cond))) d_safe_assert_int2 (#cond, __FILE__, __LINE__, static_cast<int>(v1), static_cast<int>(v2));
-#define DISTRHO_SAFE_ASSERT_UINT(cond, value)   if (unlikely(!(cond))) d_safe_assert_uint (#cond, __FILE__, __LINE__, static_cast<uint>(value));
-#define DISTRHO_SAFE_ASSERT_UINT2(cond, v1, v2) if (unlikely(!(cond))) d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint>(v1), static_cast<uint>(v2));
+#define DISTRHO_SAFE_ASSERT_UINT(cond, value)   if (unlikely(!(cond))) d_safe_assert_uint (#cond, __FILE__, __LINE__, static_cast<uint32_t>(value));
+#define DISTRHO_SAFE_ASSERT_UINT2(cond, v1, v2) if (unlikely(!(cond))) d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint32_t>(v1), static_cast<uint32_t>(v2));
 
 #define DISTRHO_SAFE_ASSERT_BREAK(cond)         if (unlikely(!(cond))) { d_safe_assert(#cond, __FILE__, __LINE__); break; }
 #define DISTRHO_SAFE_ASSERT_CONTINUE(cond)      if (unlikely(!(cond))) { d_safe_assert(#cond, __FILE__, __LINE__); continue; }
@@ -128,13 +110,13 @@
 #define DISTRHO_SAFE_ASSERT_INT2_CONTINUE(cond, v1, v2)     if (unlikely(!(cond))) { d_safe_assert_int2(#cond, __FILE__, __LINE__, static_cast<int>(v1), static_cast<int>(v2)); continue; }
 #define DISTRHO_SAFE_ASSERT_INT2_RETURN(cond, v1, v2, ret)  if (unlikely(!(cond))) { d_safe_assert_int2(#cond, __FILE__, __LINE__, static_cast<int>(v1), static_cast<int>(v2)); return ret; }
 
-#define DISTRHO_SAFE_ASSERT_UINT_BREAK(cond, value)       if (unlikely(!(cond))) { d_safe_assert_uint(#cond, __FILE__, __LINE__, static_cast<uint>(value)); break; }
-#define DISTRHO_SAFE_ASSERT_UINT_CONTINUE(cond, value)    if (unlikely(!(cond))) { d_safe_assert_uint(#cond, __FILE__, __LINE__, static_cast<uint>(value)); continue; }
-#define DISTRHO_SAFE_ASSERT_UINT_RETURN(cond, value, ret) if (unlikely(!(cond))) { d_safe_assert_uint(#cond, __FILE__, __LINE__, static_cast<uint>(value)); return ret; }
+#define DISTRHO_SAFE_ASSERT_UINT_BREAK(cond, value)       if (unlikely(!(cond))) { d_safe_assert_uint(#cond, __FILE__, __LINE__, static_cast<uint32_t>(value)); break; }
+#define DISTRHO_SAFE_ASSERT_UINT_CONTINUE(cond, value)    if (unlikely(!(cond))) { d_safe_assert_uint(#cond, __FILE__, __LINE__, static_cast<uint32_t>(value)); continue; }
+#define DISTRHO_SAFE_ASSERT_UINT_RETURN(cond, value, ret) if (unlikely(!(cond))) { d_safe_assert_uint(#cond, __FILE__, __LINE__, static_cast<uint32_t>(value)); return ret; }
 
-#define DISTRHO_SAFE_ASSERT_UINT2_BREAK(cond, v1, v2)       if (unlikely(!(cond))) { d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint>(v1), static_cast<uint>(v2)); break; }
-#define DISTRHO_SAFE_ASSERT_UINT2_CONTINUE(cond, v1, v2)    if (unlikely(!(cond))) { d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint>(v1), static_cast<uint>(v2)); continue; }
-#define DISTRHO_SAFE_ASSERT_UINT2_RETURN(cond, v1, v2, ret) if (unlikely(!(cond))) { d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint>(v1), static_cast<uint>(v2)); return ret; }
+#define DISTRHO_SAFE_ASSERT_UINT2_BREAK(cond, v1, v2)       if (unlikely(!(cond))) { d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint32_t>(v1), static_cast<uint32_t>(v2)); break; }
+#define DISTRHO_SAFE_ASSERT_UINT2_CONTINUE(cond, v1, v2)    if (unlikely(!(cond))) { d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint32_t>(v1), static_cast<uint32_t>(v2)); continue; }
+#define DISTRHO_SAFE_ASSERT_UINT2_RETURN(cond, v1, v2, ret) if (unlikely(!(cond))) { d_safe_assert_uint2(#cond, __FILE__, __LINE__, static_cast<uint32_t>(v1), static_cast<uint32_t>(v2)); return ret; }
 
 /* Define DISTRHO_SAFE_EXCEPTION */
 #define DISTRHO_SAFE_EXCEPTION(msg)             catch(...) { d_safe_exception(msg, __FILE__, __LINE__); }
@@ -212,16 +194,5 @@ private:                                         \
 
 /* Useful macros */
 #define ARRAY_SIZE(ARRAY) (sizeof(ARRAY)/sizeof(ARRAY[0]))
-
-/* Useful typedefs */
-typedef unsigned char uchar;
-typedef unsigned short int ushort;
-typedef unsigned int uint;
-typedef unsigned long int ulong;
-typedef unsigned long long int ulonglong;
-
-/* Deprecated macros */
-#define DISTRHO_DECLARE_NON_COPY_CLASS(ClassName) DISTRHO_DECLARE_NON_COPYABLE(ClassName)
-#define DISTRHO_DECLARE_NON_COPY_STRUCT(StructName) DISTRHO_DECLARE_NON_COPYABLE(StructName)
 
 #endif // DISTRHO_DEFINES_H_INCLUDED

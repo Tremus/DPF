@@ -200,7 +200,7 @@ struct SDL2Bridge : NativeBridge {
     }
 
    #if DISTRHO_PLUGIN_NUM_INPUTS > 0
-    static void AudioInputCallback(void* const userData, uchar* const stream, const int len)
+    static void AudioInputCallback(void* const userData, uint8_t* const stream, const int len)
     {
         NativeBridge* const self = static_cast<NativeBridge*>(userData);
 
@@ -211,14 +211,14 @@ struct SDL2Bridge : NativeBridge {
         if (self->jackProcessCallback == nullptr)
             return;
 
-        const uint numFrames = static_cast<uint>(len / sizeof(float) / DISTRHO_PLUGIN_NUM_INPUTS_2);
+        const uint32_t numFrames = static_cast<uint32_t>(len / sizeof(float) / DISTRHO_PLUGIN_NUM_INPUTS_2);
         DISTRHO_SAFE_ASSERT_UINT2_RETURN(numFrames == self->bufferSize, numFrames, self->bufferSize,);
 
         const float* const fstream = (const float*)stream;
 
-        for (uint i=0; i<DISTRHO_PLUGIN_NUM_INPUTS_2; ++i)
+        for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_INPUTS_2; ++i)
         {
-            for (uint j=0; j<numFrames; ++j)
+            for (uint32_t j=0; j<numFrames; ++j)
                 self->audioBuffers[i][j] = fstream[j * DISTRHO_PLUGIN_NUM_INPUTS_2 + i];
         }
 
@@ -231,7 +231,7 @@ struct SDL2Bridge : NativeBridge {
    #endif
 
    #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-    static void AudioOutputCallback(void* const userData, uchar* const stream, const int len)
+    static void AudioOutputCallback(void* const userData, uint8_t* const stream, const int len)
     {
         NativeBridge* const self = static_cast<NativeBridge*>(userData);
 
@@ -245,7 +245,7 @@ struct SDL2Bridge : NativeBridge {
             return;
         }
 
-        const uint numFrames = static_cast<uint>(len / sizeof(float) / DISTRHO_PLUGIN_NUM_OUTPUTS_2);
+        const uint32_t numFrames = static_cast<uint32_t>(len / sizeof(float) / DISTRHO_PLUGIN_NUM_OUTPUTS_2);
         DISTRHO_SAFE_ASSERT_UINT2_RETURN(numFrames == self->bufferSize, numFrames, self->bufferSize,);
 
         const ScopedDenormalDisable sdd;
@@ -253,9 +253,9 @@ struct SDL2Bridge : NativeBridge {
 
         float* const fstream = (float*)stream;
 
-        for (uint i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
+        for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
         {
-            for (uint j=0; j < numFrames; ++j)
+            for (uint32_t j=0; j < numFrames; ++j)
                 fstream[j * DISTRHO_PLUGIN_NUM_OUTPUTS_2 + i] = self->audioBuffers[DISTRHO_PLUGIN_NUM_INPUTS + i][j];
         }
     }

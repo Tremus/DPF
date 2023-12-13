@@ -173,7 +173,7 @@ static const char* const lv2ManifestUiSupportedOptions[] =
 static void addAttribute(DISTRHO_NAMESPACE::String& text,
                          const char* const attribute,
                          const char* const values[],
-                         const uint indent,
+                         const uint32_t indent,
                          const bool endInDot = false)
 {
     if (values[0] == nullptr)
@@ -189,9 +189,9 @@ static void addAttribute(DISTRHO_NAMESPACE::String& text,
 
     const size_t attributeLength = std::strlen(attribute);
 
-    for (uint i = 0; values[i] != nullptr; ++i)
+    for (uint32_t i = 0; values[i] != nullptr; ++i)
     {
-        for (uint j = 0; j < indent; ++j)
+        for (uint32_t j = 0; j < indent; ++j)
             text += " ";
 
         if (i == 0)
@@ -200,7 +200,7 @@ static void addAttribute(DISTRHO_NAMESPACE::String& text,
         }
         else
         {
-            for (uint j = 0; j < attributeLength; ++j)
+            for (uint32_t j = 0; j < attributeLength; ++j)
                 text += " ";
         }
 

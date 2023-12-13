@@ -95,10 +95,6 @@ static constexpr const uint32_t kCVPortIsOptional = 0x100;
  */
 static constexpr const uint32_t kParameterIsAutomatable = 0x01;
 
-/** It was a typo, sorry.. */
-DISTRHO_DEPRECATED_BY("kParameterIsAutomatable")
-static constexpr const uint32_t kParameterIsAutomable = kParameterIsAutomatable;
-
 /**
    Parameter value is boolean.@n
    It's always at either minimum or maximum value.

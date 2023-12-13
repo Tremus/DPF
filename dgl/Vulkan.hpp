@@ -51,13 +51,13 @@ public:
       Constructor using raw image data.
       @note @a rawData must remain valid for the lifetime of this Image.
     */
-    VulkanImage(const char* rawData, uint width, uint height, ImageFormat format);
+    VulkanImage(const char* rawData, uint32_t width, uint32_t height, ImageFormat format);
 
    /**
       Constructor using raw image data.
       @note @a rawData must remain valid for the lifetime of this Image.
     */
-    VulkanImage(const char* rawData, const Size<uint>& size, ImageFormat format);
+    VulkanImage(const char* rawData, const Size<uint32_t>& size, ImageFormat format);
 
    /**
       Constructor using another image data.
@@ -74,7 +74,7 @@ public:
       @note @a rawData must remain valid for the lifetime of this Image.
     */
     void loadFromMemory(const char* rawData,
-                        const Size<uint>& size,
+                        const Size<uint32_t>& size,
                         ImageFormat format = kImageFormatBGRA) noexcept override;
 
    /**
@@ -88,8 +88,8 @@ public:
     VulkanImage& operator=(const VulkanImage& image) noexcept;
 
     // FIXME this should not be needed
-    inline void loadFromMemory(const char* rdata, uint w, uint h, ImageFormat fmt = kImageFormatBGRA)
-    { loadFromMemory(rdata, Size<uint>(w, h), fmt); };
+    inline void loadFromMemory(const char* rdata, uint32_t w, uint32_t h, ImageFormat fmt = kImageFormatBGRA)
+    { loadFromMemory(rdata, Size<uint32_t>(w, h), fmt); };
     inline void draw(const GraphicsContext& context)
     { drawAt(context, Point<int>(0, 0)); };
     inline void drawAt(const GraphicsContext& context, int x, int y)

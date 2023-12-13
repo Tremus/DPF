@@ -66,7 +66,7 @@ struct OscData {
         lo_send(addr, targetPath, "if", index, value);
     }
 
-    void send_midi(uchar data[4]) const
+    void send_midi(uint8_t data[4]) const
     {
         char targetPath[std::strlen(path)+6];
         std::strcpy(targetPath, path);
@@ -128,7 +128,7 @@ public:
 
     // -------------------------------------------------------------------
 
-    void dssiui_control(ulong index, float value)
+    void dssiui_control(uint64_t index, float value)
     {
         fUI.parameterChanged(index, value);
     }

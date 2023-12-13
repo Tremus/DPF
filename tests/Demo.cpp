@@ -104,7 +104,7 @@ protected:
         const int iconSize = bgIcon.getWidth();
 
         Color(0.027f, 0.027f, 0.027f).setFor(context);
-        Rectangle<uint>(0, 0, getSize()).draw(context);
+        Rectangle<uint32_t>(0, 0, getSize()).draw(context);
 
         bgIcon.setY(curPage * iconSize + curPage * 3 * scaleFactor);
 
@@ -223,8 +223,8 @@ protected:
 
     void onResize(const ResizeEvent& ev) override
     {
-        const uint width  = ev.size.getWidth();
-        const uint height = ev.size.getHeight();
+        const uint32_t width  = ev.size.getWidth();
+        const uint32_t height = ev.size.getHeight();
         const double scaleFactor = getWindow().getScaleFactor();
 
         bgIcon.setWidth(width - 4 * scaleFactor);
@@ -338,7 +338,7 @@ protected:
     {
     }
 
-    void onReshape(uint width, uint height) override
+    void onReshape(uint32_t width, uint32_t height) override
     {
         StandaloneWindow::onReshape(width, height);
 
@@ -347,7 +347,7 @@ protected:
         if (width < kSidebarWidth * scaleFactor)
             return;
 
-        const Size<uint> size(width - kSidebarWidth * scaleFactor, height);
+        const Size<uint32_t> size(width - kSidebarWidth * scaleFactor, height);
         wColor->setSize(size);
         wImages->setSize(size);
         wRects->setSize(size);

@@ -76,11 +76,11 @@ private:
         static_cast<UIStub*>(ptr)->setParameterValue(rindex, value);
     }
 
-    void setSize(uint, uint)
+    void setSize(uint32_t, uint32_t)
     {
     }
 
-    static void setSizeCallback(void* const ptr, const uint width, const uint height)
+    static void setSizeCallback(void* const ptr, const uint32_t width, const uint32_t height)
     {
         static_cast<UIStub*>(ptr)->setSize(width, height);
     }

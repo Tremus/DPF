@@ -71,7 +71,7 @@ bool isMIDIEnabled();
 /**
    Get the current buffer size.
 */
-uint getBufferSize();
+uint32_t getBufferSize();
 
 /**
    Request permissions to use audio input.
@@ -82,7 +82,7 @@ bool requestAudioInput();
 /**
    Request change to a new buffer size.
 */
-bool requestBufferSizeChange(uint newBufferSize);
+bool requestBufferSizeChange(uint32_t newBufferSize);
 
 /**
    Request permissions to use MIDI.

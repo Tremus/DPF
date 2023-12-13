@@ -68,8 +68,8 @@ extern const char* tuid2str(const Steinberg_TUID iid);
 
 // --------------------------------------------------------------------------------------------------------------------
 
-static void applyGeometryConstraints(const uint minimumWidth,
-                                     const uint minimumHeight,
+static void applyGeometryConstraints(const uint32_t minimumWidth,
+                                     const uint32_t minimumHeight,
                                      const bool keepAspectRatio,
                                      Steinberg_ViewRect* const rect)
 {
@@ -111,11 +111,11 @@ static void applyGeometryConstraints(const uint minimumWidth,
 // --------------------------------------------------------------------------------------------------------------------
 
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-static uint translateVST3Modifiers(const int64_t modifiers) noexcept
+static uint32_t translateVST3Modifiers(const int64_t modifiers) noexcept
 {
     using namespace DGL_NAMESPACE;
 
-    uint dglmods = 0;
+    uint32_t dglmods = 0;
     if (modifiers & (1 << 0))
         dglmods |= kModifierShift;
     if (modifiers & (1 << 1))
@@ -403,11 +403,11 @@ public:
         DISTRHO_SAFE_ASSERT_INT_RETURN(keychar >= 0 && keychar < 0x7f, keychar, Steinberg_kResultFalse);
 
         bool special;
-        const uint key = translateVstKeyCode(special, keychar, keycode);
+        const uint32_t key = translateVstKeyCode(special, keychar, keycode);
         d_debug("onKeyDown %d %d %x -> %d %d", keychar, keycode, modifiers, special, key);
 
         return fUI.handlePluginKeyboardVST(true, special, key,
-                                           keycode >= 0 ? static_cast<uint>(keycode) : 0,
+                                           keycode >= 0 ? static_cast<uint32_t>(keycode) : 0,
                                            translateVST3Modifiers(modifiers)) ? Steinberg_kResultTrue : Steinberg_kResultFalse;
     }
 
@@ -416,11 +416,11 @@ public:
         DISTRHO_SAFE_ASSERT_INT_RETURN(keychar >= 0 && keychar < 0x7f, keychar, Steinberg_kResultFalse);
 
         bool special;
-        const uint key = translateVstKeyCode(special, keychar, keycode);
+        const uint32_t key = translateVstKeyCode(special, keychar, keycode);
         d_debug("onKeyUp %d %d %x -> %d %d", keychar, keycode, modifiers, special, key);
 
         return fUI.handlePluginKeyboardVST(false, special, key,
-                                           keycode >= 0 ? static_cast<uint>(keycode) : 0,
+                                           keycode >= 0 ? static_cast<uint32_t>(keycode) : 0,
                                            translateVST3Modifiers(modifiers)) ? Steinberg_kResultTrue : Steinberg_kResultFalse;
     }
 
@@ -496,7 +496,7 @@ public:
 
     Steinberg_tresult checkSizeConstraint(Steinberg_ViewRect* const rect)
     {
-        uint minimumWidth, minimumHeight;
+        uint32_t minimumWidth, minimumHeight;
         bool keepAspectRatio;
         fUI.getGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio);
 
@@ -799,7 +799,7 @@ private:
     }
    #endif
 
-    void setSize(uint width, uint height)
+    void setSize(uint32_t width, uint32_t height)
     {
         DISTRHO_SAFE_ASSERT_RETURN(fView != nullptr,);
         DISTRHO_SAFE_ASSERT_RETURN(fFrame != nullptr,);
@@ -837,7 +837,7 @@ private:
         fFrame->lpVtbl->resizeView(fFrame, fView, &rect);
     }
 
-    static void setSizeCallback(void* const ptr, const uint width, const uint height)
+    static void setSizeCallback(void* const ptr, const uint32_t width, const uint32_t height)
     {
         static_cast<UIVst3*>(ptr)->setSize(width, height);
     }

@@ -459,7 +459,7 @@ struct WebBridge : NativeBridge {
         WebBridge* const self = static_cast<WebBridge*>(userData);
         // self->timestamp = timestamp;
 
-        const uint numFrames = self->bufferSize;
+        const uint32_t numFrames = self->bufferSize;
 
         if (self->jackProcessCallback != nullptr && self->active)
         {
@@ -500,7 +500,7 @@ struct WebBridge : NativeBridge {
         }
         else
         {
-            for (uint i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
+            for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
                 std::memset(self->audioBuffers[DISTRHO_PLUGIN_NUM_INPUTS + i], 0, sizeof(float)*numFrames);
         }
     }

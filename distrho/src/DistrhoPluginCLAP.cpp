@@ -90,8 +90,8 @@ struct ClapEventQueue
 
     struct Queue {
         RecursiveMutex lock;
-        uint allocated;
-        uint used;
+        uint32_t allocated;
+        uint32_t used;
         Event* events;
 
         Queue()
@@ -129,7 +129,7 @@ struct ClapEventQueue
   #endif
 
     struct CachedParameters {
-        uint numParams;
+        uint32_t numParams;
         bool* changed;
         float* values;
 
@@ -144,7 +144,7 @@ struct ClapEventQueue
             delete[] values;
         }
 
-        void setup(const uint numParameters)
+        void setup(const uint32_t numParameters)
         {
             if (numParameters == 0)
                 return;
@@ -292,7 +292,7 @@ public:
     {
         if (canResize())
         {
-            uint minimumWidth, minimumHeight;
+            uint32_t minimumWidth, minimumHeight;
             bool keepAspectRatio;
             fUI->getGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio);
 
@@ -324,7 +324,7 @@ public:
     {
         if (canResize())
         {
-            uint minimumWidth, minimumHeight;
+            uint32_t minimumWidth, minimumHeight;
             bool keepAspectRatio;
             fUI->getGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio);
 
@@ -471,7 +471,7 @@ public:
             ui->idleFromNativeIdle();
            #endif
 
-            for (uint i=0; i<fCachedParameters.numParams; ++i)
+            for (uint32_t i=0; i<fCachedParameters.numParams; ++i)
             {
                 if (fCachedParameters.changed[i])
                 {
@@ -484,7 +484,7 @@ public:
 
     // ----------------------------------------------------------------------------------------------------------------
 
-    void setParameterValueFromPlugin(const uint index, const float value)
+    void setParameterValueFromPlugin(const uint32_t index, const float value)
     {
         if (UIExporter* const ui = fUI.get())
             ui->parameterChanged(index, value);
@@ -585,24 +585,24 @@ private:
         static_cast<ClapUI*>(ptr)->setParameterValue(rindex, value);
     }
 
-    void setSizeFromPlugin(const uint width, const uint height)
+    void setSizeFromPlugin(const uint32_t width, const uint32_t height)
     {
         DISTRHO_SAFE_ASSERT_RETURN(fUI != nullptr,);
 
        #ifdef DISTRHO_OS_MAC
         const double scaleFactor = fUI->getScaleFactor();
-        const uint hostWidth = width / scaleFactor;
-        const uint hostHeight = height / scaleFactor;
+        const uint32_t hostWidth = width / scaleFactor;
+        const uint32_t hostHeight = height / scaleFactor;
        #else
-        const uint hostWidth = width;
-        const uint hostHeight = height;
+        const uint32_t hostWidth = width;
+        const uint32_t hostHeight = height;
        #endif
 
         if (fHostGui->request_resize(fHost, hostWidth, hostHeight))
             fUI->setWindowSizeFromHost(width, height);
     }
 
-    static void setSizeCallback(void* const ptr, const uint width, const uint height)
+    static void setSizeCallback(void* const ptr, const uint32_t width, const uint32_t height)
     {
         static_cast<ClapUI*>(ptr)->setSizeFromPlugin(width, height);
     }
@@ -1039,7 +1039,7 @@ public:
 
             d_strncpy(info->name, fPlugin.getParameterName(index), CLAP_NAME_SIZE);
 
-            uint wrtn;
+            uint32_t wrtn;
             if (groupId != kPortGroupNone)
             {
                 const PortGroupWithId& portGroup(fPlugin.getPortGroupById(groupId));
@@ -1155,7 +1155,7 @@ public:
             };
 
             float value;
-            for (uint i=0; i<fCachedParameters.numParams; ++i)
+            for (uint32_t i=0; i<fCachedParameters.numParams; ++i)
             {
                 if (fPlugin.isParameterOutputOrTrigger(i))
                 {

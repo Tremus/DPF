@@ -59,13 +59,13 @@ void puglRaiseWindow(PuglView* view);
 double puglGetScaleFactorFromParent(const PuglView* view);
 
 // combined puglSetSizeHint using PUGL_MIN_SIZE, PUGL_MIN_ASPECT and PUGL_MAX_ASPECT
-PuglStatus puglSetGeometryConstraints(PuglView* view, uint width, uint height, bool aspect);
+PuglStatus puglSetGeometryConstraints(PuglView* view, uint32_t width, uint32_t height, bool aspect);
 
 // set view as resizable (or not) during runtime
 void puglSetResizable(PuglView* view, bool resizable);
 
 // set window size while also changing default
-PuglStatus puglSetSizeAndDefault(PuglView* view, uint width, uint height);
+PuglStatus puglSetSizeAndDefault(PuglView* view, uint32_t width, uint32_t height);
 
 // DGL specific, build-specific drawing prepare
 void puglOnDisplayPrepare(PuglView* view);

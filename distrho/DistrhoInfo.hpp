@@ -473,7 +473,7 @@ START_NAMESPACE_DISTRHO
    Whether the %UI is resizable to any size by the user.@n
    By default this is false, and resizing is only allowed under the plugin UI control,@n
    Enabling this options makes it possible for the user to resize the plugin UI at anytime.
-   @see UI::setGeometryConstraints(uint, uint, bool, bool)
+   @see UI::setGeometryConstraints(uint32_t, uint32_t, bool, bool)
  */
 #define DISTRHO_UI_USER_RESIZABLE 1
 

@@ -288,7 +288,7 @@ struct KnobEventHandler::PrivateData {
 
     double lastX;
     double lastY;
-    uint lastClickTime;
+    uint32_t lastClickTime;
 
     PrivateData(KnobEventHandler* const s, SubWidget* const w)
         : self(s),

@@ -63,19 +63,19 @@ int main()
     if (const int ret = runTestsPerType<int>())
         return ret;
 
-    if (const int ret = runTestsPerType<uint>())
+    if (const int ret = runTestsPerType<uint32_t>())
         return ret;
 
     if (const int ret = runTestsPerType<short>())
         return ret;
 
-    if (const int ret = runTestsPerType<ushort>())
+    if (const int ret = runTestsPerType<uint16_t>())
         return ret;
 
     if (const int ret = runTestsPerType<long>())
         return ret;
 
-    if (const int ret = runTestsPerType<ulong>())
+    if (const int ret = runTestsPerType<uint64_t>())
         return ret;
 
     if (const int ret = runTestsPerType<long long>())

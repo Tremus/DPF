@@ -57,9 +57,9 @@ void Line<T>::draw()
 template class Line<double>;
 template class Line<float>;
 template class Line<int>;
-template class Line<uint>;
+template class Line<uint32_t>;
 template class Line<short>;
-template class Line<ushort>;
+template class Line<uint16_t>;
 
 // -----------------------------------------------------------------------
 // Circle
@@ -91,9 +91,9 @@ void Circle<T>::drawOutline()
 template class Circle<double>;
 template class Circle<float>;
 template class Circle<int>;
-template class Circle<uint>;
+template class Circle<uint32_t>;
 template class Circle<short>;
-template class Circle<ushort>;
+template class Circle<uint16_t>;
 
 // -----------------------------------------------------------------------
 // Triangle
@@ -125,9 +125,9 @@ void Triangle<T>::drawOutline()
 template class Triangle<double>;
 template class Triangle<float>;
 template class Triangle<int>;
-template class Triangle<uint>;
+template class Triangle<uint32_t>;
 template class Triangle<short>;
-template class Triangle<ushort>;
+template class Triangle<uint16_t>;
 
 
 // -----------------------------------------------------------------------
@@ -160,9 +160,9 @@ void Rectangle<T>::drawOutline()
 template class Rectangle<double>;
 template class Rectangle<float>;
 template class Rectangle<int>;
-template class Rectangle<uint>;
+template class Rectangle<uint32_t>;
 template class Rectangle<short>;
-template class Rectangle<ushort>;
+template class Rectangle<uint16_t>;
 
 // -----------------------------------------------------------------------
 // VulkanImage
@@ -170,10 +170,10 @@ template class Rectangle<ushort>;
 VulkanImage::VulkanImage()
     : ImageBase() {}
 
-VulkanImage::VulkanImage(const char* const rdata, const uint w, const uint h, const ImageFormat fmt)
+VulkanImage::VulkanImage(const char* const rdata, const uint32_t w, const uint32_t h, const ImageFormat fmt)
     : ImageBase(rdata, w, h, fmt) {}
 
-VulkanImage::VulkanImage(const char* const rdata, const Size<uint>& s, const ImageFormat fmt)
+VulkanImage::VulkanImage(const char* const rdata, const Size<uint32_t>& s, const ImageFormat fmt)
     : ImageBase(rdata, s, fmt) {}
 
 VulkanImage::VulkanImage(const VulkanImage& image)
@@ -181,7 +181,7 @@ VulkanImage::VulkanImage(const VulkanImage& image)
 
 VulkanImage::~VulkanImage() {}
 
-void VulkanImage::loadFromMemory(const char* const rdata, const Size<uint>& s, const ImageFormat fmt) noexcept
+void VulkanImage::loadFromMemory(const char* const rdata, const Size<uint32_t>& s, const ImageFormat fmt) noexcept
 {
     ImageBase::loadFromMemory(rdata, s, fmt);
 }
@@ -200,7 +200,7 @@ VulkanImage& VulkanImage::operator=(const VulkanImage& image) noexcept
 
 // -----------------------------------------------------------------------
 
-void SubWidget::PrivateData::display(const uint width, const uint height, const double autoScaleFactor)
+void SubWidget::PrivateData::display(const uint32_t width, const uint32_t height, const double autoScaleFactor)
 {
     // TODO
 
@@ -214,9 +214,9 @@ void TopLevelWidget::PrivateData::display()
     if (! selfw->pData->visible)
         return;
 
-    const Size<uint> size(window.getSize());
-    const uint width  = size.getWidth();
-    const uint height = size.getHeight();
+    const Size<uint32_t> size(window.getSize());
+    const uint32_t width  = size.getWidth();
+    const uint32_t height = size.getHeight();
 
     const double autoScaleFactor = window.pData->autoScaleFactor;
 
@@ -231,7 +231,7 @@ void TopLevelWidget::PrivateData::display()
 
 // -----------------------------------------------------------------------
 
-void Window::PrivateData::renderToPicture(const char*, const GraphicsContext&, uint, uint)
+void Window::PrivateData::renderToPicture(const char*, const GraphicsContext&, uint32_t, uint32_t)
 {
     notImplemented("Window::PrivateData::renderToPicture");
 }

@@ -24,7 +24,7 @@ START_NAMESPACE_DGL
 
 class NanoFilePicker : public NanoStandaloneWindow
 {
-    Rectangle<uint> buttonBounds;
+    Rectangle<uint32_t> buttonBounds;
     bool buttonClick = false;
     bool buttonHover = false;
     String selectedFile;
@@ -142,11 +142,11 @@ protected:
 
     void onResize(const ResizeEvent& ev) override
     {
-        const uint width  = ev.size.getWidth();
-        const uint height = ev.size.getHeight();
+        const uint32_t width  = ev.size.getWidth();
+        const uint32_t height = ev.size.getHeight();
         const double scaleFactor = getScaleFactor();
 
-        buttonBounds = Rectangle<uint>(width - 120 * scaleFactor,
+        buttonBounds = Rectangle<uint32_t>(width - 120 * scaleFactor,
                                        height/2 - 20 * scaleFactor,
                                        100 * scaleFactor,
                                        40 * scaleFactor);

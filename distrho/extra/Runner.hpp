@@ -116,7 +116,7 @@ public:
     /*
      * Start the runner.
      */
-    bool startRunner(const uint timeIntervalMilliseconds = 0) noexcept
+    bool startRunner(const uint32_t timeIntervalMilliseconds = 0) noexcept
     {
        #ifndef DISTRHO_OS_WASM
         DISTRHO_SAFE_ASSERT_RETURN(!fRunnerThread.isThreadRunning(), false);
@@ -190,7 +190,7 @@ private:
     protected:
         void run() override
         {
-            const uint timeInterval = runner->fTimeInterval;
+            const uint32_t timeInterval = runner->fTimeInterval;
 
             while (!shouldThreadExit())
             {
@@ -215,7 +215,7 @@ private:
         }
     } fRunnerThread;
 
-    uint fTimeInterval;
+    uint32_t fTimeInterval;
 #else
     const String fRunnerName;
     long fIntervalId;

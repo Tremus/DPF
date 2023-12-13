@@ -61,11 +61,11 @@ public:
     */
     struct BaseEvent {
         /** Currently active keyboard modifiers. @see Modifier */
-        uint mod;
+        uint32_t mod;
         /** Event flags. @see EventFlag */
-        uint flags;
+        uint32_t flags;
         /** Event timestamp in milliseconds (if any). */
-        uint time;
+        uint32_t time;
 
         /** Constructor for default/null values */
         BaseEvent() noexcept : mod(0x0), flags(0x0), time(0) {}
@@ -93,9 +93,9 @@ public:
         /** True if the key was pressed, false if released. */
         bool press;
         /** Unicode point of the key pressed. */
-        uint key;
+        uint32_t key;
         /** Raw keycode. */
-        uint keycode;
+        uint32_t keycode;
 
         /** Constructor for default/null values */
         KeyboardEvent() noexcept
@@ -103,23 +103,6 @@ public:
               press(false),
               key(0),
               keycode(0) {}
-    };
-
-   /**
-      Special keyboard event.
-
-      DEPRECATED This used to be part of DPF due to pugl, but now deprecated and simply non-functional.
-      All events go through KeyboardEvent or CharacterInputEvent, use those instead.
-    */
-    struct DISTRHO_DEPRECATED_BY("KeyboardEvent") SpecialEvent : BaseEvent {
-        bool press;
-        Key key;
-
-        /** Constructor for default/null values */
-        SpecialEvent() noexcept
-            : BaseEvent(),
-              press(false),
-              key(Key(0)) {}
     };
 
    /**
@@ -136,9 +119,9 @@ public:
     */
     struct CharacterInputEvent : BaseEvent {
         /** Raw key code. */
-        uint keycode;
+        uint32_t keycode;
         /** Unicode character code. */
-        uint character;
+        uint32_t character;
         /** UTF-8 string. */
         char string[8];
 
@@ -160,7 +143,7 @@ public:
     */
     struct MouseEvent : BaseEvent {
         /** The button number starting from 1. @see MouseButton */
-        uint button;
+        uint32_t button;
         /** True if the button was pressed, false if released. */
         bool press;
         /** The widget-relative coordinates of the pointer. */
@@ -230,9 +213,9 @@ public:
     */
     struct ResizeEvent {
         /** The new widget size. */
-        Size<uint> size;
+        Size<uint32_t> size;
         /** The previous size, can be null. */
-        Size<uint> oldSize;
+        Size<uint32_t> oldSize;
 
         /** Constructor for default/null values */
         ResizeEvent() noexcept
@@ -299,44 +282,44 @@ public:
    /**
       Get width.
     */
-    uint getWidth() const noexcept;
+    uint32_t getWidth() const noexcept;
 
    /**
       Get height.
     */
-    uint getHeight() const noexcept;
+    uint32_t getHeight() const noexcept;
 
    /**
       Get size.
     */
-    const Size<uint> getSize() const noexcept;
+    const Size<uint32_t> getSize() const noexcept;
 
    /**
       Set width.
     */
-    void setWidth(uint width) noexcept;
+    void setWidth(uint32_t width) noexcept;
 
    /**
       Set height.
     */
-    void setHeight(uint height) noexcept;
+    void setHeight(uint32_t height) noexcept;
 
    /**
       Set size using @a width and @a height values.
     */
-    void setSize(uint width, uint height) noexcept;
+    void setSize(uint32_t width, uint32_t height) noexcept;
 
    /**
       Set size.
     */
-    void setSize(const Size<uint>& size) noexcept;
+    void setSize(const Size<uint32_t>& size) noexcept;
 
    /**
       Get the Id associated with this widget.
       Returns 0 by default.
       @see setId
     */
-    uint getId() const noexcept;
+    uint32_t getId() const noexcept;
 
    /**
       Get the name associated with this widget.
@@ -350,7 +333,7 @@ public:
       Set an Id to be associated with this widget.
       @see getId
     */
-    void setId(uint id) noexcept;
+    void setId(uint32_t id) noexcept;
 
    /**
       Set a name to be associated with this widget.
@@ -396,12 +379,6 @@ public:
     */
     virtual void repaint() noexcept;
 
-    DISTRHO_DEPRECATED_BY("getApp()")
-    Application& getParentApp() const noexcept { return getApp(); }
-
-    DISTRHO_DEPRECATED_BY("getWindow()")
-    Window& getParentWindow() const noexcept { return getWindow(); }
-
 protected:
    /**
       A function called to draw the widget contents.
@@ -442,29 +419,6 @@ protected:
       A function called when the widget is resized.
     */
     virtual void onResize(const ResizeEvent&);
-
-   /**
-      A function called when a special key is pressed or released.
-      DEPRECATED use onKeyboard or onCharacterInput
-    */
-   #if defined(_MSC_VER)
-    #pragma warning(push)
-    #pragma warning(disable:4996)
-   #elif defined(__clang__)
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-   #elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-   #endif
-    virtual bool onSpecial(const SpecialEvent&) { return false; }
-   #if defined(_MSC_VER)
-    #pragma warning(pop)
-   #elif defined(__clang__)
-    #pragma clang diagnostic pop
-   #elif defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) >= 460
-    #pragma GCC diagnostic pop
-   #endif
 
 private:
     struct PrivateData;

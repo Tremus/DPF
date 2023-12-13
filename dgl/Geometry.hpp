@@ -371,15 +371,6 @@ public:
     bool operator==(const Line<T>& line) const noexcept;
     bool operator!=(const Line<T>& line) const noexcept;
 
-#ifndef DPF_TEST_POINT_CPP
-   /**
-      Draw this line using the current OpenGL state.@n
-      DEPRECATED Please use draw(const GraphicsContext&) instead.
-    */
-    DISTRHO_DEPRECATED_BY("draw(const GraphicsContext&)")
-    void draw();
-#endif
-
 private:
     Point<T> posStart, posEnd;
 };
@@ -406,12 +397,12 @@ public:
    /**
       Constructor using custom X, Y and size values.
     */
-    Circle(const T& x, const T& y, const float size, const uint numSegments = 300);
+    Circle(const T& x, const T& y, const float size, const uint32_t numSegments = 300);
 
    /**
       Constructor using custom position and size values.
     */
-    Circle(const Point<T>& pos, const float size, const uint numSegments = 300);
+    Circle(const Point<T>& pos, const float size, const uint32_t numSegments = 300);
 
    /**
       Constructor using another Circle class values.
@@ -467,13 +458,13 @@ public:
    /**
       Get the current number of line segments that make this circle.
     */
-    uint getNumSegments() const noexcept;
+    uint32_t getNumSegments() const noexcept;
 
    /**
       Set the number of line segments that will make this circle.
       @note Must always be >= 3
     */
-    void setNumSegments(const uint num);
+    void setNumSegments(const uint32_t num);
 
    /**
       Draw this circle using the provided graphics context.
@@ -489,26 +480,10 @@ public:
     bool operator==(const Circle<T>& cir) const noexcept;
     bool operator!=(const Circle<T>& cir) const noexcept;
 
-#ifndef DPF_TEST_POINT_CPP
-   /**
-      Draw this circle using the current OpenGL state.@n
-      DEPRECATED Please use draw(const GraphicsContext&) instead.
-    */
-    DISTRHO_DEPRECATED_BY("draw(const GraphicsContext&)")
-    void draw();
-
-   /**
-      Draw lines (outline of this circle) using the current OpenGL state.@n
-      DEPRECATED Please use drawOutline(const GraphicsContext&,T) instead.
-    */
-    DISTRHO_DEPRECATED_BY("drawOutline(const GraphicsContext&)")
-    void drawOutline();
-#endif
-
 private:
     Point<T> fPos;
     float    fSize;
-    uint     fNumSegments;
+    uint32_t     fNumSegments;
 
     // cached values
     float fTheta, fCos, fSin;
@@ -581,22 +556,6 @@ public:
     Triangle<T>& operator=(const Triangle<T>& tri) noexcept;
     bool operator==(const Triangle<T>& tri) const noexcept;
     bool operator!=(const Triangle<T>& tri) const noexcept;
-
-#ifndef DPF_TEST_POINT_CPP
-   /**
-      Draw this triangle using the current OpenGL state.@n
-      DEPRECATED Please use draw(const GraphicsContext&) instead.
-    */
-    DISTRHO_DEPRECATED_BY("draw(const GraphicsContext&)")
-    void draw();
-
-   /**
-      Draw lines (outline of this triangle) using the current OpenGL state.@n
-      DEPRECATED Please use drawOutline(const GraphicsContext&,T) instead.
-    */
-    DISTRHO_DEPRECATED_BY("drawOutline(const GraphicsContext&)")
-    void drawOutline();
-#endif
 
 private:
     Point<T> pos1, pos2, pos3;
@@ -812,20 +771,6 @@ public:
     Rectangle<T>& operator/=(double d) noexcept;
     bool operator==(const Rectangle<T>& size) const noexcept;
     bool operator!=(const Rectangle<T>& size) const noexcept;
-
-   /**
-      Draw this rectangle using the current OpenGL state.@n
-      DEPRECATED Please use draw(const GraphicsContext&) instead.
-    */
-    DISTRHO_DEPRECATED_BY("draw(const GraphicsContext&)")
-    void draw();
-
-   /**
-      Draw lines (outline of this rectangle) using the current OpenGL state.@n
-      DEPRECATED Please use drawOutline(const GraphicsContext&,T) instead.
-    */
-    DISTRHO_DEPRECATED_BY("drawOutline(const GraphicsContext&)")
-    void drawOutline();
 
 private:
     Point<T> pos;

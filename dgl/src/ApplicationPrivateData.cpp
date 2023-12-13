@@ -107,7 +107,7 @@ void Application::PrivateData::oneWindowClosed() noexcept
 
 // --------------------------------------------------------------------------------------------------------------------
 
-void Application::PrivateData::idle(const uint timeoutInMs)
+void Application::PrivateData::idle(const uint32_t timeoutInMs)
 {
     if (isQuittingInNextCycle)
     {

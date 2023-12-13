@@ -70,25 +70,25 @@ public:
       Set width of this widget's window.
       @note This will not change the widget's size right away, but be pending on the OS resizing the window
     */
-    void setWidth(uint width);
+    void setWidth(uint32_t width);
 
    /**
       Set height of this widget's window.
       @note This will not change the widget's size right away, but be pending on the OS resizing the window
     */
-    void setHeight(uint height);
+    void setHeight(uint32_t height);
 
    /**
       Set size of this widget's window, using @a width and @a height values.
       @note This will not change the widget's size right away, but be pending on the OS resizing the window
     */
-    void setSize(uint width, uint height);
+    void setSize(uint32_t width, uint32_t height);
 
    /**
       Set size of this widget's window.
       @note This will not change the widget's size right away, but be pending on the OS resizing the window
     */
-    void setSize(const Size<uint>& size);
+    void setSize(const Size<uint32_t>& size);
 
    /**
       TODO document this.
@@ -98,26 +98,20 @@ public:
    /**
       TODO document this.
     */
-    void repaint(const Rectangle<uint>& rect) noexcept;
+    void repaint(const Rectangle<uint32_t>& rect) noexcept;
 
     // TODO group stuff after here, convenience functions present in Window class
     const void* getClipboard(size_t& dataSize);
     bool setClipboard(const char* mimeType, const void* data, size_t dataSize);
     bool setCursor(MouseCursor cursor);
-    bool addIdleCallback(IdleCallback* callback, uint timerFrequencyInMs = 0);
+    bool addIdleCallback(IdleCallback* callback, uint32_t timerFrequencyInMs = 0);
     bool removeIdleCallback(IdleCallback* callback);
     double getScaleFactor() const noexcept;
-    void setGeometryConstraints(uint minimumWidth,
-                                uint minimumHeight,
+    void setGeometryConstraints(uint32_t minimumWidth,
+                                uint32_t minimumHeight,
                                 bool keepAspectRatio = false,
                                 bool automaticallyScale = false,
                                 bool resizeNowIfAutoScaling = true);
-
-    DISTRHO_DEPRECATED_BY("getApp()")
-    Application& getParentApp() const noexcept { return getApp(); }
-
-    DISTRHO_DEPRECATED_BY("getWindow()")
-    Window& getParentWindow() const noexcept { return getWindow(); }
 
 protected:
     bool onKeyboard(const KeyboardEvent&) override;
@@ -134,7 +128,7 @@ private:
     friend class DISTRHO_NAMESPACE::UI;
 #endif
    /** @internal */
-    virtual void requestSizeChange(uint width, uint height);
+    virtual void requestSizeChange(uint32_t width, uint32_t height);
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TopLevelWidget)
 };

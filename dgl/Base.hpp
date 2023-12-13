@@ -66,11 +66,6 @@ enum Key {
     kKeyEscape    = 0x1B,
     kKeyDelete    = 0x7F,
 
-    // Backwards compatibility with old DPF
-    kCharBackspace DISTRHO_DEPRECATED_BY("kKeyBackspace") = kKeyBackspace,
-    kCharEscape    DISTRHO_DEPRECATED_BY("kKeyEscape") = kKeyEscape,
-    kCharDelete    DISTRHO_DEPRECATED_BY("kKeyDelete") = kKeyDelete,
-
     // Unicode Private Use Area
     kKeyF1 = 0xE000,
     kKeyF2,

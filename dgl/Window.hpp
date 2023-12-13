@@ -144,8 +144,8 @@ public:
     */
     explicit Window(Application& app,
                     uintptr_t parentWindowHandle,
-                    uint width,
-                    uint height,
+                    uint32_t width,
+                    uint32_t height,
                     double scaleFactor,
                     bool resizable);
 
@@ -250,37 +250,37 @@ public:
    /**
       Get width.
     */
-    uint getWidth() const noexcept;
+    uint32_t getWidth() const noexcept;
 
    /**
       Get height.
     */
-    uint getHeight() const noexcept;
+    uint32_t getHeight() const noexcept;
 
    /**
       Get size.
     */
-    Size<uint> getSize() const noexcept;
+    Size<uint32_t> getSize() const noexcept;
 
    /**
       Set width.
     */
-    void setWidth(uint width);
+    void setWidth(uint32_t width);
 
    /**
       Set height.
     */
-    void setHeight(uint height);
+    void setHeight(uint32_t height);
 
    /**
       Set size using @a width and @a height values.
     */
-    void setSize(uint width, uint height);
+    void setSize(uint32_t width, uint32_t height);
 
    /**
       Set size.
     */
-    void setSize(const Size<uint>& size);
+    void setSize(const Size<uint32_t>& size);
 
    /**
       Get the title of the window previously set with setTitle().
@@ -349,7 +349,7 @@ public:
           (the maximum timer resolution on Windows) and may be rounded up if it is too short.
           On X11 and MacOS, a resolution of about 1ms can usually be relied on.
     */
-    bool addIdleCallback(IdleCallback* callback, uint timerFrequencyInMs = 0);
+    bool addIdleCallback(IdleCallback* callback, uint32_t timerFrequencyInMs = 0);
 
    /**
       Remove an idle callback previously added via addIdleCallback().
@@ -414,7 +414,7 @@ public:
    /**
       Request partial repaint of this window, with bounds according to @a rect.
     */
-    void repaint(const Rectangle<uint>& rect) noexcept;
+    void repaint(const Rectangle<uint32_t>& rect) noexcept;
 
    /**
       Render this window's content into a picture file, specified by @a filename.
@@ -434,13 +434,13 @@ public:
       Get the geometry constraints set for the Window.
       @see setGeometryConstraints
     */
-    Size<uint> getGeometryConstraints(bool& keepAspectRatio);
+    Size<uint32_t> getGeometryConstraints(bool& keepAspectRatio);
 
    /**
       Set geometry constraints for the Window when resized by the user, and optionally scale contents automatically.
     */
-    void setGeometryConstraints(uint minimumWidth,
-                                uint minimumHeight,
+    void setGeometryConstraints(uint32_t minimumWidth,
+                                uint32_t minimumHeight,
                                 bool keepAspectRatio = false,
                                 bool automaticallyScale = false,
                                 bool resizeNowIfAutoScaling = true);
@@ -452,18 +452,6 @@ public:
       This should be not be called for embed windows, or after making the window visible.
     */
     void setTransientParent(uintptr_t transientParentWindowHandle);
-
-   /** DEPRECATED Use isIgnoringKeyRepeat(). */
-    DISTRHO_DEPRECATED_BY("isIgnoringKeyRepeat()")
-    inline bool getIgnoringKeyRepeat() const noexcept { return isIgnoringKeyRepeat(); }
-
-   /** DEPRECATED Use getScaleFactor(). */
-    DISTRHO_DEPRECATED_BY("getScaleFactor()")
-    inline double getScaling() const noexcept { return getScaleFactor(); }
-
-   /** DEPRECATED Use runAsModal(bool). */
-    DISTRHO_DEPRECATED_BY("runAsModal(bool)")
-    inline void exec(bool blockWait = false) { runAsModal(blockWait); }
 
 protected:
    /**
@@ -507,7 +495,7 @@ protected:
       If there is a top-level widget associated with this window, its size will be set right after this function.
       The default implementation sets up drawing context where necessary.
     */
-    virtual void onReshape(uint width, uint height);
+    virtual void onReshape(uint32_t width, uint32_t height);
 
    /**
       A function called when scale factor requested for this window changes.
@@ -523,10 +511,6 @@ protected:
       The default implementation does nothing.
     */
     virtual void onFileSelected(const char* filename);
-
-   /** DEPRECATED Use onFileSelected(). */
-    DISTRHO_DEPRECATED_BY("onFileSelected(const char*)")
-    inline virtual void fileBrowserSelected(const char* filename) { return onFileSelected(filename); }
 #endif
 
 private:
@@ -540,8 +524,8 @@ private:
    /** @internal */
     explicit Window(Application& app,
                     uintptr_t parentWindowHandle,
-                    uint width,
-                    uint height,
+                    uint32_t width,
+                    uint32_t height,
                     double scaleFactor,
                     bool resizable,
                     bool usesSizeRequest,

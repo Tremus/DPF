@@ -53,7 +53,7 @@ public:
 
 private:
    #if defined(__SSE2_MATH__)
-    typedef uint cpuflags_t;
+    typedef uint32_t cpuflags_t;
    #elif defined(__aarch64__)
     typedef uint64_t cpuflags_t;
    #elif defined(__arm__) && !defined(__SOFTFP__)

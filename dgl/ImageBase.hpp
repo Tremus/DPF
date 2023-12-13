@@ -53,13 +53,13 @@ protected:
       Constructor using raw image data.
       @note @a rawData must remain valid for the lifetime of this Image.
     */
-    ImageBase(const char* rawData, uint width, uint height, ImageFormat format);
+    ImageBase(const char* rawData, uint32_t width, uint32_t height, ImageFormat format);
 
    /**
       Constructor using raw image data.
       @note @a rawData must remain valid for the lifetime of this Image.
     */
-    ImageBase(const char* rawData, const Size<uint>& size, ImageFormat format);
+    ImageBase(const char* rawData, const Size<uint32_t>& size, ImageFormat format);
 
    /**
       Constructor using another image data.
@@ -85,17 +85,17 @@ public:
    /**
       Get width.
     */
-    uint getWidth() const noexcept;
+    uint32_t getWidth() const noexcept;
 
    /**
       Get height.
     */
-    uint getHeight() const noexcept;
+    uint32_t getHeight() const noexcept;
 
    /**
       Get size.
     */
-    const Size<uint>& getSize() const noexcept;
+    const Size<uint32_t>& getSize() const noexcept;
 
    /**
       Get the raw image data.
@@ -111,14 +111,14 @@ public:
       Load image data from memory.
       @note @a rawData must remain valid for the lifetime of this Image.
     */
-    void loadFromMemory(const char* rawData, uint width, uint height, ImageFormat format = kImageFormatBGRA) noexcept;
+    void loadFromMemory(const char* rawData, uint32_t width, uint32_t height, ImageFormat format = kImageFormatBGRA) noexcept;
 
    /**
       Load image data from memory.
       @note @a rawData must remain valid for the lifetime of this Image.
     */
     virtual void loadFromMemory(const char* rawData,
-                                const Size<uint>& size,
+                                const Size<uint32_t>& size,
                                 ImageFormat format = kImageFormatBGRA) noexcept;
 
    /**
@@ -145,7 +145,7 @@ public:
 
 protected:
     const char* rawData;
-    Size<uint> size;
+    Size<uint32_t> size;
     ImageFormat format;
 };
 

@@ -65,8 +65,8 @@ void Button::setLabelColor(const Color color)
 
 void Button::onNanoDisplay()
 {
-    const uint w = getWidth();
-    const uint h = getHeight();
+    const uint32_t w = getWidth();
+    const uint32_t h = getHeight();
     const float margin = 1.0f;
 
     // Background

@@ -36,7 +36,7 @@
  * Sleep for 'secs' seconds.
  */
 static inline
-void d_sleep(const uint secs) noexcept
+void d_sleep(const uint32_t secs) noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(secs > 0,);
 
@@ -53,7 +53,7 @@ void d_sleep(const uint secs) noexcept
  * Sleep for 'msecs' milliseconds.
  */
 static inline
-void d_msleep(const uint msecs) noexcept
+void d_msleep(const uint32_t msecs) noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(msecs > 0,);
 

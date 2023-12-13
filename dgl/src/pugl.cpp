@@ -277,7 +277,7 @@ double puglGetScaleFactorFromParent(const PuglView* const view)
 // --------------------------------------------------------------------------------------------------------------------
 // Combined puglSetSizeHint using PUGL_MIN_SIZE and PUGL_FIXED_ASPECT
 
-PuglStatus puglSetGeometryConstraints(PuglView* const view, const uint width, const uint height, const bool aspect)
+PuglStatus puglSetGeometryConstraints(PuglView* const view, const uint32_t width, const uint32_t height, const bool aspect)
 {
     view->sizeHints[PUGL_MIN_SIZE].width = width;
     view->sizeHints[PUGL_MIN_SIZE].height = height;
@@ -325,7 +325,7 @@ void puglSetResizable(PuglView* const view, const bool resizable)
 #elif defined(DISTRHO_OS_MAC)
     if (PuglWindow* const window = view->impl->window)
     {
-        const uint style = (NSClosableWindowMask | NSTitledWindowMask | NSMiniaturizableWindowMask)
+        const uint32_t style = (NSClosableWindowMask | NSTitledWindowMask | NSMiniaturizableWindowMask)
                          | (resizable ? NSResizableWindowMask : 0x0);
         [window setStyleMask:style];
     }
@@ -335,7 +335,7 @@ void puglSetResizable(PuglView* const view, const bool resizable)
 #elif defined(DISTRHO_OS_WINDOWS)
     if (const HWND hwnd = view->impl->hwnd)
     {
-        const uint winFlags = resizable ? GetWindowLong(hwnd, GWL_STYLE) |  (WS_SIZEBOX | WS_MAXIMIZEBOX)
+        const uint32_t winFlags = resizable ? GetWindowLong(hwnd, GWL_STYLE) |  (WS_SIZEBOX | WS_MAXIMIZEBOX)
                                         : GetWindowLong(hwnd, GWL_STYLE) & ~(WS_SIZEBOX | WS_MAXIMIZEBOX);
         SetWindowLong(hwnd, GWL_STYLE, winFlags);
     }
@@ -347,7 +347,7 @@ void puglSetResizable(PuglView* const view, const bool resizable)
 // --------------------------------------------------------------------------------------------------------------------
 // set window size while also changing default
 
-PuglStatus puglSetSizeAndDefault(PuglView* view, uint width, uint height)
+PuglStatus puglSetSizeAndDefault(PuglView* view, uint32_t width, uint32_t height)
 {
     if (width > INT16_MAX || height > INT16_MAX)
         return PUGL_BAD_PARAMETER;
@@ -628,7 +628,7 @@ void puglX11SetWindowTypeAndPID(const PuglView* const view, const bool isStandal
 
     const pid_t pid = getpid();
     const Atom _nwp = XInternAtom(display, "_NET_WM_PID", False);
-    XChangeProperty(display, impl->win, _nwp, XA_CARDINAL, 32, PropModeReplace, (const uchar*)&pid, 1);
+    XChangeProperty(display, impl->win, _nwp, XA_CARDINAL, 32, PropModeReplace, (const uint8_t*)&pid, 1);
 
     const Atom _wt = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
 
@@ -640,7 +640,7 @@ void puglX11SetWindowTypeAndPID(const PuglView* const view, const bool isStandal
 
     _wts[numAtoms++] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", False);
 
-    XChangeProperty(display, impl->win, _wt, XA_ATOM, 32, PropModeReplace, (const uchar*)&_wts, numAtoms);
+    XChangeProperty(display, impl->win, _wt, XA_ATOM, 32, PropModeReplace, (const uint8_t*)&_wts, numAtoms);
 }
 
 // --------------------------------------------------------------------------------------------------------------------

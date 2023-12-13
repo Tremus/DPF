@@ -145,7 +145,7 @@ typedef jack_nframes_t (JACKSYM_API *jacksym_get_sample_rate)(jack_client_t*);
 typedef jack_nframes_t (JACKSYM_API *jacksym_get_buffer_size)(jack_client_t*);
 typedef float          (JACKSYM_API *jacksym_cpu_load)(jack_client_t*);
 
-typedef jack_port_t* (JACKSYM_API *jacksym_port_register)(jack_client_t*, const char*, const char*, ulong, ulong);
+typedef jack_port_t* (JACKSYM_API *jacksym_port_register)(jack_client_t*, const char*, const char*, uint64_t, uint64_t);
 typedef int          (JACKSYM_API *jacksym_port_unregister)(jack_client_t*, jack_port_t*);
 typedef void*        (JACKSYM_API *jacksym_port_get_buffer)(jack_port_t*, jack_nframes_t);
 
@@ -183,7 +183,7 @@ typedef void (JACKSYM_API *jacksym_port_get_latency_range)(jack_port_t*, jack_la
 typedef void (JACKSYM_API *jacksym_port_set_latency_range)(jack_port_t*, jack_latency_callback_mode_t, jack_latency_range_t*);
 typedef int  (JACKSYM_API *jacksym_recompute_total_latencies)(jack_client_t*);
 
-typedef const char** (JACKSYM_API *jacksym_get_ports)(jack_client_t*, const char*, const char*, ulong);
+typedef const char** (JACKSYM_API *jacksym_get_ports)(jack_client_t*, const char*, const char*, uint64_t);
 typedef jack_port_t* (JACKSYM_API *jacksym_port_by_name)(jack_client_t*, const char*);
 typedef jack_port_t* (JACKSYM_API *jacksym_port_by_id)(jack_client_t*, jack_port_id_t);
 
@@ -1507,8 +1507,8 @@ jack_port_t* jackbridge_port_register(jack_client_t* client, const char* port_na
         return nativeBridge->registerPort(type, flags);
     if (getBridgeInstance().port_register_ptr != nullptr)
         return getBridgeInstance().port_register_ptr(client, port_name, type,
-                                                     static_cast<ulong>(flags),
-                                                     static_cast<ulong>(buffer_size));
+                                                     static_cast<uint64_t>(flags),
+                                                     static_cast<uint64_t>(buffer_size));
 #endif
     return nullptr;
 }
@@ -1925,7 +1925,7 @@ const char** jackbridge_get_ports(jack_client_t* client, const char* port_name_p
     if (usingRealJACK)
         if (getBridgeInstance().get_ports_ptr != nullptr)
             return getBridgeInstance().get_ports_ptr(client, port_name_pattern, type_name_pattern,
-                                                     static_cast<ulong>(flags));
+                                                     static_cast<uint64_t>(flags));
 #endif
     return nullptr;
 }
@@ -2420,7 +2420,7 @@ bool isMIDIEnabled()
     return false;
 }
 
-uint getBufferSize()
+uint32_t getBufferSize()
 {
 #if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)
@@ -2438,7 +2438,7 @@ bool requestAudioInput()
     return false;
 }
 
-bool requestBufferSizeChange(const uint newBufferSize)
+bool requestBufferSizeChange(const uint32_t newBufferSize)
 {
 #if !(defined(JACKBRIDGE_DUMMY) || defined(JACKBRIDGE_DIRECT))
     if (usingNativeBridge)

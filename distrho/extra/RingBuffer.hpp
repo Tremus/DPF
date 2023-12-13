@@ -584,7 +584,7 @@ protected:
             if (! errorReading)
             {
                 errorReading = true;
-                d_stderr2("RingBuffer::tryRead(%p, %lu): failed, not enough space", buf, (ulong)size);
+                d_stderr2("RingBuffer::tryRead(%p, %lu): failed, not enough space", buf, (uint64_t)size);
             }
             return false;
         }
@@ -638,7 +638,7 @@ protected:
             if (! errorWriting)
             {
                 errorWriting = true;
-                d_stderr2("RingBuffer::tryWrite(%p, %lu): failed, not enough space", buf, (ulong)size);
+                d_stderr2("RingBuffer::tryWrite(%p, %lu): failed, not enough space", buf, (uint64_t)size);
             }
             buffer->invalidateCommit = true;
             return false;

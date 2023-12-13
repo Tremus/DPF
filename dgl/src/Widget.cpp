@@ -60,29 +60,29 @@ void Widget::hide()
     setVisible(false);
 }
 
-uint Widget::getWidth() const noexcept
+uint32_t Widget::getWidth() const noexcept
 {
     return pData->size.getWidth();
 }
 
-uint Widget::getHeight() const noexcept
+uint32_t Widget::getHeight() const noexcept
 {
     return pData->size.getHeight();
 }
 
-const Size<uint> Widget::getSize() const noexcept
+const Size<uint32_t> Widget::getSize() const noexcept
 {
     return pData->size;
 }
 
-void Widget::setWidth(uint width) noexcept
+void Widget::setWidth(uint32_t width) noexcept
 {
     if (pData->size.getWidth() == width)
         return;
 
     ResizeEvent ev;
     ev.oldSize = pData->size;
-    ev.size    = Size<uint>(width, pData->size.getHeight());
+    ev.size    = Size<uint32_t>(width, pData->size.getHeight());
 
     pData->size.setWidth(width);
     onResize(ev);
@@ -90,14 +90,14 @@ void Widget::setWidth(uint width) noexcept
     repaint();
 }
 
-void Widget::setHeight(uint height) noexcept
+void Widget::setHeight(uint32_t height) noexcept
 {
     if (pData->size.getHeight() == height)
         return;
 
     ResizeEvent ev;
     ev.oldSize = pData->size;
-    ev.size    = Size<uint>(pData->size.getWidth(), height);
+    ev.size    = Size<uint32_t>(pData->size.getWidth(), height);
 
     pData->size.setHeight(height);
     onResize(ev);
@@ -105,12 +105,12 @@ void Widget::setHeight(uint height) noexcept
     repaint();
 }
 
-void Widget::setSize(uint width, uint height) noexcept
+void Widget::setSize(uint32_t width, uint32_t height) noexcept
 {
-    setSize(Size<uint>(width, height));
+    setSize(Size<uint32_t>(width, height));
 }
 
-void Widget::setSize(const Size<uint>& size) noexcept
+void Widget::setSize(const Size<uint32_t>& size) noexcept
 {
     if (pData->size == size)
         return;
@@ -157,7 +157,7 @@ void Widget::repaint() noexcept
 {
 }
 
-uint Widget::getId() const noexcept
+uint32_t Widget::getId() const noexcept
 {
     return pData->id;
 }
@@ -167,7 +167,7 @@ const char* Widget::getName() const noexcept
     return pData->name != nullptr ? pData->name : "";
 }
 
-void Widget::setId(uint id) noexcept
+void Widget::setId(uint32_t id) noexcept
 {
     pData->id = id;
 }

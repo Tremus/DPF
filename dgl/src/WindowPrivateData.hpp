@@ -71,7 +71,7 @@ struct Window::PrivateData : IdleCallback {
     double autoScaleFactor;
 
     /** Pugl geometry constraints access. */
-    uint minWidth, minHeight;
+    uint32_t minWidth, minHeight;
     bool keepAspectRatio;
 
     /** Whether to ignore idle callback requests, useful for temporary windows. */
@@ -131,13 +131,13 @@ struct Window::PrivateData : IdleCallback {
 
     /** Constructor for an embed Window, with a few extra hints from the host side. */
     explicit PrivateData(Application& app, Window* self, uintptr_t parentWindowHandle,
-                         uint width, uint height, double scaling, bool resizable, bool isVST3);
+                         uint32_t width, uint32_t height, double scaling, bool resizable, bool isVST3);
 
     /** Destructor. */
     ~PrivateData() override;
 
     /** Helper initialization function called at the end of all this class constructors. */
-    void initPre(uint width, uint height, bool resizable);
+    void initPre(uint32_t width, uint32_t height, bool resizable);
     /** Helper initialization function called on the Window constructor after we are done. */
     bool initPost();
 
@@ -161,7 +161,7 @@ struct Window::PrivateData : IdleCallback {
 
     // idle callback stuff
     void idleCallback() override;
-    bool addIdleCallback(IdleCallback* callback, uint timerFrequencyInMs);
+    bool addIdleCallback(IdleCallback* callback, uint32_t timerFrequencyInMs);
     bool removeIdleCallback(IdleCallback* callback);
 
 #ifndef DGL_FILE_BROWSER_DISABLED
@@ -169,7 +169,7 @@ struct Window::PrivateData : IdleCallback {
     bool openFileBrowser(const DGL_NAMESPACE::FileBrowserOptions& options);
 #endif
 
-    static void renderToPicture(const char* filename, const GraphicsContext& context, uint width, uint height);
+    static void renderToPicture(const char* filename, const GraphicsContext& context, uint32_t width, uint32_t height);
 
     // modal handling
     void startModal();

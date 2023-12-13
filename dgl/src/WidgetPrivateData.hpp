@@ -29,11 +29,11 @@ struct Widget::PrivateData {
     Widget* const self;
     TopLevelWidget* const topLevelWidget;
     Widget* const parentWidget;
-    uint id;
+    uint32_t id;
     char* name;
     bool needsScaling;
     bool visible;
-    Size<uint> size;
+    Size<uint32_t> size;
     std::list<SubWidget*> subWidgets;
 
     // called via TopLevelWidget
@@ -42,7 +42,7 @@ struct Widget::PrivateData {
     explicit PrivateData(Widget* const s, Widget* const pw);
     ~PrivateData();
 
-    void displaySubWidgets(uint width, uint height, double autoScaleFactor);
+    void displaySubWidgets(uint32_t width, uint32_t height, double autoScaleFactor);
 
     bool giveKeyboardEventForSubWidgets(const KeyboardEvent& ev);
     bool giveCharacterInputEventForSubWidgets(const CharacterInputEvent& ev);

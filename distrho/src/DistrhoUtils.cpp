@@ -157,9 +157,9 @@ bool supportsBufferSizeChanges() { return false; }
 bool supportsMIDI() { return false; }
 bool isAudioInputEnabled() { return false; }
 bool isMIDIEnabled() { return false; }
-uint getBufferSize() { return 0; }
+uint32_t getBufferSize() { return 0; }
 bool requestAudioInput() { return false; }
-bool requestBufferSizeChange(uint) { return false; }
+bool requestBufferSizeChange(uint32_t) { return false; }
 bool requestMIDI() { return false; }
 #endif
 

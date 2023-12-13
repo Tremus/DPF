@@ -91,8 +91,8 @@ std::vector<uint8_t> d_getChunkFromBase64String(const char* const base64string)
 {
     DISTRHO_SAFE_ASSERT_RETURN(base64string != nullptr, std::vector<uint8_t>());
 
-    uint i=0, j=0;
-    uint charArray3[3], charArray4[4];
+    uint32_t i=0, j=0;
+    uint32_t charArray3[3], charArray4[4];
 
     std::vector<uint8_t> ret;
     ret.reserve(std::strlen(base64string)*3/4 + 4);
@@ -108,7 +108,7 @@ std::vector<uint8_t> d_getChunkFromBase64String(const char* const base64string)
 
         DISTRHO_SAFE_ASSERT_CONTINUE(DistrhoBase64Helpers::isBase64Char(c));
 
-        charArray4[i++] = static_cast<uint>(c);
+        charArray4[i++] = static_cast<uint32_t>(c);
 
         if (i == 4)
         {

@@ -134,8 +134,8 @@ public:
             container = new NanoRectanglesContainer(*this);
         }
 
-        const uint targetWidth = 400;
-        const uint targetHeight = 400;
+        const uint32_t targetWidth = 400;
+        const uint32_t targetHeight = 400;
         const double scaleFactor = getScaleFactor();
 
         setGeometryConstraints(targetWidth, targetHeight, true);

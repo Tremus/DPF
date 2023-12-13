@@ -80,7 +80,7 @@ public:
       It assumes aspect ratio is meant to be kept.
       Manually call setGeometryConstraints instead if keeping UI aspect ratio is not required.
     */
-    UI(uint width = 0, uint height = 0, bool automaticallyScaleAndSetAsMinimumSize = false);
+    UI(uint32_t width = 0, uint32_t height = 0, bool automaticallyScaleAndSetAsMinimumSize = false);
 
    /**
       Destructor.
@@ -110,7 +110,7 @@ public:
       const int blue  = (bgColor >>  8) & 0xff;
       ```
     */
-    uint getBackgroundColor() const noexcept;
+    uint32_t getBackgroundColor() const noexcept;
 
    /**
       Get the color used for UI foreground (i.e. text color) in RGBA format.
@@ -123,7 +123,7 @@ public:
       const int blue  = (fgColor >>  8) & 0xff;
       ```
     */
-    uint getForegroundColor() const noexcept;
+    uint32_t getForegroundColor() const noexcept;
 
    /**
       Get the current sample rate used in plugin processing.
@@ -243,7 +243,7 @@ protected:
       UI idle function, called to give idle time to the plugin UI directly from the host.
       This is called right after OS event handling and Window idle events (within the same cycle).
       There are no guarantees in terms of timing.
-      @see addIdleCallback(IdleCallback*, uint).
+      @see addIdleCallback(IdleCallback*, uint32_t).
     */
     virtual void uiIdle() {}
 
@@ -284,7 +284,7 @@ protected:
 
    /**
       Window reshape function, called when the window is resized.
-      This function is for plugin UIs to be able to override Window::onReshape(uint, uint).
+      This function is for plugin UIs to be able to override Window::onReshape(uint32_t, uint32_t).
 
       The plugin UI size will be set right after this function.
       The default implementation sets up the drawing context where necessary.
@@ -292,7 +292,7 @@ protected:
       You should almost never need to override this function.
       The most common exception is custom OpenGL setup, but only really needed for custom OpenGL drawing code.
     */
-    virtual void uiReshape(uint width, uint height);
+    virtual void uiReshape(uint32_t width, uint32_t height);
 #endif // !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 
 #if DISTRHO_UI_FILE_BROWSER
@@ -315,9 +315,9 @@ protected:
    /**
       External Window resize function, called when the window is resized.
       This is overriden here so the host knows when the UI is resized by you.
-      @see ExternalWindow::sizeChanged(uint,uint)
+      @see ExternalWindow::sizeChanged(uint32_t,uint32_t)
     */
-    void sizeChanged(uint width, uint height) override;
+    void sizeChanged(uint32_t width, uint32_t height) override;
 #else
    /**
       Widget resize function, called when the widget is resized.
@@ -336,7 +336,7 @@ private:
     friend class UIExporter;
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
    /** @internal */
-    void requestSizeChange(uint width, uint height) override;
+    void requestSizeChange(uint32_t width, uint32_t height) override;
 #endif
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UI)

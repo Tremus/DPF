@@ -184,7 +184,7 @@ public:
       Get width of this window.
       Only relevant to hosts when the UI is embedded.
     */
-    uint getWidth() const noexcept
+    uint32_t getWidth() const noexcept
     {
         return pData.width;
     }
@@ -193,7 +193,7 @@ public:
       Get height of this window.
       Only relevant to hosts when the UI is embedded.
     */
-    uint getHeight() const noexcept
+    uint32_t getHeight() const noexcept
     {
         return pData.height;
     }
@@ -273,7 +273,7 @@ public:
       Can trigger a sizeChanged callback.
       Only relevant to hosts when the UI is embedded.
     */
-    void setWidth(uint width)
+    void setWidth(uint32_t width)
     {
         setSize(width, getHeight());
     }
@@ -283,7 +283,7 @@ public:
       Can trigger a sizeChanged callback.
       Only relevant to hosts when the UI is embedded.
     */
-    void setHeight(uint height)
+    void setHeight(uint32_t height)
     {
         setSize(getWidth(), height);
     }
@@ -293,7 +293,7 @@ public:
       Can trigger a sizeChanged callback.
       Only relevant to hosts when the UI is embedded.
     */
-    void setSize(uint width, uint height)
+    void setSize(uint32_t width, uint32_t height)
     {
         DISTRHO_SAFE_ASSERT_UINT_RETURN(width > 1, width,);
         DISTRHO_SAFE_ASSERT_UINT_RETURN(height > 1, height,);
@@ -323,7 +323,7 @@ public:
    /**
       Set geometry constraints for the Window when resized by the user.
     */
-    void setGeometryConstraints(uint minimumWidth, uint minimumHeight, bool keepAspectRatio = false)
+    void setGeometryConstraints(uint32_t minimumWidth, uint32_t minimumHeight, bool keepAspectRatio = false)
     {
         DISTRHO_SAFE_ASSERT_UINT_RETURN(minimumWidth > 0, minimumWidth,);
         DISTRHO_SAFE_ASSERT_UINT_RETURN(minimumHeight > 0, minimumHeight,);
@@ -405,7 +405,7 @@ protected:
       A callback for when the window size changes.
       @note WIP this might need to get fed back into the host somehow.
     */
-    virtual void sizeChanged(uint /* width */, uint /* height */)
+    virtual void sizeChanged(uint32_t /* width */, uint32_t /* height */)
     {
         // unused, meant for custom implementations
     }
@@ -542,12 +542,12 @@ private:
     struct PrivateData {
         uintptr_t parentWindowHandle;
         uintptr_t transientWinId;
-        uint width;
-        uint height;
+        uint32_t width;
+        uint32_t height;
         double scaleFactor;
         String title;
-        uint minWidth;
-        uint minHeight;
+        uint32_t minWidth;
+        uint32_t minHeight;
         bool keepAspectRatio;
         bool isQuitting;
         bool isStandalone;

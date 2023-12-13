@@ -87,7 +87,7 @@ public:
       Get absolute area of this subwidget, with special consideration for not allowing negative values.
       @see getAbsoluteArea()
     */
-    Rectangle<uint> getConstrainedAbsoluteArea() const noexcept;
+    Rectangle<uint32_t> getConstrainedAbsoluteArea() const noexcept;
 
    /**
       Set absolute X.

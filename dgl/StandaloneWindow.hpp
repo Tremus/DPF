@@ -69,21 +69,21 @@ public:
     void setVisible(bool yesNo) { Window::setVisible(yesNo); }
     void hide() { Window::hide(); }
     void show() { Window::show(); }
-    uint getWidth() const noexcept { return Window::getWidth(); }
-    uint getHeight() const noexcept { return Window::getHeight(); }
-    const Size<uint> getSize() const noexcept { return Window::getSize(); }
+    uint32_t getWidth() const noexcept { return Window::getWidth(); }
+    uint32_t getHeight() const noexcept { return Window::getHeight(); }
+    const Size<uint32_t> getSize() const noexcept { return Window::getSize(); }
     void repaint() noexcept { Window::repaint(); }
-    void setWidth(uint width) { Window::setWidth(width); }
-    void setHeight(uint height) { Window::setHeight(height); }
-    void setSize(uint width, uint height) { Window::setSize(width, height); }
-    void setSize(const Size<uint>& size) { Window::setSize(size); }
-    bool addIdleCallback(IdleCallback* callback, uint timerFrequencyInMs = 0)
+    void setWidth(uint32_t width) { Window::setWidth(width); }
+    void setHeight(uint32_t height) { Window::setHeight(height); }
+    void setSize(uint32_t width, uint32_t height) { Window::setSize(width, height); }
+    void setSize(const Size<uint32_t>& size) { Window::setSize(size); }
+    bool addIdleCallback(IdleCallback* callback, uint32_t timerFrequencyInMs = 0)
     { return Window::addIdleCallback(callback, timerFrequencyInMs); }
     bool removeIdleCallback(IdleCallback* callback) { return Window::removeIdleCallback(callback); }
     Application& getApp() const noexcept { return Window::getApp(); }
     const GraphicsContext& getGraphicsContext() const noexcept { return Window::getGraphicsContext(); }
     double getScaleFactor() const noexcept { return Window::getScaleFactor(); }
-    void setGeometryConstraints(uint minimumWidth, uint minimumHeight,
+    void setGeometryConstraints(uint32_t minimumWidth, uint32_t minimumHeight,
                                 bool keepAspectRatio = false, bool automaticallyScale = false)
     { Window::setGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio, automaticallyScale); }
 

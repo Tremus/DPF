@@ -65,7 +65,7 @@ struct Application::PrivateData {
 
     /** Counter of visible windows, only used in standalone mode.
         If 0->1, application is starting. If 1->0, application is quitting/stopping. */
-    uint visibleWindows;
+    uint32_t visibleWindows;
 
     /** Handle that identifies the main thread. Used to check if calls belong to current thread or not. */
     d_ThreadHandle mainThreadHandle;
@@ -91,7 +91,7 @@ struct Application::PrivateData {
     void oneWindowClosed() noexcept;
 
     /** Run Pugl world update for @a timeoutInMs, and then each idle callback in order of registration. */
-    void idle(uint timeoutInMs);
+    void idle(uint32_t timeoutInMs);
 
     /** Run each idle callback without updating pugl world. */
     void triggerIdleCallbacks();

@@ -51,7 +51,7 @@ public:
 
     /** Set the handle size, minimum 16.
       * Scale factor is automatically applied on top of this size as needed */
-    void setHandleSize(const uint size)
+    void setHandleSize(const uint32_t size)
     {
         handleSize = std::max(16u, size);
         resetArea();
@@ -126,9 +126,9 @@ protected:
 
         // TODO keepAspectRatio
         bool keepAspectRatio;
-        const Size<uint> minSize(getWindow().getGeometryConstraints(keepAspectRatio));
-        const uint minWidth = minSize.getWidth();
-        const uint minHeight = minSize.getHeight();
+        const Size<uint32_t> minSize(getWindow().getGeometryConstraints(keepAspectRatio));
+        const uint32_t minWidth = minSize.getWidth();
+        const uint32_t minHeight = minSize.getHeight();
 
         if (resizingSize.getWidth() < minWidth)
             resizingSize.setWidth(minWidth);
@@ -150,9 +150,9 @@ protected:
     }
 
 private:
-    Rectangle<uint> area;
+    Rectangle<uint32_t> area;
     Line<double> l1, l2, l3;
-    uint handleSize;
+    uint32_t handleSize;
 
     // event handling state
     bool hasCursor, isResizing;
@@ -173,20 +173,20 @@ private:
     void resetArea()
     {
         const double scaleFactor = getScaleFactor();
-        const uint margin = 0.0 * scaleFactor;
-        const uint size = handleSize * scaleFactor;
+        const uint32_t margin = 0.0 * scaleFactor;
+        const uint32_t size = handleSize * scaleFactor;
 
-        area = Rectangle<uint>(getWidth() - size - margin,
+        area = Rectangle<uint32_t>(getWidth() - size - margin,
                                getHeight() - size - margin,
                                size, size);
 
         recreateLines(area.getX(), area.getY(), size);
     }
 
-    void recreateLines(const uint x, const uint y, const uint size)
+    void recreateLines(const uint32_t x, const uint32_t y, const uint32_t size)
     {
-        uint linesize = size;
-        uint offset = 0;
+        uint32_t linesize = size;
+        uint32_t offset = 0;
 
         // 1st line, full diagonal size
         l1.setStartPos(x + size, y);

@@ -247,7 +247,7 @@ struct FileBrowserData {
         if (MultiByteToWideChar(CP_UTF8, 0, windowTitle, -1, titleW.data(), static_cast<int>(titleW.size())))
             ofn.lpstrTitle = titleW.data();
 
-        uint threadId;
+        uint32_t threadId;
         threadCancelled = false;
         threadHandle = _beginthreadex(nullptr, 0, _run, this, 0, &threadId);
     }
@@ -565,7 +565,7 @@ FileBrowserHandle fileBrowserCreate(const bool isEmbed,
                #ifdef HAVE_X11
                 char windowIdStr[32];
                 memset(windowIdStr, 0, sizeof(windowIdStr));
-                snprintf(windowIdStr, sizeof(windowIdStr)-1, "x11:%llx", (ulonglong)windowId);
+                snprintf(windowIdStr, sizeof(windowIdStr)-1, "x11:%llx", (uint64_t)windowId);
                 const char* windowIdStrPtr = windowIdStr;
                #endif
 

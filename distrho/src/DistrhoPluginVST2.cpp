@@ -235,7 +235,7 @@ public:
         using namespace DGL_NAMESPACE;
 
         bool special;
-        const uint key = translateVstKeyCode(special, index, static_cast<int32_t>(value));
+        const uint32_t key = translateVstKeyCode(special, index, static_cast<int32_t>(value));
 
         switch (key)
         {
@@ -260,7 +260,7 @@ public:
         }
 
         return fUI.handlePluginKeyboardVST(down, special, key,
-                                           value >= 0 ? static_cast<uint>(value) : 0,
+                                           value >= 0 ? static_cast<uint32_t>(value) : 0,
                                            fKeyboardModifiers) ? 1 : 0;
     }
    #endif // !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
@@ -291,7 +291,7 @@ protected:
         hostCallback(VST_HOST_OPCODE_00, index, 0, nullptr, perValue);
     }
 
-    void setSize(uint width, uint height)
+    void setSize(uint32_t width, uint32_t height)
     {
        #ifdef DISTRHO_OS_MAC
         const double scaleFactor = fUI.getScaleFactor();
@@ -342,7 +342,7 @@ private:
         static_cast<UIVst*>(ptr)->setParameterValue(rindex, value);
     }
 
-    static void setSizeCallback(void* const ptr, const uint width, const uint height)
+    static void setSizeCallback(void* const ptr, const uint32_t width, const uint32_t height)
     {
         static_cast<UIVst*>(ptr)->setSize(width, height);
     }

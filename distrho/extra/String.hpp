@@ -701,10 +701,10 @@ public:
         constexpr std::size_t kTmpBufSize = 65536U;
 #endif
 
-        const uchar* bytesToEncode((const uchar*)data);
+        const uint8_t* bytesToEncode((const uint8_t*)data);
 
-        uint i=0, j=0;
-        uint charArray3[3], charArray4[4];
+        uint32_t i=0, j=0;
+        uint32_t charArray3[3], charArray4[4];
 
         char strBuf[kTmpBufSize + 1];
         strBuf[kTmpBufSize] = '\0';
@@ -943,7 +943,7 @@ private:
         }
         else
         {
-            DISTRHO_SAFE_ASSERT_UINT(size == 0, static_cast<uint>(size));
+            DISTRHO_SAFE_ASSERT_UINT(size == 0, static_cast<uint32_t>(size));
 
             // don't recreate null string
             if (! fBufferAlloc)

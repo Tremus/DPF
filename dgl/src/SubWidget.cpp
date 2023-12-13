@@ -65,20 +65,20 @@ Rectangle<int> SubWidget::getAbsoluteArea() const noexcept
     return Rectangle<int>(getAbsolutePos(), getSize().toInt());
 }
 
-Rectangle<uint> SubWidget::getConstrainedAbsoluteArea() const noexcept
+Rectangle<uint32_t> SubWidget::getConstrainedAbsoluteArea() const noexcept
 {
     const int x = getAbsoluteX();
     const int y = getAbsoluteY();
 
     if (x >= 0 && y >= 0)
-        return Rectangle<uint>(x, y, getSize());
+        return Rectangle<uint32_t>(x, y, getSize());
 
     const int xOffset = std::min(0, x);
     const int yOffset = std::min(0, y);
     const int width   = std::max(0, static_cast<int>(getWidth()) + xOffset);
     const int height  = std::max(0, static_cast<int>(getHeight()) + yOffset);
 
-    return Rectangle<uint>(0, 0, static_cast<uint>(width), static_cast<uint>(height));
+    return Rectangle<uint32_t>(0, 0, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
 }
 
 void SubWidget::setAbsoluteX(const int x) noexcept
@@ -191,7 +191,7 @@ bool SubWidget::contains(const Point<double>& pos) const noexcept
     return contains(pos.getX(), pos.getY());
 }
 
-// float, int, uint, short, ushort
+// float, int, uint32_t, short, uint16_t
 
 // --------------------------------------------------------------------------------------------------------------------
 

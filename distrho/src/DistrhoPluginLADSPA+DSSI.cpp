@@ -113,12 +113,12 @@ public:
 
     // -------------------------------------------------------------------
 
-    void ladspa_connect_port(const ulong port, LADSPA_Data* const dataLocation) noexcept
+    void ladspa_connect_port(const uint64_t port, LADSPA_Data* const dataLocation) noexcept
     {
-        ulong index = 0;
+        uint64_t index = 0;
 
 #if DISTRHO_PLUGIN_NUM_INPUTS > 0
-        for (ulong i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i)
+        for (uint64_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i)
         {
             if (port == index++)
             {
@@ -129,7 +129,7 @@ public:
 #endif
 
 #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-        for (ulong i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+        for (uint64_t i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
         {
             if (port == index++)
             {
@@ -147,7 +147,7 @@ public:
         }
 #endif
 
-        for (ulong i=0, count=fPlugin.getParameterCount(); i < count; ++i)
+        for (uint64_t i=0, count=fPlugin.getParameterCount(); i < count; ++i)
         {
             if (port == index++)
             {
@@ -160,14 +160,14 @@ public:
     // -------------------------------------------------------------------
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
-    void ladspa_run(const ulong sampleCount)
+    void ladspa_run(const unsigned long sampleCount)
     {
         dssi_run_synth(sampleCount, nullptr, 0);
     }
 
-    void dssi_run_synth(const ulong sampleCount, snd_seq_event_t* const events, const ulong eventCount)
+    void dssi_run_synth(const uint64_t sampleCount, snd_seq_event_t* const events, const uint64_t eventCount)
 #else
-    void ladspa_run(const ulong sampleCount)
+    void ladspa_run(const unsigned long sampleCount)
 #endif
     {
         // pre-roll
@@ -281,7 +281,7 @@ public:
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
 
-    int dssi_get_midi_controller_for_port(const ulong port) noexcept
+    int dssi_get_midi_controller_for_port(const uint64_t port) noexcept
     {
         const uint32_t parameterOffset = fPlugin.getParameterOffset();
 
@@ -361,7 +361,7 @@ private:
 
 // -----------------------------------------------------------------------
 
-static LADSPA_Handle ladspa_instantiate(const LADSPA_Descriptor*, ulong sampleRate)
+static LADSPA_Handle ladspa_instantiate(const LADSPA_Descriptor*, unsigned long sampleRate)
 {
     if (d_nextBufferSize == 0)
         d_nextBufferSize = 2048;
@@ -372,7 +372,7 @@ static LADSPA_Handle ladspa_instantiate(const LADSPA_Descriptor*, ulong sampleRa
 
 #define instancePtr ((PluginLadspaDssi*)instance)
 
-static void ladspa_connect_port(LADSPA_Handle instance, ulong port, LADSPA_Data* dataLocation)
+static void ladspa_connect_port(LADSPA_Handle instance, unsigned long port, LADSPA_Data* dataLocation)
 {
     instancePtr->ladspa_connect_port(port, dataLocation);
 }
@@ -382,7 +382,7 @@ static void ladspa_activate(LADSPA_Handle instance)
     instancePtr->ladspa_activate();
 }
 
-static void ladspa_run(LADSPA_Handle instance, ulong sampleCount)
+static void ladspa_run(LADSPA_Handle instance, unsigned long sampleCount)
 {
     instancePtr->ladspa_run(sampleCount);
 }
@@ -399,13 +399,13 @@ static void ladspa_cleanup(LADSPA_Handle instance)
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
 
-static int dssi_get_midi_controller_for_port(LADSPA_Handle instance, ulong port)
+static int dssi_get_midi_controller_for_port(LADSPA_Handle instance, uint64_t port)
 {
     return instancePtr->dssi_get_midi_controller_for_port(port);
 }
 
 # if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-static void dssi_run_synth(LADSPA_Handle instance, ulong sampleCount, snd_seq_event_t* events, ulong eventCount)
+static void dssi_run_synth(LADSPA_Handle instance, uint64_t sampleCount, snd_seq_event_t* events, uint64_t eventCount)
 {
     instancePtr->dssi_run_synth(sampleCount, events, eventCount);
 }
@@ -477,8 +477,8 @@ static const struct DescriptorInitializer
         d_nextSampleRate = 0.0;
 
         // Get port count, init
-        ulong port = 0;
-        ulong portCount = DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS + plugin.getParameterCount();
+        uint64_t port = 0;
+        uint64_t portCount = DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS + plugin.getParameterCount();
 #if DISTRHO_PLUGIN_WANT_LATENCY
         portCount += 1;
 #endif
@@ -488,7 +488,7 @@ static const struct DescriptorInitializer
 
         // Set ports
 #if DISTRHO_PLUGIN_NUM_INPUTS > 0
-        for (ulong i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i, ++port)
+        for (uint64_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i, ++port)
         {
             const AudioPort& aport(plugin.getAudioPort(true, i));
 
@@ -502,7 +502,7 @@ static const struct DescriptorInitializer
 #endif
 
 #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-        for (ulong i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i, ++port)
+        for (uint64_t i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i, ++port)
         {
             const AudioPort& aport(plugin.getAudioPort(false, i));
 
@@ -525,7 +525,7 @@ static const struct DescriptorInitializer
         ++port;
 #endif
 
-        for (ulong i=0, count=plugin.getParameterCount(); i < count; ++i, ++port)
+        for (uint64_t i=0, count=plugin.getParameterCount(); i < count; ++i, ++port)
         {
             portNames[port]       = strdup((const char*)plugin.getParameterName(i));
             portDescriptors[port] = LADSPA_PORT_CONTROL;
@@ -643,7 +643,7 @@ static const struct DescriptorInitializer
 
         if (sLadspaDescriptor.PortNames != nullptr)
         {
-            for (ulong i=0; i < sLadspaDescriptor.PortCount; ++i)
+            for (uint64_t i=0; i < sLadspaDescriptor.PortCount; ++i)
             {
                 if (sLadspaDescriptor.PortNames[i] != nullptr)
                     std::free((void*)sLadspaDescriptor.PortNames[i]);
@@ -660,7 +660,7 @@ static const struct DescriptorInitializer
 END_NAMESPACE_DISTRHO
 
 DISTRHO_PLUGIN_EXPORT
-const LADSPA_Descriptor* ladspa_descriptor(ulong index)
+const LADSPA_Descriptor* ladspa_descriptor(unsigned long index)
 {
     USE_NAMESPACE_DISTRHO
     return (index == 0) ? &sLadspaDescriptor : nullptr;
@@ -668,7 +668,7 @@ const LADSPA_Descriptor* ladspa_descriptor(ulong index)
 
 #ifdef DISTRHO_PLUGIN_TARGET_DSSI
 DISTRHO_PLUGIN_EXPORT
-const DSSI_Descriptor* dssi_descriptor(ulong index)
+const DSSI_Descriptor* dssi_descriptor(uint64_t index)
 {
     USE_NAMESPACE_DISTRHO
     return (index == 0) ? &sDssiDescriptor : nullptr;

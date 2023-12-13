@@ -69,7 +69,7 @@ struct RtAudioBridge : NativeBridge {
 
     // caching
     String name;
-    uint nextBufferSize = 512;
+    uint32_t nextBufferSize = 512;
 
     RtAudioBridge()
     {
@@ -202,7 +202,7 @@ struct RtAudioBridge : NativeBridge {
 
         // query port count
        #if defined(RTMIDI_API_TYPE) && DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        uint midiInCount;
+        uint32_t midiInCount;
         try {
             RtMidiIn midiIn(RtMidi::RTMIDI_API_TYPE, name.buffer());
             midiInCount = midiIn.getPortCount();
@@ -212,7 +212,7 @@ struct RtAudioBridge : NativeBridge {
         } DISTRHO_SAFE_EXCEPTION_RETURN("midiIn.getPortCount()", false);
        #endif
        #if defined(RTMIDI_API_TYPE) && DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-        uint midiOutCount;
+        uint32_t midiOutCount;
         try {
             RtMidiOut midiOut(RtMidi::RTMIDI_API_TYPE, name.buffer());
             midiOutCount = midiOut.getPortCount();
@@ -224,7 +224,7 @@ struct RtAudioBridge : NativeBridge {
 
         // open all possible ports
        #if defined(RTMIDI_API_TYPE) && DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        for (uint i=0; i<midiInCount; ++i)
+        for (uint32_t i=0; i<midiInCount; ++i)
         {
             try {
                 RtMidiIn midiIn(RtMidi::RTMIDI_API_TYPE, name.buffer());
@@ -237,7 +237,7 @@ struct RtAudioBridge : NativeBridge {
         }
        #endif
        #if defined(RTMIDI_API_TYPE) && DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
-        for (uint i=0; i<midiOutCount; ++i)
+        for (uint32_t i=0; i<midiOutCount; ++i)
         {
             try {
                 RtMidiOut midiOut(RtMidi::RTMIDI_API_TYPE, name.buffer());
@@ -297,7 +297,7 @@ struct RtAudioBridge : NativeBridge {
             rtAudio = tryingAgain;
         }
 
-        uint rtAudioBufferFrames = nextBufferSize;
+        uint32_t rtAudioBufferFrames = nextBufferSize;
 
        #if DISTRHO_PLUGIN_NUM_INPUTS > 0
         RtAudio::StreamParameters inParams;
@@ -359,7 +359,7 @@ struct RtAudioBridge : NativeBridge {
                               #else
                                void*,
                               #endif
-                               const uint numFrames,
+                               const uint32_t numFrames,
                                const double /* streamTime */,
                                const RtAudioStreamStatus /* status */,
                                void* const userData)
@@ -376,7 +376,7 @@ struct RtAudioBridge : NativeBridge {
        #if DISTRHO_PLUGIN_NUM_INPUTS > 0
         if (float* const insPtr = static_cast<float*>(inputBuffer))
         {
-            for (uint i=0; i<DISTRHO_PLUGIN_NUM_INPUTS_2; ++i)
+            for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_INPUTS_2; ++i)
                 self->audioBuffers[i] = insPtr + (i * numFrames);
         }
        #endif
@@ -384,7 +384,7 @@ struct RtAudioBridge : NativeBridge {
        #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
         if (float* const outsPtr = static_cast<float*>(outputBuffer))
         {
-            for (uint i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
+            for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS_2; ++i)
                 self->audioBuffers[DISTRHO_PLUGIN_NUM_INPUTS + i] = outsPtr + (i * numFrames);
         }
        #endif
@@ -396,7 +396,7 @@ struct RtAudioBridge : NativeBridge {
     }
 
    #if defined(RTMIDI_API_TYPE) && DISTRHO_PLUGIN_WANT_MIDI_INPUT
-    static void RtMidiCallback(double /*timestamp*/, std::vector<uchar>* const message, void* const userData)
+    static void RtMidiCallback(double /*timestamp*/, std::vector<uint8_t>* const message, void* const userData)
     {
         const size_t len = message->size();
         DISTRHO_SAFE_ASSERT_RETURN(len > 0 && len <= kMaxMIDIInputMessageSize,);

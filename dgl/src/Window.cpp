@@ -102,8 +102,8 @@ Window::Window(Application& app,
 
 Window::Window(Application& app,
                const uintptr_t parentWindowHandle,
-               const uint width,
-               const uint height,
+               const uint32_t width,
+               const uint32_t height,
                const double scaleFactor,
                const bool resizable)
     : pData(new PrivateData(app, this, parentWindowHandle, width, height, scaleFactor, resizable, false))
@@ -113,8 +113,8 @@ Window::Window(Application& app,
 
 Window::Window(Application& app,
                const uintptr_t parentWindowHandle,
-               const uint width,
-               const uint height,
+               const uint32_t width,
+               const uint32_t height,
                const double scaleFactor,
                const bool resizable,
                const bool isVST3,
@@ -217,54 +217,54 @@ void Window::setOffset(const Point<int>& offset)
     setOffset(offset.getX(), offset.getY());
 }
 
-uint Window::getWidth() const noexcept
+uint32_t Window::getWidth() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
     const double width = puglGetFrame(pData->view).width;
     DISTRHO_SAFE_ASSERT_RETURN(width >= 0.0, 0);
-    return static_cast<uint>(width + 0.5);
+    return static_cast<uint32_t>(width + 0.5);
 }
 
-uint Window::getHeight() const noexcept
+uint32_t Window::getHeight() const noexcept
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, 0);
 
     const double height = puglGetFrame(pData->view).height;
     DISTRHO_SAFE_ASSERT_RETURN(height >= 0.0, 0);
-    return static_cast<uint>(height + 0.5);
+    return static_cast<uint32_t>(height + 0.5);
 }
 
-Size<uint> Window::getSize() const noexcept
+Size<uint32_t> Window::getSize() const noexcept
 {
-    DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, Size<uint>());
+    DISTRHO_SAFE_ASSERT_RETURN(pData->view != nullptr, Size<uint32_t>());
 
     const PuglRect rect = puglGetFrame(pData->view);
-    DISTRHO_SAFE_ASSERT_RETURN(rect.width >= 0.0, Size<uint>());
-    DISTRHO_SAFE_ASSERT_RETURN(rect.height >= 0.0, Size<uint>());
-    return Size<uint>(static_cast<uint>(rect.width + 0.5),
-                      static_cast<uint>(rect.height + 0.5));
+    DISTRHO_SAFE_ASSERT_RETURN(rect.width >= 0.0, Size<uint32_t>());
+    DISTRHO_SAFE_ASSERT_RETURN(rect.height >= 0.0, Size<uint32_t>());
+    return Size<uint32_t>(static_cast<uint32_t>(rect.width + 0.5),
+                      static_cast<uint32_t>(rect.height + 0.5));
 }
 
-void Window::setWidth(const uint width)
+void Window::setWidth(const uint32_t width)
 {
     setSize(width, getHeight());
 }
 
-void Window::setHeight(const uint height)
+void Window::setHeight(const uint32_t height)
 {
     setSize(getWidth(), height);
 }
 
-void Window::setSize(uint width, uint height)
+void Window::setSize(uint32_t width, uint32_t height)
 {
     DISTRHO_SAFE_ASSERT_UINT2_RETURN(width > 1 && height > 1, width, height,);
 
     if (pData->isEmbed)
     {
         const double scaleFactor = pData->scaleFactor;
-        uint minWidth = pData->minWidth;
-        uint minHeight = pData->minHeight;
+        uint32_t minWidth = pData->minWidth;
+        uint32_t minHeight = pData->minHeight;
 
         if (pData->autoScaling && scaleFactor != 1.0)
         {
@@ -290,10 +290,10 @@ void Window::setSize(uint width, uint height)
             {
                 // fix width
                 if (reqRatio > ratio)
-                    width = static_cast<uint>(height * ratio + 0.5);
+                    width = static_cast<uint32_t>(height * ratio + 0.5);
                 // fix height
                 else
-                    height = static_cast<uint>(static_cast<double>(width) / ratio + 0.5);
+                    height = static_cast<uint32_t>(static_cast<double>(width) / ratio + 0.5);
             }
         }
     }
@@ -313,7 +313,7 @@ void Window::setSize(uint width, uint height)
     }
 }
 
-void Window::setSize(const Size<uint>& size)
+void Window::setSize(const Size<uint32_t>& size)
 {
     setSize(size.getWidth(), size.getHeight());
 }
@@ -358,7 +358,7 @@ bool Window::setCursor(const MouseCursor cursor)
         && puglSetCursor(pData->view, static_cast<PuglCursor>(cursor)) == PUGL_SUCCESS;
 }
 
-bool Window::addIdleCallback(IdleCallback* const callback, const uint timerFrequencyInMs)
+bool Window::addIdleCallback(IdleCallback* const callback, const uint32_t timerFrequencyInMs)
 {
     DISTRHO_SAFE_ASSERT_RETURN(callback != nullptr, false)
 
@@ -412,7 +412,7 @@ void Window::repaint() noexcept
         puglPostRedisplay(pData->view);
 }
 
-void Window::repaint(const Rectangle<uint>& rect) noexcept
+void Window::repaint(const Rectangle<uint32_t>& rect) noexcept
 {
     if (pData->view == nullptr)
         return;
@@ -445,14 +445,14 @@ void Window::runAsModal(bool blockWait)
     pData->runAsModal(blockWait);
 }
 
-Size<uint> Window::getGeometryConstraints(bool& keepAspectRatio)
+Size<uint32_t> Window::getGeometryConstraints(bool& keepAspectRatio)
 {
     keepAspectRatio = pData->keepAspectRatio;
-    return Size<uint>(pData->minWidth, pData->minHeight);
+    return Size<uint32_t>(pData->minWidth, pData->minHeight);
 }
 
-void Window::setGeometryConstraints(uint minimumWidth,
-                                    uint minimumHeight,
+void Window::setGeometryConstraints(uint32_t minimumWidth,
+                                    uint32_t minimumHeight,
                                     const bool keepAspectRatio,
                                     const bool automaticallyScale,
                                     const bool resizeNowIfAutoScaling)
@@ -480,10 +480,10 @@ void Window::setGeometryConstraints(uint minimumWidth,
 
     if (scaleFactor != 1.0 && automaticallyScale && resizeNowIfAutoScaling)
     {
-        const Size<uint> size(getSize());
+        const Size<uint32_t> size(getSize());
 
-        setSize(static_cast<uint>(size.getWidth() * scaleFactor + 0.5),
-                static_cast<uint>(size.getHeight() * scaleFactor + 0.5));
+        setSize(static_cast<uint32_t>(size.getWidth() * scaleFactor + 0.5),
+                static_cast<uint32_t>(size.getHeight() * scaleFactor + 0.5));
     }
 }
 
@@ -537,7 +537,7 @@ void Window::onFocus(bool, CrossingMode)
 {
 }
 
-void Window::onReshape(uint, uint)
+void Window::onReshape(uint32_t, uint32_t)
 {
     if (pData->view != nullptr)
         puglFallbackOnResize(pData->view);

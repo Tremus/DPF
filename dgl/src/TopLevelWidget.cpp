@@ -40,22 +40,22 @@ Window& TopLevelWidget::getWindow() const noexcept
     return pData->window;
 }
 
-void TopLevelWidget::setWidth(const uint width)
+void TopLevelWidget::setWidth(const uint32_t width)
 {
     pData->window.setWidth(width);
 }
 
-void TopLevelWidget::setHeight(const uint height)
+void TopLevelWidget::setHeight(const uint32_t height)
 {
     pData->window.setHeight(height);
 }
 
-void TopLevelWidget::setSize(const uint width, const uint height)
+void TopLevelWidget::setSize(const uint32_t width, const uint32_t height)
 {
     pData->window.setSize(width, height);
 }
 
-void TopLevelWidget::setSize(const Size<uint>& size)
+void TopLevelWidget::setSize(const Size<uint32_t>& size)
 {
     pData->window.setSize(size);
 }
@@ -75,7 +75,7 @@ bool TopLevelWidget::setCursor(const MouseCursor cursor)
     return pData->window.setCursor(cursor);
 }
 
-bool TopLevelWidget::addIdleCallback(IdleCallback* const callback, const uint timerFrequencyInMs)
+bool TopLevelWidget::addIdleCallback(IdleCallback* const callback, const uint32_t timerFrequencyInMs)
 {
     return pData->window.addIdleCallback(callback, timerFrequencyInMs);
 }
@@ -95,13 +95,13 @@ void TopLevelWidget::repaint() noexcept
     pData->window.repaint();
 }
 
-void TopLevelWidget::repaint(const Rectangle<uint>& rect) noexcept
+void TopLevelWidget::repaint(const Rectangle<uint32_t>& rect) noexcept
 {
     pData->window.repaint(rect);
 }
 
-void TopLevelWidget::setGeometryConstraints(const uint minimumWidth,
-                                            const uint minimumHeight,
+void TopLevelWidget::setGeometryConstraints(const uint32_t minimumWidth,
+                                            const uint32_t minimumHeight,
                                             const bool keepAspectRatio,
                                             const bool automaticallyScale,
                                             const bool resizeNowIfAutoScaling)
@@ -142,7 +142,7 @@ bool TopLevelWidget::onScroll(const ScrollEvent& ev)
 
 // --------------------------------------------------------------------------------------------------------------------
 
-void TopLevelWidget::requestSizeChange(uint, uint)
+void TopLevelWidget::requestSizeChange(uint32_t, uint32_t)
 {
 }
 

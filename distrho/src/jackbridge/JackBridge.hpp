@@ -187,7 +187,7 @@ typedef uint32_t jack_port_id_t;
 typedef uint64_t jack_time_t;
 typedef uint64_t jack_uuid_t;
 typedef uint64_t jack_unique_t;
-typedef uchar jack_midi_data_t;
+typedef uint8_t jack_midi_data_t;
 typedef float jack_default_audio_sample_t;
 
 typedef enum JackOptions jack_options_t;

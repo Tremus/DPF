@@ -226,7 +226,7 @@ void snprintf_u32_utf16(int16_t* const dst, const uint32_t value, const size_t s
 // translate a vstgui-based key character and code to matching values used by DPF
 
 static inline
-uint translateVstKeyCode(bool& special, const int16_t keychar, const int16_t keycode) noexcept
+uint32_t translateVstKeyCode(bool& special, const int16_t keychar, const int16_t keycode) noexcept
 {
     using namespace DGL_NAMESPACE;
 

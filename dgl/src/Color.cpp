@@ -50,14 +50,14 @@ static float getFixedRange(const float& value)
     return value;
 }
 
-static uchar getFixedRange2(const float& value)
+static uint8_t getFixedRange2(const float& value)
 {
     const float value2(getFixedRange(value)*255.0f);
     if (value2 <= 0.0f)
         return 0;
     if (value2 >= 255.0f)
         return 255;
-    return static_cast<uchar>(value2 + 0.5f);
+    return static_cast<uint8_t>(value2 + 0.5f);
 }
 
 // -----------------------------------------------------------------------
@@ -251,15 +251,15 @@ void Color::interpolate(const Color& other, float u) noexcept
 
 bool Color::isEqual(const Color& color, const bool withAlpha) noexcept
 {
-    const uchar r1 = getFixedRange2(rgba[0]);
-    const uchar g1 = getFixedRange2(rgba[1]);
-    const uchar b1 = getFixedRange2(rgba[2]);
-    const uchar a1 = getFixedRange2(rgba[3]);
+    const uint8_t r1 = getFixedRange2(rgba[0]);
+    const uint8_t g1 = getFixedRange2(rgba[1]);
+    const uint8_t b1 = getFixedRange2(rgba[2]);
+    const uint8_t a1 = getFixedRange2(rgba[3]);
 
-    const uchar r2 = getFixedRange2(color.rgba[0]);
-    const uchar g2 = getFixedRange2(color.rgba[1]);
-    const uchar b2 = getFixedRange2(color.rgba[2]);
-    const uchar a2 = getFixedRange2(color.rgba[3]);
+    const uint8_t r2 = getFixedRange2(color.rgba[0]);
+    const uint8_t g2 = getFixedRange2(color.rgba[1]);
+    const uint8_t b2 = getFixedRange2(color.rgba[2]);
+    const uint8_t a2 = getFixedRange2(color.rgba[3]);
 
     if (withAlpha)
         return (r1 == r2 && g1 == g2 && b1 == b2 && a1 == a2);
@@ -269,15 +269,15 @@ bool Color::isEqual(const Color& color, const bool withAlpha) noexcept
 
 bool Color::isNotEqual(const Color& color, const bool withAlpha) noexcept
 {
-    const uchar r1 = getFixedRange2(rgba[0]);
-    const uchar g1 = getFixedRange2(rgba[1]);
-    const uchar b1 = getFixedRange2(rgba[2]);
-    const uchar a1 = getFixedRange2(rgba[3]);
+    const uint8_t r1 = getFixedRange2(rgba[0]);
+    const uint8_t g1 = getFixedRange2(rgba[1]);
+    const uint8_t b1 = getFixedRange2(rgba[2]);
+    const uint8_t a1 = getFixedRange2(rgba[3]);
 
-    const uchar r2 = getFixedRange2(color.rgba[0]);
-    const uchar g2 = getFixedRange2(color.rgba[1]);
-    const uchar b2 = getFixedRange2(color.rgba[2]);
-    const uchar a2 = getFixedRange2(color.rgba[3]);
+    const uint8_t r2 = getFixedRange2(color.rgba[0]);
+    const uint8_t g2 = getFixedRange2(color.rgba[1]);
+    const uint8_t b2 = getFixedRange2(color.rgba[2]);
+    const uint8_t a2 = getFixedRange2(color.rgba[3]);
 
     if (withAlpha)
         return (r1 != r2 || g1 != g2 || b1 != b2 || a1 != a2);

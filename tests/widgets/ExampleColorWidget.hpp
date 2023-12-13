@@ -37,7 +37,7 @@ class ExampleColorWidget : public BaseWidget,
     bool reverse;
     int r, g, b;
 
-    Rectangle<uint> bgFull, bgSmall;
+    Rectangle<uint32_t> bgFull, bgSmall;
 
 public:
     static constexpr const char* kExampleWidgetName = "Color";
@@ -120,14 +120,14 @@ protected:
 
     void onResize(const Widget::ResizeEvent& ev) override
     {
-        const uint width  = ev.size.getWidth();
-        const uint height = ev.size.getHeight();
+        const uint32_t width  = ev.size.getWidth();
+        const uint32_t height = ev.size.getHeight();
 
         // full bg
-        bgFull = Rectangle<uint>(0, 0, width, height);
+        bgFull = Rectangle<uint32_t>(0, 0, width, height);
 
         // small bg, centered 2/3 size
-        bgSmall = Rectangle<uint>(width/6, height/6, width*2/3, height*2/3);
+        bgSmall = Rectangle<uint32_t>(width/6, height/6, width*2/3, height*2/3);
     }
 };
 

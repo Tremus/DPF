@@ -175,7 +175,7 @@ ExternalWindow::PrivateData
 #else
 PluginWindow&
 #endif
-UI::PrivateData::createNextWindow(UI* const ui, uint width, uint height, const bool adjustForScaleFactor)
+UI::PrivateData::createNextWindow(UI* const ui, uint32_t width, uint32_t height, const bool adjustForScaleFactor)
 {
     UI::PrivateData* const pData = s_nextPrivateData;
    #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
@@ -218,7 +218,7 @@ UI::PrivateData::createNextWindow(UI* const ui, uint width, uint height, const b
 /* ------------------------------------------------------------------------------------------------------------
  * UI */
 
-UI::UI(const uint width, const uint height, const bool automaticallyScaleAndSetAsMinimumSize)
+UI::UI(const uint32_t width, const uint32_t height, const bool automaticallyScaleAndSetAsMinimumSize)
     : UIWidget(UI::PrivateData::createNextWindow(this,
               #ifdef DISTRHO_UI_DEFAULT_WIDTH
                width == 0 ? DISTRHO_UI_DEFAULT_WIDTH :
@@ -276,12 +276,12 @@ bool UI::isResizable() const noexcept
 #endif
 }
 
-uint UI::getBackgroundColor() const noexcept
+uint32_t UI::getBackgroundColor() const noexcept
 {
     return uiData->bgColor;
 }
 
-uint UI::getForegroundColor() const noexcept
+uint32_t UI::getForegroundColor() const noexcept
 {
     return uiData->fgColor;
 }
@@ -390,7 +390,7 @@ void UI::uiFocus(bool, DGL_NAMESPACE::CrossingMode)
 {
 }
 
-void UI::uiReshape(uint, uint)
+void UI::uiReshape(uint32_t, uint32_t)
 {
     // NOTE this must be the same as Window::onReshape
     pData->fallbackOnResize();
@@ -407,7 +407,7 @@ void UI::uiFileBrowserSelected(const char*)
  * UI Resize Handling, internal */
 
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-void UI::sizeChanged(const uint width, const uint height)
+void UI::sizeChanged(const uint32_t width, const uint32_t height)
 {
     UIWidget::sizeChanged(width, height);
 
@@ -422,14 +422,14 @@ void UI::onResize(const ResizeEvent& ev)
     if (uiData->initializing)
         return;
 
-    const uint width = ev.size.getWidth();
-    const uint height = ev.size.getHeight();
+    const uint32_t width = ev.size.getWidth();
+    const uint32_t height = ev.size.getHeight();
     uiData->setSizeCallback(width, height);
    #endif
 }
 
 // NOTE: only used for VST3 and CLAP
-void UI::requestSizeChange(const uint width, const uint height)
+void UI::requestSizeChange(const uint32_t width, const uint32_t height)
 {
    #if defined(DISTRHO_PLUGIN_TARGET_VST3) || defined(DISTRHO_PLUGIN_TARGET_CLAP)
     if (uiData->initializing)

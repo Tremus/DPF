@@ -56,7 +56,7 @@ Widget::PrivateData::~PrivateData()
     std::free(name);
 }
 
-void Widget::PrivateData::displaySubWidgets(const uint width, const uint height, const double autoScaleFactor)
+void Widget::PrivateData::displaySubWidgets(const uint32_t width, const uint32_t height, const double autoScaleFactor)
 {
     if (subWidgets.size() == 0)
         return;

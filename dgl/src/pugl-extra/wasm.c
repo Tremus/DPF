@@ -183,14 +183,14 @@ puglKeyCallback(const int eventType, const EmscriptenKeyboardEvent* const keyEve
   PuglStatus st0 = PUGL_SUCCESS;
   PuglStatus st1 = PUGL_SUCCESS;
 
-  const uint state = translateModifiers(keyEvent->ctrlKey,
+  const uint32_t state = translateModifiers(keyEvent->ctrlKey,
                                         keyEvent->shiftKey,
                                         keyEvent->altKey,
                                         keyEvent->metaKey);
 
   const PuglKey special = keyCodeToSpecial(keyEvent->keyCode, keyEvent->location);
 
-  uint key = keyEvent->key[0] >= ' ' && keyEvent->key[0] <= '~' && keyEvent->key[1] == '\0'
+  uint32_t key = keyEvent->key[0] >= ' ' && keyEvent->key[0] <= '~' && keyEvent->key[1] == '\0'
            ? keyEvent->key[0]
            : keyEvent->keyCode;
 

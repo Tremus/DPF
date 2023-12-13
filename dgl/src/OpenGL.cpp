@@ -94,23 +94,12 @@ void Line<T>::draw(const GraphicsContext&, const T width)
 #endif
 }
 
-// deprecated calls
-template<typename T>
-void Line<T>::draw()
-{
-#ifdef DGL_USE_COMPAT_OPENGL
-    drawLine<T>(posStart, posEnd);
-#else
-    notImplemented("Line::draw");
-#endif
-}
-
 template class Line<double>;
 template class Line<float>;
 template class Line<int>;
-template class Line<uint>;
+template class Line<uint32_t>;
 template class Line<short>;
-template class Line<ushort>;
+template class Line<uint16_t>;
 
 // -----------------------------------------------------------------------
 // Circle
@@ -118,7 +107,7 @@ template class Line<ushort>;
 #ifdef DGL_USE_COMPAT_OPENGL
 template<typename T>
 static void drawCircle(const Point<T>& pos,
-                       const uint numSegments,
+                       const uint32_t numSegments,
                        const float size,
                        const float sin,
                        const float cos,
@@ -132,7 +121,7 @@ static void drawCircle(const Point<T>& pos,
 
     glBegin(outline ? GL_LINE_LOOP : GL_POLYGON);
 
-    for (uint i=0; i<numSegments; ++i)
+    for (uint32_t i=0; i<numSegments; ++i)
     {
         glVertex2d(x + origx, y + origy);
 
@@ -168,33 +157,12 @@ void Circle<T>::drawOutline(const GraphicsContext&, const T lineWidth)
 #endif
 }
 
-// deprecated calls
-template<typename T>
-void Circle<T>::draw()
-{
-#ifdef DGL_USE_COMPAT_OPENGL
-    drawCircle<T>(fPos, fNumSegments, fSize, fSin, fCos, false);
-#else
-    notImplemented("Circle::draw");
-#endif
-}
-
-template<typename T>
-void Circle<T>::drawOutline()
-{
-#ifdef DGL_USE_COMPAT_OPENGL
-    drawCircle<T>(fPos, fNumSegments, fSize, fSin, fCos, true);
-#else
-    notImplemented("Circle::drawOutline");
-#endif
-}
-
 template class Circle<double>;
 template class Circle<float>;
 template class Circle<int>;
-template class Circle<uint>;
+template class Circle<uint32_t>;
 template class Circle<short>;
-template class Circle<ushort>;
+template class Circle<uint16_t>;
 
 // -----------------------------------------------------------------------
 // Triangle
@@ -243,33 +211,12 @@ void Triangle<T>::drawOutline(const GraphicsContext&, const T lineWidth)
 #endif
 }
 
-// deprecated calls
-template<typename T>
-void Triangle<T>::draw()
-{
-#ifdef DGL_USE_COMPAT_OPENGL
-    drawTriangle<T>(pos1, pos2, pos3, false);
-#else
-    notImplemented("Triangle::draw");
-#endif
-}
-
-template<typename T>
-void Triangle<T>::drawOutline()
-{
-#ifdef DGL_USE_COMPAT_OPENGL
-    drawTriangle<T>(pos1, pos2, pos3, true);
-#else
-    notImplemented("Triangle::drawOutline");
-#endif
-}
-
 template class Triangle<double>;
 template class Triangle<float>;
 template class Triangle<int>;
-template class Triangle<uint>;
+template class Triangle<uint32_t>;
 template class Triangle<short>;
-template class Triangle<ushort>;
+template class Triangle<uint16_t>;
 
 // -----------------------------------------------------------------------
 // Rectangle
@@ -328,33 +275,12 @@ void Rectangle<T>::drawOutline(const GraphicsContext&, const T lineWidth)
 #endif
 }
 
-// deprecated calls
-template<typename T>
-void Rectangle<T>::draw()
-{
-#ifdef DGL_USE_COMPAT_OPENGL
-    drawRectangle<T>(*this, false);
-#else
-    notImplemented("Rectangle::draw");
-#endif
-}
-
-template<typename T>
-void Rectangle<T>::drawOutline()
-{
-#ifdef DGL_USE_COMPAT_OPENGL
-    drawRectangle<T>(*this, true);
-#else
-    notImplemented("Rectangle::drawOutline");
-#endif
-}
-
 template class Rectangle<double>;
 template class Rectangle<float>;
 template class Rectangle<int>;
-template class Rectangle<uint>;
+template class Rectangle<uint32_t>;
 template class Rectangle<short>;
-template class Rectangle<ushort>;
+template class Rectangle<uint16_t>;
 
 // -----------------------------------------------------------------------
 // OpenGLImage
@@ -441,7 +367,7 @@ OpenGLImage::OpenGLImage()
 {
 }
 
-OpenGLImage::OpenGLImage(const char* const rdata, const uint w, const uint h, const ImageFormat fmt)
+OpenGLImage::OpenGLImage(const char* const rdata, const uint32_t w, const uint32_t h, const ImageFormat fmt)
     : ImageBase(rdata, w, h, fmt),
       setupCalled(false),
       textureInit(true),
@@ -451,7 +377,7 @@ OpenGLImage::OpenGLImage(const char* const rdata, const uint w, const uint h, co
     DISTRHO_SAFE_ASSERT(textureId != 0);
 }
 
-OpenGLImage::OpenGLImage(const char* const rdata, const Size<uint>& s, const ImageFormat fmt)
+OpenGLImage::OpenGLImage(const char* const rdata, const Size<uint32_t>& s, const ImageFormat fmt)
     : ImageBase(rdata, s, fmt),
       setupCalled(false),
       textureInit(true),
@@ -477,7 +403,7 @@ OpenGLImage::~OpenGLImage()
         glDeleteTextures(1, &textureId);
 }
 
-void OpenGLImage::loadFromMemory(const char* const rdata, const Size<uint>& s, const ImageFormat fmt) noexcept
+void OpenGLImage::loadFromMemory(const char* const rdata, const Size<uint32_t>& s, const ImageFormat fmt) noexcept
 {
     if (!textureInit)
     {
@@ -509,42 +435,6 @@ OpenGLImage& OpenGLImage::operator=(const OpenGLImage& image) noexcept
     }
 
     return *this;
-}
-
-// deprecated calls
-OpenGLImage::OpenGLImage(const char* const rdata, const uint w, const uint h, const GLenum fmt)
-    : ImageBase(rdata, w, h, asDISTRHOImageFormat(fmt)),
-      setupCalled(false),
-      textureInit(true),
-      textureId(0)
-{
-    glGenTextures(1, &textureId);
-    DISTRHO_SAFE_ASSERT(textureId != 0);
-}
-
-OpenGLImage::OpenGLImage(const char* const rdata, const Size<uint>& s, const GLenum fmt)
-    : ImageBase(rdata, s, asDISTRHOImageFormat(fmt)),
-      setupCalled(false),
-      textureInit(true),
-      textureId(0)
-{
-    glGenTextures(1, &textureId);
-    DISTRHO_SAFE_ASSERT(textureId != 0);
-}
-
-void OpenGLImage::draw()
-{
-    drawOpenGLImage(*this, Point<int>(0, 0), textureId, setupCalled);
-}
-
-void OpenGLImage::drawAt(const int x, const int y)
-{
-    drawOpenGLImage(*this, Point<int>(x, y), textureId, setupCalled);
-}
-
-void OpenGLImage::drawAt(const Point<int>& pos)
-{
-    drawOpenGLImage(*this, pos, textureId, setupCalled);
 }
 
 // -----------------------------------------------------------------------
@@ -608,20 +498,20 @@ void ImageBaseKnob<OpenGLImage>::onDisplay()
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-        uint imageDataOffset = 0;
+        uint32_t imageDataOffset = 0;
 
         if (pData->rotationAngle == 0)
         {
             DISTRHO_SAFE_ASSERT_RETURN(pData->imgLayerCount > 0,);
             DISTRHO_SAFE_ASSERT_RETURN(normValue >= 0.0f,);
 
-            const uint& v1(pData->isImgVertical ? pData->imgLayerWidth : pData->imgLayerHeight);
-            const uint& v2(pData->isImgVertical ? pData->imgLayerHeight : pData->imgLayerWidth);
+            const uint32_t& v1(pData->isImgVertical ? pData->imgLayerWidth : pData->imgLayerHeight);
+            const uint32_t& v2(pData->isImgVertical ? pData->imgLayerHeight : pData->imgLayerWidth);
 
             // TODO kImageFormatGreyscale
-            const uint layerDataSize   = v1 * v2 * ((pData->image.getFormat() == kImageFormatBGRA ||
+            const uint32_t layerDataSize   = v1 * v2 * ((pData->image.getFormat() == kImageFormatBGRA ||
                                                      pData->image.getFormat() == kImageFormatRGBA) ? 4 : 3);
-            /*      */ imageDataOffset = layerDataSize * uint(normValue * float(pData->imgLayerCount-1));
+            /*      */ imageDataOffset = layerDataSize * uint32_t(normValue * float(pData->imgLayerCount-1));
         }
 
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -677,7 +567,7 @@ template class ImageBaseSwitch<OpenGLImage>;
 
 // -----------------------------------------------------------------------
 
-void SubWidget::PrivateData::display(const uint width, const uint height, const double autoScaleFactor)
+void SubWidget::PrivateData::display(const uint32_t width, const uint32_t height, const double autoScaleFactor)
 {
     if (skipDrawing)
         return;
@@ -704,7 +594,7 @@ void SubWidget::PrivateData::display(const uint width, const uint height, const 
             glViewport(x, y, w, h);
         }
     }
-    else if (needsFullViewportForDrawing || (absolutePos.isZero() && self->getSize() == Size<uint>(width, height)))
+    else if (needsFullViewportForDrawing || (absolutePos.isZero() && self->getSize() == Size<uint32_t>(width, height)))
     {
         // full viewport size
         glViewport(0,
@@ -748,9 +638,9 @@ void TopLevelWidget::PrivateData::display()
     if (! selfw->pData->visible)
         return;
 
-    const Size<uint> size(window.getSize());
-    const uint width  = size.getWidth();
-    const uint height = size.getHeight();
+    const Size<uint32_t> size(window.getSize());
+    const uint32_t width  = size.getWidth();
+    const uint32_t height = size.getHeight();
 
     const double autoScaleFactor = window.pData->autoScaleFactor;
 
@@ -778,8 +668,8 @@ void TopLevelWidget::PrivateData::display()
 
 void Window::PrivateData::renderToPicture(const char* const filename,
                                           const GraphicsContext&,
-                                          const uint width,
-                                          const uint height)
+                                          const uint32_t width,
+                                          const uint32_t height)
 {
     FILE* const f = fopen(filename, "w");
     DISTRHO_SAFE_ASSERT_RETURN(f != nullptr,);
@@ -790,9 +680,9 @@ void Window::PrivateData::renderToPicture(const char* const filename,
     glReadPixels(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height), GL_RGB, GL_UNSIGNED_BYTE, pixels);
 
     fprintf(f, "P3\n%d %d\n255\n", width, height);
-    for (uint y = 0; y < height; y++)
+    for (uint32_t y = 0; y < height; y++)
     {
-        for (uint i, x = 0; x < width; x++)
+        for (uint32_t i, x = 0; x < width; x++)
         {
             i = 3 * ((height - y - 1) * width + x);
             fprintf(f, "%3d %3d %3d ", pixels[i], pixels[i+1], pixels[i+2]);

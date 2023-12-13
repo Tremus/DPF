@@ -118,12 +118,12 @@ public:
 
     // -------------------------------------------------------------------
 
-    uint getWidth() const noexcept
+    uint32_t getWidth() const noexcept
     {
         return uiData->window->getWidth();
     }
 
-    uint getHeight() const noexcept
+    uint32_t getHeight() const noexcept
     {
         return uiData->window->getHeight();
     }
@@ -133,12 +133,12 @@ public:
         return uiData->window->getScaleFactor();
     }
 
-    bool getGeometryConstraints(uint& minimumWidth, uint& minimumHeight, bool& keepAspectRatio) const noexcept
+    bool getGeometryConstraints(uint32_t& minimumWidth, uint32_t& minimumHeight, bool& keepAspectRatio) const noexcept
     {
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         uiData->window->getGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio);
 #else
-        const DGL_NAMESPACE::Size<uint> size(uiData->window->getGeometryConstraints(keepAspectRatio));
+        const DGL_NAMESPACE::Size<uint32_t> size(uiData->window->getGeometryConstraints(keepAspectRatio));
         minimumWidth = size.getWidth();
         minimumHeight = size.getHeight();
 #endif
@@ -160,14 +160,14 @@ public:
         return uiData->window->getNativeWindowHandle();
     }
 
-    uint getBackgroundColor() const noexcept
+    uint32_t getBackgroundColor() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(uiData != nullptr, 0);
 
         return uiData->bgColor;
     }
 
-    uint getForegroundColor() const noexcept
+    uint32_t getForegroundColor() const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(uiData != nullptr, 0xffffffff);
 
@@ -258,7 +258,7 @@ public:
     }
 
    #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    void addIdleCallbackForNativeIdle(IdleCallback* const cb, const uint timerFrequencyInMs)
+    void addIdleCallbackForNativeIdle(IdleCallback* const cb, const uint32_t timerFrequencyInMs)
     {
         uiData->window->addIdleCallback(cb, timerFrequencyInMs);
     }
@@ -283,7 +283,7 @@ public:
     }
 
    #if defined(DISTRHO_PLUGIN_TARGET_VST3) || defined(DISTRHO_PLUGIN_TARGET_CLAP)
-    void setWindowSizeFromHost(const uint width, const uint height)
+    void setWindowSizeFromHost(const uint32_t width, const uint32_t height)
     {
        #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         ui->setSize(width, height);
@@ -315,7 +315,7 @@ public:
     }
 
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    bool handlePluginKeyboardVST(const bool press, const bool special, const uint keychar, const uint keycode, const uint16_t mods)
+    bool handlePluginKeyboardVST(const bool press, const bool special, const uint32_t keychar, const uint32_t keycode, const uint16_t mods)
     {
         using namespace DGL_NAMESPACE;
 

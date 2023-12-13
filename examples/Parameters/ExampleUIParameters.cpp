@@ -73,10 +73,10 @@ protected:
     {
         const GraphicsContext& context(getGraphicsContext());
 
-        const uint width = getWidth();
-        const uint height = getHeight();
-        const uint minwh = std::min(width, height);
-        const uint bgColor = getBackgroundColor();
+        const uint32_t width = getWidth();
+        const uint32_t height = getHeight();
+        const uint32_t minwh = std::min(width, height);
+        const uint32_t bgColor = getBackgroundColor();
 
         Rectangle<double> r;
 
@@ -152,9 +152,9 @@ protected:
         if (ev.button != 1 || ! ev.press)
             return false;
 
-        const uint width = getWidth();
-        const uint height = getHeight();
-        const uint minwh = std::min(width, height);
+        const uint32_t width = getWidth();
+        const uint32_t height = getHeight();
+        const uint32_t minwh = std::min(width, height);
 
         Rectangle<double> r;
 

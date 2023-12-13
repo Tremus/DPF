@@ -117,7 +117,7 @@ public:
         }
         else
         {
-            const ulong styleMask = NSWindowStyleMaskClosable
+            const uint64_t styleMask = NSWindowStyleMaskClosable
                                   | NSWindowStyleMaskMiniaturizable
                                   | NSWindowStyleMaskResizable
                                   | NSWindowStyleMaskTitled;
@@ -207,7 +207,7 @@ public:
             // set pid WM hint
             const pid_t pid = getpid();
             const Atom _nwp = XInternAtom(fDisplay, "_NET_WM_PID", False);
-            XChangeProperty(fDisplay, fWindow, _nwp, XA_CARDINAL, 32, PropModeReplace, (const uchar*)&pid, 1);
+            XChangeProperty(fDisplay, fWindow, _nwp, XA_CARDINAL, 32, PropModeReplace, (const uint8_t*)&pid, 1);
 
             // set the window to both dialog and normal to produce a decorated floating dialog
             // order is important: DIALOG needs to come before NORMAL
@@ -216,7 +216,7 @@ public:
                 XInternAtom(fDisplay, "_NET_WM_WINDOW_TYPE_DIALOG", False),
                 XInternAtom(fDisplay, "_NET_WM_WINDOW_TYPE_NORMAL", False)
             };
-            XChangeProperty(fDisplay, fWindow, _wt, XA_ATOM, 32, PropModeReplace, (const uchar*)&_wts, 2);
+            XChangeProperty(fDisplay, fWindow, _wt, XA_ATOM, 32, PropModeReplace, (const uint8_t*)&_wts, 2);
         }
 #endif
         d_stdout("created external window with size %u %u", getWidth(), getHeight());
@@ -313,7 +313,7 @@ protected:
 #endif
     }
 
-    void sizeChanged(uint width, uint height) override
+    void sizeChanged(uint32_t width, uint32_t height) override
     {
         d_stdout("sizeChanged %u %u", width, height);
         UI::sizeChanged(width, height);

@@ -46,7 +46,7 @@ void Application::idle()
     pData->idle(0);
 }
 
-void Application::exec(const uint idleTimeInMs)
+void Application::exec(const uint32_t idleTimeInMs)
 {
     DISTRHO_SAFE_ASSERT_RETURN(pData->isStandalone,);
 

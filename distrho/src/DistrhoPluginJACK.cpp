@@ -152,7 +152,7 @@ public:
         for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i)
         {
             const AudioPort& port(fPlugin.getAudioPort(true, i));
-            ulong hints = JackPortIsInput;
+            uint64_t hints = JackPortIsInput;
             if (port.hints & kAudioPortIsCV)
                 hints |= JackPortIsControlVoltage;
             fPortAudioIns[i] = jackbridge_port_register(fClient, port.symbol, JACK_DEFAULT_AUDIO_TYPE, hints, 0);
@@ -163,7 +163,7 @@ public:
         for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
         {
             const AudioPort& port(fPlugin.getAudioPort(false, i));
-            ulong hints = JackPortIsOutput;
+            uint64_t hints = JackPortIsOutput;
             if (port.hints & kAudioPortIsCV)
                 hints |= JackPortIsControlVoltage;
             fPortAudioOuts[i] = jackbridge_port_register(fClient, port.symbol, JACK_DEFAULT_AUDIO_TYPE, hints, 0);

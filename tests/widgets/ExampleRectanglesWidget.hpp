@@ -59,8 +59,8 @@ protected:
     {
         const GraphicsContext& context(BaseWidget::getGraphicsContext());
 
-        const uint width  = BaseWidget::getWidth();
-        const uint height = BaseWidget::getHeight();
+        const uint32_t width  = BaseWidget::getWidth();
+        const uint32_t height = BaseWidget::getHeight();
 
         Rectangle<double> r;
 
@@ -109,8 +109,8 @@ protected:
         if (ev.button != 1 || ! ev.press)
             return false;
 
-        const uint width  = BaseWidget::getWidth();
-        const uint height = BaseWidget::getHeight();
+        const uint32_t width  = BaseWidget::getWidth();
+        const uint32_t height = BaseWidget::getHeight();
 
         Rectangle<double> r;
 

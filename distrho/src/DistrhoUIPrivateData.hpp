@@ -152,8 +152,8 @@ public:
     }
 
     // fetch cached data
-    uint getWidth() const noexcept { return ui->pData.width; }
-    uint getHeight() const noexcept { return ui->pData.height; }
+    uint32_t getWidth() const noexcept { return ui->pData.width; }
+    uint32_t getHeight() const noexcept { return ui->pData.height; }
     double getScaleFactor() const noexcept { return ui->pData.scaleFactor; }
 
     // direct mappings
@@ -165,7 +165,7 @@ public:
     void setTitle(const char* const title) { ui->setTitle(title); }
     void setVisible(const bool visible) { ui->setVisible(visible); }
     uintptr_t getNativeWindowHandle() const noexcept { return ui->getNativeWindowHandle(); }
-    void getGeometryConstraints(uint& minimumWidth, uint& minimumHeight, bool& keepAspectRatio) const noexcept
+    void getGeometryConstraints(uint32_t& minimumWidth, uint32_t& minimumHeight, bool& keepAspectRatio) const noexcept
     {
         minimumWidth = ui->pData.minWidth;
         minimumHeight = ui->pData.minHeight;
@@ -185,8 +185,8 @@ public:
     explicit PluginWindow(UI* const uiPtr,
                           PluginApplication& app,
                           const uintptr_t parentWindowHandle,
-                          const uint width,
-                          const uint height,
+                          const uint32_t width,
+                          const uint32_t height,
                           const double scaleFactor)
         : Window(app, parentWindowHandle, width, height, scaleFactor,
                  DISTRHO_UI_USER_RESIZABLE, DISTRHO_UI_USES_SIZE_REQUEST, false),
@@ -235,7 +235,7 @@ public:
     }
 
    #if defined(DISTRHO_PLUGIN_TARGET_VST3) || defined(DISTRHO_PLUGIN_TARGET_CLAP)
-    void setSizeFromHost(const uint width, const uint height)
+    void setSizeFromHost(const uint32_t width, const uint32_t height)
     {
         puglSetSizeAndDefault(pData->view, width, height);
     }
@@ -267,7 +267,7 @@ protected:
         ui->uiFocus(focus, mode);
     }
 
-    void onReshape(const uint width, const uint height) override
+    void onReshape(const uint32_t width, const uint32_t height) override
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
 
@@ -305,7 +305,7 @@ typedef void (*editParamFunc)   (void* ptr, uint32_t rindex, bool started);
 typedef void (*setParamFunc)    (void* ptr, uint32_t rindex, float value);
 typedef void (*setStateFunc)    (void* ptr, const char* key, const char* value);
 typedef void (*sendNoteFunc)    (void* ptr, uint8_t channel, uint8_t note, uint8_t velo);
-typedef void (*setSizeFunc)     (void* ptr, uint width, uint height);
+typedef void (*setSizeFunc)     (void* ptr, uint32_t width, uint32_t height);
 typedef bool (*fileRequestFunc) (void* ptr, const char* key);
 
 // -----------------------------------------------------------------------
@@ -322,8 +322,8 @@ struct UI::PrivateData {
     void*    dspPtr;
 
     // UI
-    uint bgColor;
-    uint fgColor;
+    uint32_t bgColor;
+    uint32_t fgColor;
     double scaleFactor;
     uintptr_t winId;
     char* bundlePath;
@@ -402,7 +402,7 @@ struct UI::PrivateData {
             sendNoteCallbackFunc(callbacksPtr, channel, note, velocity);
     }
 
-    void setSizeCallback(const uint width, const uint height)
+    void setSizeCallback(const uint32_t width, const uint32_t height)
     {
         if (setSizeCallbackFunc != nullptr)
             setSizeCallbackFunc(callbacksPtr, width, height);
@@ -413,9 +413,9 @@ struct UI::PrivateData {
 
     static UI::PrivateData* s_nextPrivateData;
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    static ExternalWindow::PrivateData createNextWindow(UI* ui, uint width, uint height, bool adjustForScaleFactor);
+    static ExternalWindow::PrivateData createNextWindow(UI* ui, uint32_t width, uint32_t height, bool adjustForScaleFactor);
 #else
-    static PluginWindow& createNextWindow(UI* ui, uint width, uint height, bool adjustForScaleFactor);
+    static PluginWindow& createNextWindow(UI* ui, uint32_t width, uint32_t height, bool adjustForScaleFactor);
 #endif
 };
 

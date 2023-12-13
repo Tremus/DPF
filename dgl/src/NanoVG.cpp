@@ -267,7 +267,7 @@ bool NanoImage::isValid() const noexcept
     return (fHandle.context != nullptr && fHandle.imageId != 0);
 }
 
-Size<uint> NanoImage::getSize() const noexcept
+Size<uint32_t> NanoImage::getSize() const noexcept
 {
     return fSize;
 }
@@ -288,7 +288,7 @@ void NanoImage::_updateSize()
     if (w < 0) w = 0;
     if (h < 0) h = 0;
 
-    fSize.setSize(static_cast<uint>(w), static_cast<uint>(h));
+    fSize.setSize(static_cast<uint32_t>(w), static_cast<uint32_t>(h));
 }
 
 // -----------------------------------------------------------------------
@@ -350,7 +350,7 @@ NanoVG::~NanoVG()
 
 // -----------------------------------------------------------------------
 
-void NanoVG::beginFrame(const uint width, const uint height, const float scaleFactor)
+void NanoVG::beginFrame(const uint32_t width, const uint32_t height, const float scaleFactor)
 {
     DISTRHO_SAFE_ASSERT_RETURN(scaleFactor > 0.0f,);
     DISTRHO_SAFE_ASSERT_RETURN(! fInFrame,);
@@ -450,10 +450,10 @@ void NanoVG::strokeColor(const int red, const int green, const int blue, const i
         DISTRHO_SAFE_ASSERT_RETURN(blue  >= 0 && blue  <= 255,);
         DISTRHO_SAFE_ASSERT_RETURN(alpha >= 0 && alpha <= 255,);
 
-        nvgStrokeColor(fContext, nvgRGBA(static_cast<uchar>(red),
-                                         static_cast<uchar>(green),
-                                         static_cast<uchar>(blue),
-                                         static_cast<uchar>(alpha)));
+        nvgStrokeColor(fContext, nvgRGBA(static_cast<uint8_t>(red),
+                                         static_cast<uint8_t>(green),
+                                         static_cast<uint8_t>(blue),
+                                         static_cast<uint8_t>(alpha)));
     }
 }
 
@@ -484,10 +484,10 @@ void NanoVG::fillColor(const int red, const int green, const int blue, const int
         DISTRHO_SAFE_ASSERT_RETURN(blue  >= 0 && blue  <= 255,);
         DISTRHO_SAFE_ASSERT_RETURN(alpha >= 0 && alpha <= 255,);
 
-        nvgFillColor(fContext, nvgRGBA(static_cast<uchar>(red),
-                                       static_cast<uchar>(green),
-                                       static_cast<uchar>(blue),
-                                       static_cast<uchar>(alpha)));
+        nvgFillColor(fContext, nvgRGBA(static_cast<uint8_t>(red),
+                                       static_cast<uint8_t>(green),
+                                       static_cast<uint8_t>(blue),
+                                       static_cast<uint8_t>(alpha)));
     }
 }
 
@@ -677,12 +677,12 @@ NanoImage::Handle NanoVG::createImageFromFile(const char* filename, int imageFla
     return NanoImage::Handle(fContext, nvgCreateImage(fContext, filename, imageFlags));
 }
 
-NanoImage::Handle NanoVG::createImageFromMemory(const uchar* data, uint dataSize, ImageFlags imageFlags)
+NanoImage::Handle NanoVG::createImageFromMemory(const uint8_t* data, uint32_t dataSize, ImageFlags imageFlags)
 {
     return createImageFromMemory(data, dataSize, static_cast<int>(imageFlags));
 }
 
-NanoImage::Handle NanoVG::createImageFromMemory(const uchar* data, uint dataSize, int imageFlags)
+NanoImage::Handle NanoVG::createImageFromMemory(const uint8_t* data, uint32_t dataSize, int imageFlags)
 {
     if (fContext == nullptr) return NanoImage::Handle();
     DISTRHO_SAFE_ASSERT_RETURN(data != nullptr, NanoImage::Handle());
@@ -691,13 +691,13 @@ NanoImage::Handle NanoVG::createImageFromMemory(const uchar* data, uint dataSize
     return NanoImage::Handle(fContext, nvgCreateImageMem(fContext, imageFlags, data, static_cast<int>(dataSize)));
 }
 
-NanoImage::Handle NanoVG::createImageFromRawMemory(uint w, uint h, const uchar* data,
+NanoImage::Handle NanoVG::createImageFromRawMemory(uint32_t w, uint32_t h, const uint8_t* data,
                                                    ImageFlags imageFlags, ImageFormat format)
 {
     return createImageFromRawMemory(w, h, data, static_cast<int>(imageFlags), format);
 }
 
-NanoImage::Handle NanoVG::createImageFromRawMemory(uint w, uint h, const uchar* data,
+NanoImage::Handle NanoVG::createImageFromRawMemory(uint32_t w, uint32_t h, const uint8_t* data,
                                                    int imageFlags, ImageFormat format)
 {
     if (fContext == nullptr) return NanoImage::Handle();
@@ -730,12 +730,12 @@ NanoImage::Handle NanoVG::createImageFromRawMemory(uint w, uint h, const uchar* 
                                                          static_cast<int>(h), imageFlags, nvgformat, data));
 }
 
-NanoImage::Handle NanoVG::createImageFromRGBA(uint w, uint h, const uchar* data, ImageFlags imageFlags)
+NanoImage::Handle NanoVG::createImageFromRGBA(uint32_t w, uint32_t h, const uint8_t* data, ImageFlags imageFlags)
 {
     return createImageFromRGBA(w, h, data, static_cast<int>(imageFlags));
 }
 
-NanoImage::Handle NanoVG::createImageFromRGBA(uint w, uint h, const uchar* data, int imageFlags)
+NanoImage::Handle NanoVG::createImageFromRGBA(uint32_t w, uint32_t h, const uint8_t* data, int imageFlags)
 {
     if (fContext == nullptr) return NanoImage::Handle();
     DISTRHO_SAFE_ASSERT_RETURN(data != nullptr, NanoImage::Handle());
@@ -745,13 +745,13 @@ NanoImage::Handle NanoVG::createImageFromRGBA(uint w, uint h, const uchar* data,
                                                           static_cast<int>(h), imageFlags, data));
 }
 
-NanoImage::Handle NanoVG::createImageFromTextureHandle(GLuint textureId, uint w, uint h,
+NanoImage::Handle NanoVG::createImageFromTextureHandle(GLuint textureId, uint32_t w, uint32_t h,
                                                        ImageFlags imageFlags, bool deleteTexture)
 {
     return createImageFromTextureHandle(textureId, w, h, static_cast<int>(imageFlags), deleteTexture);
 }
 
-NanoImage::Handle NanoVG::createImageFromTextureHandle(GLuint textureId, uint w, uint h,
+NanoImage::Handle NanoVG::createImageFromTextureHandle(GLuint textureId, uint32_t w, uint32_t h,
                                                        int imageFlags, bool deleteTexture)
 {
     if (fContext == nullptr) return NanoImage::Handle();
@@ -923,13 +923,13 @@ NanoVG::FontId NanoVG::createFontFromFile(const char* name, const char* filename
     return nvgCreateFont(fContext, name, filename);
 }
 
-NanoVG::FontId NanoVG::createFontFromMemory(const char* name, const uchar* data, uint dataSize, bool freeData)
+NanoVG::FontId NanoVG::createFontFromMemory(const char* name, const uint8_t* data, uint32_t dataSize, bool freeData)
 {
     DISTRHO_SAFE_ASSERT_RETURN(name != nullptr && name[0] != '\0', -1);
     DISTRHO_SAFE_ASSERT_RETURN(data != nullptr, -1);
     DISTRHO_SAFE_ASSERT_RETURN(fContext != nullptr, -1);
 
-    return nvgCreateFontMem(fContext, name, const_cast<uchar*>(data), static_cast<int>(dataSize), freeData);
+    return nvgCreateFontMem(fContext, name, const_cast<uint8_t*>(data), static_cast<int>(dataSize), freeData);
 }
 
 NanoVG::FontId NanoVG::findFont(const char* name)
@@ -1066,7 +1066,7 @@ bool NanoVG::loadSharedResources()
 
     using namespace dpf_resources;
 
-    return nvgCreateFontMem(fContext, NANOVG_DEJAVU_SANS_TTF, (uchar*)dejavusans_ttf, dejavusans_ttf_size, 0) >= 0;
+    return nvgCreateFontMem(fContext, NANOVG_DEJAVU_SANS_TTF, (uint8_t*)dejavusans_ttf, dejavusans_ttf_size, 0) >= 0;
 }
 #endif
 

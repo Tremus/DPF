@@ -26,12 +26,12 @@ ImageBase::ImageBase()
       size(0, 0),
       format(kImageFormatNull) {}
 
-ImageBase::ImageBase(const char* const rdata, const uint width, const uint height, const ImageFormat fmt)
+ImageBase::ImageBase(const char* const rdata, const uint32_t width, const uint32_t height, const ImageFormat fmt)
   : rawData(rdata),
     size(width, height),
     format(fmt) {}
 
-ImageBase::ImageBase(const char* const rdata, const Size<uint>& s, const ImageFormat fmt)
+ImageBase::ImageBase(const char* const rdata, const Size<uint32_t>& s, const ImageFormat fmt)
   : rawData(rdata),
     size(s),
     format(fmt) {}
@@ -56,17 +56,17 @@ bool ImageBase::isInvalid() const noexcept
     return (rawData == nullptr || size.isInvalid());
 }
 
-uint ImageBase::getWidth() const noexcept
+uint32_t ImageBase::getWidth() const noexcept
 {
     return size.getWidth();
 }
 
-uint ImageBase::getHeight() const noexcept
+uint32_t ImageBase::getHeight() const noexcept
 {
     return size.getHeight();
 }
 
-const Size<uint>& ImageBase::getSize() const noexcept
+const Size<uint32_t>& ImageBase::getSize() const noexcept
 {
     return size;
 }
@@ -82,14 +82,14 @@ ImageFormat ImageBase::getFormat() const noexcept
 }
 
 void ImageBase::loadFromMemory(const char* const rdata,
-                               const uint width,
-                               const uint height,
+                               const uint32_t width,
+                               const uint32_t height,
                                const ImageFormat fmt) noexcept
 {
-    loadFromMemory(rdata, Size<uint>(width, height), fmt);
+    loadFromMemory(rdata, Size<uint32_t>(width, height), fmt);
 }
 
-void ImageBase::loadFromMemory(const char* const rdata, const Size<uint>& s, const ImageFormat fmt) noexcept
+void ImageBase::loadFromMemory(const char* const rdata, const Size<uint32_t>& s, const ImageFormat fmt) noexcept
 {
     rawData = rdata;
     size    = s;

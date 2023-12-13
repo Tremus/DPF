@@ -146,7 +146,7 @@ public:
     ~ImageBaseKnob() override;
 
     void setCallback(Callback* callback) noexcept;
-    void setImageLayerCount(uint count) noexcept;
+    void setImageLayerCount(uint32_t count) noexcept;
     void setRotationAngle(int angle);
     bool setValue(float value, bool sendCallback = false) noexcept override;
 

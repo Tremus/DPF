@@ -530,7 +530,7 @@ Circle<T>::Circle() noexcept
       fSin(0.0f) {}
 
 template<typename T>
-Circle<T>::Circle(const T& x, const T& y, const float size, const uint numSegments)
+Circle<T>::Circle(const T& x, const T& y, const float size, const uint32_t numSegments)
     : fPos(x, y),
       fSize(size),
       fNumSegments(numSegments >= 3 ? numSegments : 3),
@@ -542,7 +542,7 @@ Circle<T>::Circle(const T& x, const T& y, const float size, const uint numSegmen
 }
 
 template<typename T>
-Circle<T>::Circle(const Point<T>& pos, const float size, const uint numSegments)
+Circle<T>::Circle(const Point<T>& pos, const float size, const uint32_t numSegments)
     : fPos(pos),
       fSize(size),
       fNumSegments(numSegments >= 3 ? numSegments : 3),
@@ -623,13 +623,13 @@ void Circle<T>::setSize(const float size) noexcept
 }
 
 template<typename T>
-uint Circle<T>::getNumSegments() const noexcept
+uint32_t Circle<T>::getNumSegments() const noexcept
 {
     return fNumSegments;
 }
 
 template<typename T>
-void Circle<T>::setNumSegments(const uint num)
+void Circle<T>::setNumSegments(const uint32_t num)
 {
     DISTRHO_SAFE_ASSERT_RETURN(num >= 3,);
 
@@ -922,7 +922,7 @@ bool Rectangle<int>::contains(const Point<double>& p) const noexcept
 }
 
 template<> template<>
-bool Rectangle<uint>::contains(const Point<double>& p) const noexcept
+bool Rectangle<uint32_t>::contains(const Point<double>& p) const noexcept
 {
     return (p.x >= pos.x && p.y >= pos.y && p.x <= pos.x+size.fWidth && p.y <= pos.y+size.fHeight);
 }
@@ -1009,44 +1009,44 @@ bool Rectangle<T>::operator!=(const Rectangle<T>& rect) const noexcept
 template class Point<double>;
 template class Point<float>;
 template class Point<int>;
-template class Point<uint>;
+template class Point<uint32_t>;
 template class Point<short>;
-template class Point<ushort>;
+template class Point<uint16_t>;
 
 template class Size<double>;
 template class Size<float>;
 template class Size<int>;
-template class Size<uint>;
+template class Size<uint32_t>;
 template class Size<short>;
-template class Size<ushort>;
+template class Size<uint16_t>;
 
 template class Line<double>;
 template class Line<float>;
 template class Line<int>;
-template class Line<uint>;
+template class Line<uint32_t>;
 template class Line<short>;
-template class Line<ushort>;
+template class Line<uint16_t>;
 
 template class Circle<double>;
 template class Circle<float>;
 template class Circle<int>;
-template class Circle<uint>;
+template class Circle<uint32_t>;
 template class Circle<short>;
-template class Circle<ushort>;
+template class Circle<uint16_t>;
 
 template class Triangle<double>;
 template class Triangle<float>;
 template class Triangle<int>;
-template class Triangle<uint>;
+template class Triangle<uint32_t>;
 template class Triangle<short>;
-template class Triangle<ushort>;
+template class Triangle<uint16_t>;
 
 template class Rectangle<double>;
 template class Rectangle<float>;
 template class Rectangle<int>;
-template class Rectangle<uint>;
+template class Rectangle<uint32_t>;
 template class Rectangle<short>;
-template class Rectangle<ushort>;
+template class Rectangle<uint16_t>;
 
 // -----------------------------------------------------------------------
 
