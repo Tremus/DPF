@@ -36,6 +36,7 @@
 
 // only checking if supported, not actually used
 #define DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST 1
+#define DISTRHO_PLUGIN_NUM_PARAMS 13
 
 enum Parameters {
     kParameterBufferSize = 0,

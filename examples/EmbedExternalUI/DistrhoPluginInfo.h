@@ -30,6 +30,7 @@
 #define DISTRHO_PLUGIN_NUM_OUTPUTS     2
 #define DISTRHO_UI_FILE_BROWSER        0
 #define DISTRHO_UI_USER_RESIZABLE      1
+#define DISTRHO_PLUGIN_NUM_PARAMS      2
 
 enum Parameters {
     kParameterWidth = 0,

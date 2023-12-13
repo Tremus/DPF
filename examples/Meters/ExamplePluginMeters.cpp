@@ -32,7 +32,7 @@ struct ExamplePluginMeters
           fNeedsReset(true)
     {
         // 3 parameters, 0 programs
-        PluginPrivateData_init(&data, 3, 0);
+        PluginPrivateData_init(&data, 0);
     }
 
    /**

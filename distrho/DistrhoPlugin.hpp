@@ -266,7 +266,7 @@ extern void plugin_sampleRateChanged(void*, double newSampleRate);
     Plugin class constructor.@n
     You must set all parameter values to their defaults, matching ParameterRanges::def.
 */
-void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount);
+void PluginPrivateData_init(struct PluginPrivateData* pData, uint32_t programCount);
 
 void plugin_default_initAudioPort(bool input, uint32_t index, AudioPort& port);
 void plugin_default_initPortGroup(uint32_t groupId, PortGroup& portGroup);

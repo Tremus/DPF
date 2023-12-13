@@ -14,6 +14,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "DistrhoPluginInfo.h"
 #include "DistrhoPlugin.hpp"
 #include "src/DistrhoPluginInternal.hpp"
 
@@ -27,10 +28,10 @@ struct InfoExamplePlugin
 
     InfoExamplePlugin()
     {
-        PluginPrivateData_init(&data, kParameterCount, 0);
+        PluginPrivateData_init(&data, 0);
 
         // clear all parameters
-        std::memset(fParameters, 0, sizeof(float)*kParameterCount);
+        std::memset(fParameters, 0, sizeof(fParameters));
 
         // we can know some things right at the start
         fParameters[kParameterBufferSize] = data.bufferSize;

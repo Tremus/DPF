@@ -146,9 +146,10 @@ struct PluginPrivateData {
     AudioPortWithBusId audioPorts[DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS];
 #endif
 
-    uint32_t   parameterCount;
     uint32_t   parameterOffset;
-    Parameter* parameters;
+#if DISTRHO_PLUGIN_NUM_PARAMS > 0
+    Parameter parameters[DISTRHO_PLUGIN_NUM_PARAMS];
+#endif
 
     uint32_t         portGroupCount;
     PortGroupWithId* portGroups;
@@ -182,9 +183,7 @@ struct PluginPrivateData {
     PluginPrivateData() noexcept
         : canRequestParameterValueChanges(d_nextCanRequestParameterValueChanges),
           isProcessing(false),
-          parameterCount(0),
           parameterOffset(0),
-          parameters(nullptr),
           portGroupCount(0),
           portGroups(nullptr),
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
@@ -227,12 +226,6 @@ struct PluginPrivateData {
 
     ~PluginPrivateData() noexcept
     {
-        if (parameters != nullptr)
-        {
-            delete[] parameters;
-            parameters = nullptr;
-        }
-
         if (portGroups != nullptr)
         {
             delete[] portGroups;
@@ -295,7 +288,7 @@ public:
         /* Run-time testing build.
          * Verify that virtual functions are overriden if parameters, programs or states are in use.
          * This does not work on all compilers, but we use it purely as informational check anyway. */
-        if (fData->parameterCount != 0)
+        if (DISTRHO_PLUGIN_NUM_PARAMS != 0)
         {
             if ((void*)(fPlugin->*(&Plugin::initParameter)) == (void*)&Plugin::initParameter)
             {
@@ -346,7 +339,7 @@ public:
         }
 #endif // DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
 
-        for (uint32_t i=0, count=fData->parameterCount; i < count; ++i)
+        for (uint32_t i=0, count = DISTRHO_PLUGIN_NUM_PARAMS; i < count; ++i)
             plugin_initParameter(fPlugin, i, fData->parameters[i]);
 
         {
@@ -356,7 +349,7 @@ public:
             for (uint32_t i=0; i < DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
                 portGroupIndices.insert(fData->audioPorts[i].groupId);
 #endif
-            for (uint32_t i=0, count=fData->parameterCount; i < count; ++i)
+            for (uint32_t i=0, count = DISTRHO_PLUGIN_NUM_PARAMS; i < count; ++i)
                 portGroupIndices.insert(fData->parameters[i].groupId);
 
             portGroupIndices.erase(kPortGroupNone);
@@ -530,7 +523,7 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, 0);
 
-        return fData->parameterCount;
+        return DISTRHO_PLUGIN_NUM_PARAMS;
     }
 
     uint32_t getParameterOffset() const noexcept
@@ -542,14 +535,14 @@ public:
 
     uint32_t getParameterHints(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, 0x0);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0x0);
 
         return fData->parameters[index].hints;
     }
 
     ParameterDesignation getParameterDesignation(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, kParameterDesignationNull);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, kParameterDesignationNull);
 
         return fData->parameters[index].designation;
     }
@@ -588,63 +581,63 @@ public:
 
     const String& getParameterName(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, sFallbackString);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
 
         return fData->parameters[index].name;
     }
 
     const String& getParameterShortName(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, sFallbackString);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
 
         return fData->parameters[index].shortName;
     }
 
     const String& getParameterSymbol(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, sFallbackString);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
 
         return fData->parameters[index].symbol;
     }
 
     const String& getParameterUnit(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, sFallbackString);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
 
         return fData->parameters[index].unit;
     }
 
     const String& getParameterDescription(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, sFallbackString);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
 
         return fData->parameters[index].description;
     }
 
     const ParameterEnumerationValues& getParameterEnumValues(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, sFallbackEnumValues);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackEnumValues);
 
         return fData->parameters[index].enumValues;
     }
 
     const ParameterRanges& getParameterRanges(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, sFallbackRanges);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackRanges);
 
         return fData->parameters[index].ranges;
     }
 
     uint8_t getParameterMidiCC(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, 0);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0);
 
         return fData->parameters[index].midiCC;
     }
 
     uint32_t getParameterGroupId(const uint32_t index) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, kPortGroupNone);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, kPortGroupNone);
 
         return fData->parameters[index].groupId;
     }
@@ -652,7 +645,7 @@ public:
     float getParameterDefault(const uint32_t index) const
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0.0f);
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, 0.0f);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0.0f);
 
         return fData->parameters[index].ranges.def;
     }
@@ -660,7 +653,7 @@ public:
     float getParameterValue(const uint32_t index) const
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0.0f);
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount, 0.0f);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0.0f);
 
         return plugin_getParameterValue(fPlugin, index);
     }
@@ -668,7 +661,7 @@ public:
     void setParameterValue(const uint32_t index, const float value)
     {
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr,);
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < fData->parameterCount,);
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS,);
 
         plugin_setParameterValue(fPlugin, index, value);
     }

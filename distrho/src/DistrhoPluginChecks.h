@@ -45,6 +45,10 @@
 // -----------------------------------------------------------------------
 // Define optional macros if not done yet
 
+#ifndef DISTRHO_PLUGIN_NUM_PARAMS
+# define DISTRHO_PLUGIN_NUM_PARAMS 0
+#endif
+
 #ifndef DISTRHO_PLUGIN_HAS_UI
 # define DISTRHO_PLUGIN_HAS_UI 0
 #endif

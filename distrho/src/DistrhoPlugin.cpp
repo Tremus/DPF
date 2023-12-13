@@ -38,19 +38,13 @@ const PortGroupWithId            PluginExporter::sFallbackPortGroup;
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin */
 
-void PluginPrivateData_init(PluginPrivateData* pData, uint32_t parameterCount, uint32_t programCount)
+void PluginPrivateData_init(PluginPrivateData* pData, uint32_t programCount)
 {
    #if defined(DPF_ABORT_ON_ERROR) || defined(DPF_RUNTIME_TESTING)
     #define DPF_ABORT abort();
    #else
     #define DPF_ABORT
    #endif
-
-    if (parameterCount > 0)
-    {
-        pData->parameterCount = parameterCount;
-        pData->parameters = new Parameter[parameterCount];
-    }
 
     if (programCount > 0)
     {
