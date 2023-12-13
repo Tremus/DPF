@@ -14,6 +14,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "DistrhoPluginInfo.h"
 #include "src/DistrhoPlugin.cpp"
 
 #if defined(DISTRHO_PLUGIN_TARGET_CARLA)

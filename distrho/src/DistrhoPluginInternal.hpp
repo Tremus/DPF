@@ -17,6 +17,7 @@
 #ifndef DISTRHO_PLUGIN_INTERNAL_HPP_INCLUDED
 #define DISTRHO_PLUGIN_INTERNAL_HPP_INCLUDED
 
+#include "DistrhoPluginInfo.h"
 #include "../DistrhoPlugin.hpp"
 
 #ifdef DISTRHO_PLUGIN_TARGET_VST3
@@ -339,6 +340,7 @@ public:
         }
 #endif // DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
 
+#if DISTRHO_PLUGIN_NUM_PARAMS > 0
         for (uint32_t i=0, count = DISTRHO_PLUGIN_NUM_PARAMS; i < count; ++i)
             plugin_initParameter(fPlugin, i, fData->parameters[i]);
 
@@ -372,6 +374,7 @@ public:
                 }
             }
         }
+#endif // DISTRHO_PLUGIN_NUM_PARAMS > 0
 
 #if DISTRHO_PLUGIN_WANT_PROGRAMS
         for (uint32_t i=0, count=fData->programCount; i < count; ++i)
@@ -533,20 +536,6 @@ public:
         return fData->parameterOffset;
     }
 
-    uint32_t getParameterHints(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0x0);
-
-        return fData->parameters[index].hints;
-    }
-
-    ParameterDesignation getParameterDesignation(const uint32_t index) const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, kParameterDesignationNull);
-
-        return fData->parameters[index].designation;
-    }
-
     bool isParameterInput(const uint32_t index) const noexcept
     {
         return (getParameterHints(index) & kParameterIsOutput) == 0x0;
@@ -579,66 +568,69 @@ public:
         return false;
     }
 
+#if DISTRHO_PLUGIN_NUM_PARAMS > 0
+    uint32_t getParameterHints(const uint32_t index) const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0x0);
+        return fData->parameters[index].hints;
+    }
+
+    ParameterDesignation getParameterDesignation(const uint32_t index) const noexcept
+    {
+        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, kParameterDesignationNull);
+        return fData->parameters[index].designation;
+    }
     const String& getParameterName(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
-
         return fData->parameters[index].name;
     }
 
     const String& getParameterShortName(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
-
         return fData->parameters[index].shortName;
     }
 
     const String& getParameterSymbol(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
-
         return fData->parameters[index].symbol;
     }
 
     const String& getParameterUnit(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
-
         return fData->parameters[index].unit;
     }
 
     const String& getParameterDescription(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackString);
-
         return fData->parameters[index].description;
     }
 
     const ParameterEnumerationValues& getParameterEnumValues(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackEnumValues);
-
         return fData->parameters[index].enumValues;
     }
 
     const ParameterRanges& getParameterRanges(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, sFallbackRanges);
-
         return fData->parameters[index].ranges;
     }
 
     uint8_t getParameterMidiCC(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0);
-
         return fData->parameters[index].midiCC;
     }
 
     uint32_t getParameterGroupId(const uint32_t index) const noexcept
     {
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, kPortGroupNone);
-
         return fData->parameters[index].groupId;
     }
 
@@ -649,6 +641,20 @@ public:
 
         return fData->parameters[index].ranges.def;
     }
+#else
+    uint32_t getParameterHints(const uint32_t index) const noexcept { return 0; }
+    ParameterDesignation getParameterDesignation(const uint32_t index) const noexcept { return kParameterDesignationNull; }
+    const String& getParameterName(const uint32_t index) const noexcept { return sFallbackString; }
+    const String& getParameterShortName(const uint32_t index) const noexcept { return sFallbackString; }
+    const String& getParameterSymbol(const uint32_t index) const noexcept { return sFallbackString; }
+    const String& getParameterUnit(const uint32_t index) const noexcept { return sFallbackString; }
+    const String& getParameterDescription(const uint32_t index) const noexcept { return sFallbackString; }
+    const ParameterEnumerationValues& getParameterEnumValues(const uint32_t index) const noexcept { return sFallbackEnumValues; }
+    const ParameterRanges& getParameterRanges(const uint32_t index) const noexcept { return sFallbackRanges; }
+    uint8_t getParameterMidiCC(const uint32_t index) const noexcept { return 0; }
+    uint32_t getParameterGroupId(const uint32_t index) const noexcept { return kPortGroupNone; }
+    float getParameterDefault(const uint32_t index) const { return 0.0f; }
+#endif // DISTRHO_PLUGIN_NUM_PARAMS > 0
 
     float getParameterValue(const uint32_t index) const
     {
