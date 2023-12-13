@@ -582,6 +582,7 @@ function(dpf__add_dgl_opengl NO_SHARED_RESOURCES)
     set(OpenGL_GL_PREFERENCE "LEGACY")
   endif()
 
+  find_package(OpenGL REQUIRED)
   dpf__add_static_library(dgl-opengl STATIC
     "${DPF_ROOT_DIR}/dgl/src/Application.cpp"
     "${DPF_ROOT_DIR}/dgl/src/ApplicationPrivateData.cpp"
