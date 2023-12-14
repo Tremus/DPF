@@ -40,10 +40,6 @@ END_NAMESPACE_DISTRHO
 START_NAMESPACE_DISTRHO
 double getDesktopScaleFactor(const uintptr_t parentWindowHandle)
 {
-    // allow custom scale for testing
-    if (const char* const scale = getenv("DPF_SCALE_FACTOR"))
-        return std::max(1.0, std::atof(scale));
-
     if (NSView* const parentView = (NSView*)parentWindowHandle)
         if (NSWindow* const parentWindow = [parentView window])
            return [parentWindow screen].backingScaleFactor;

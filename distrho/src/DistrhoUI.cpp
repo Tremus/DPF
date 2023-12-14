@@ -87,10 +87,6 @@ double getDesktopScaleFactor(uintptr_t parentWindowHandle);
 #else
 static double getDesktopScaleFactor(const uintptr_t parentWindowHandle)
 {
-    // allow custom scale for testing
-    if (const char* const scale = getenv("DPF_SCALE_FACTOR"))
-        return std::max(1.0, std::atof(scale));
-
 #if defined(DISTRHO_OS_WINDOWS)
     if (const HMODULE Shcore = LoadLibraryA("Shcore.dll"))
     {
