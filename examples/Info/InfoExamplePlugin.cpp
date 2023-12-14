@@ -100,7 +100,7 @@ void plugin_initAudioPort(void* ptr, bool input, uint32_t index, AudioPort& port
 void plugin_initParameter(void*, uint32_t index, Parameter& parameter)
 {
     parameter.hints      = kParameterIsAutomatable|kParameterIsOutput;
-    parameter.ranges.def = 0.0f;
+    parameter.ranges.defaultValue = 0.0f;
     parameter.ranges.min = 0.0f;
     parameter.ranges.max = 16777216.0f;
 
@@ -214,21 +214,21 @@ void plugin_run(void* ptr, const float** inputs, float** outputs, uint32_t frame
     const TimePosition& timePos(plugin_getTimePosition(ptr));
 
     // set basic values
-    plugin->fParameters[kParameterTimePlaying]  = timePos.playing ? 1.0f : 0.0f;
+    plugin->fParameters[kParameterTimePlaying]  = timePos.isPlaying ? 1.0f : 0.0f;
     plugin->fParameters[kParameterTimeFrame]    = timePos.frame;
-    plugin->fParameters[kParameterTimeValidBBT] = timePos.bbt.valid ? 1.0f : 0.0f;
+    plugin->fParameters[kParameterTimeValidBBT] = timePos.bbtSupported ? 1.0f : 0.0f;
 
     // set bbt
-    if (timePos.bbt.valid)
+    if (timePos.bbtSupported)
     {
         plugin->fParameters[kParameterTimeBar]            = timePos.bbt.bar;
         plugin->fParameters[kParameterTimeBeat]           = timePos.bbt.beat;
         plugin->fParameters[kParameterTimeTick]           = timePos.bbt.tick;
         plugin->fParameters[kParameterTimeBarStartTick]   = timePos.bbt.barStartTick;
-        plugin->fParameters[kParameterTimeBeatsPerBar]    = timePos.bbt.beatsPerBar;
-        plugin->fParameters[kParameterTimeBeatType]       = timePos.bbt.beatType;
+        plugin->fParameters[kParameterTimeBeatsPerBar]    = timePos.bbt.timeSigNumerator;
+        plugin->fParameters[kParameterTimeBeatType]       = timePos.bbt.timeSigDenominator;
         plugin->fParameters[kParameterTimeTicksPerBeat]   = timePos.bbt.ticksPerBeat;
-        plugin->fParameters[kParameterTimeBeatsPerMinute] = timePos.bbt.beatsPerMinute;
+        plugin->fParameters[kParameterTimeBeatsPerMinute] = timePos.bbt.bpm;
     }
     else
     {

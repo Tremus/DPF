@@ -224,7 +224,7 @@ protected:
         {
             const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
 
-            param.ranges.def = ranges.def;
+            param.ranges.defaultValue = ranges.defaultValue;
             param.ranges.min = ranges.min;
             param.ranges.max = ranges.max;
         }

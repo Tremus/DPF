@@ -19,7 +19,7 @@ const TimePosition& timePos(getTimePosition());
 
 if (timePos.bbt.valid)
 {
-    double secondsPerBeat = 60.0 / timePos.bbt.beatsPerMinute;
+    double secondsPerBeat = 60.0 / timePos.bbt.bpm;
     double framesPerBeat  = sampleRate * secondsPerBeat;
     double beatFraction   = timePos.bbt.tick / timePos.bbt.ticksPerBeat;
 
@@ -31,4 +31,4 @@ if (timePos.bbt.valid)
 ```
 
 Reference:
-- [DISTRHO Plugin Framework: TimePosition::BarBeatTick Struct Reference](https://distrho.github.io/DPF/structTimePosition_1_1BarBeatTick.html)
+- [DISTRHO Plugin Framework: BarBeatTick Struct Reference](https://distrho.github.io/DPF/structTimePosition_1_1BarBeatTick.html)

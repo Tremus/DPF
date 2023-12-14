@@ -348,7 +348,7 @@ protected:
 
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
         jack_position_t pos;
-        fTimePosition.playing = (jackbridge_transport_query(fClient, &pos) == JackTransportRolling);
+        fTimePosition.isPlaying = (jackbridge_transport_query(fClient, &pos) == JackTransportRolling);
 
         if (pos.unique_1 == pos.unique_2)
         {
@@ -356,7 +356,7 @@ protected:
 
             if (pos.valid & JackPositionBBT)
             {
-                fTimePosition.bbt.valid = true;
+                fTimePosition.bbtSupported = true;
 
                 fTimePosition.bbt.bar  = pos.bar;
                 fTimePosition.bbt.beat = pos.beat;
@@ -369,18 +369,18 @@ protected:
                     fTimePosition.bbt.tick = pos.tick;
                 fTimePosition.bbt.barStartTick = pos.bar_start_tick;
 
-                fTimePosition.bbt.beatsPerBar = pos.beats_per_bar;
-                fTimePosition.bbt.beatType    = pos.beat_type;
+                fTimePosition.bbt.timeSigNumerator = pos.beats_per_bar;
+                fTimePosition.bbt.timeSigDenominator    = pos.beat_type;
 
                 fTimePosition.bbt.ticksPerBeat   = pos.ticks_per_beat;
-                fTimePosition.bbt.beatsPerMinute = pos.beats_per_minute;
+                fTimePosition.bbt.bpm = pos.beats_per_minute;
             }
             else
-                fTimePosition.bbt.valid = false;
+                fTimePosition.bbtSupported = false;
         }
         else
         {
-            fTimePosition.bbt.valid = false;
+            fTimePosition.bbtSupported = false;
             fTimePosition.frame = 0;
         }
 
@@ -520,7 +520,7 @@ protected:
             if ((fPlugin.getParameterHints(i) & kParameterIsTrigger) != kParameterIsTrigger)
                 continue;
 
-            defValue = fPlugin.getParameterRanges(i).def;
+            defValue = fPlugin.getParameterRanges(i).defaultValue;
 
             if (d_isNotEqual(defValue, fPlugin.getParameterValue(i)))
                 fPlugin.setParameterValue(i, defValue);

@@ -728,7 +728,20 @@ public:
     double _getNormalizedParameterValue(const uint32_t index, const double plain)
     {
         const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
-        return ranges.getFixedAndNormalizedValue(plain);
+        double value = ranges.getFixedAndNormalizedValue(plain);
+        if (value <= ranges.min)
+            return 0.0;
+        if (value >= ranges.max)
+            return 1.0;
+
+        const double normValue = (value - ranges.min) / (ranges.max - ranges.min);
+
+        if (normValue <= 0.0)
+            return 0.0;
+        if (normValue >= 1.0)
+            return 1.0;
+
+        return normValue;
     }
 
     void _setNormalizedPluginParameterValue(const uint32_t index, const double normalized)
@@ -760,7 +773,14 @@ public:
         else
         {
             // deal with low resolution of some hosts, which convert double to float internally and lose precision
-            if (std::abs(ranges.getNormalizedValue(static_cast<double>(fCachedParameterValues[kVst3InternalParameterBaseCount + index])) - normalized) < 0.0000001)
+            double v = static_cast<double>(fCachedParameterValues[kVst3InternalParameterBaseCount + index]);
+            double normValue = (v - ranges.min) / (ranges.max - ranges.min);
+
+            if (normValue <= 0.0)
+                normValue = 0.0;
+            if (normValue >= 1.0)
+                normValue = 1.0;
+            if (std::abs(normValue - normalized) < 0.0000001)
                 return;
         }
 
@@ -1111,9 +1131,9 @@ public:
                 fTimePosition.frame = ctx->continousTimeSamples;
 
             if (ctx->state & Steinberg_Vst_ProcessContext_StatesAndFlags_kTempoValid)
-                fTimePosition.bbt.beatsPerMinute = ctx->tempo;
+                fTimePosition.bbt.bpm = ctx->tempo;
             else
-                fTimePosition.bbt.beatsPerMinute = 120.0;
+                fTimePosition.bbt.bpm = 120.0;
 
             if ((ctx->state & (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid)) == (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid))
             {
@@ -1126,8 +1146,8 @@ public:
                 fTimePosition.bbt.bar         = static_cast<int32_t>(ppqPos) / ppqPerBar + 1;
                 fTimePosition.bbt.beat        = static_cast<int32_t>(barBeats - rest + 0.5) + 1;
                 fTimePosition.bbt.tick        = rest * fTimePosition.bbt.ticksPerBeat;
-                fTimePosition.bbt.beatsPerBar = ctx->timeSigNumerator;
-                fTimePosition.bbt.beatType    = ctx->timeSigDenominator;
+                fTimePosition.bbt.timeSigNumerator = ctx->timeSigNumerator;
+                fTimePosition.bbt.timeSigDenominator    = ctx->timeSigDenominator;
 
                 if (ctx->projectTimeMusic < 0.0)
                 {
@@ -1142,12 +1162,12 @@ public:
                 fTimePosition.bbt.bar         = 1;
                 fTimePosition.bbt.beat        = 1;
                 fTimePosition.bbt.tick        = 0.0;
-                fTimePosition.bbt.beatsPerBar = 4.0f;
-                fTimePosition.bbt.beatType    = 4.0f;
+                fTimePosition.bbt.timeSigNumerator = 4.0f;
+                fTimePosition.bbt.timeSigDenominator    = 4.0f;
             }
 
             fTimePosition.bbt.barStartTick = fTimePosition.bbt.ticksPerBeat*
-                                             fTimePosition.bbt.beatsPerBar*
+                                             fTimePosition.bbt.timeSigNumerator*
                                              (fTimePosition.bbt.bar-1);
 
             fPlugin.setTimePosition(fTimePosition);
@@ -1462,7 +1482,7 @@ public:
 
         info->flags = flags;
         info->stepCount = step_count;
-        info->defaultNormalizedValue = ranges.getNormalizedValue(ranges.def);
+        info->defaultNormalizedValue = ranges.getNormalizedValue(ranges.defaultValue);
         // int32_t unit_id;
         strncpy_utf16((int16_t*)info->title,       fPlugin.getParameterName(index), 128);
         strncpy_utf16((int16_t*)info->shortTitle, fPlugin.getParameterShortName(index), 128);

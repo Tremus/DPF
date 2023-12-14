@@ -781,15 +781,15 @@ public:
        #if DISTRHO_PLUGIN_WANT_TIMEPOS
         if (const clap_event_transport_t* const transport = process->transport)
         {
-            fTimePosition.playing = (transport->flags & CLAP_TRANSPORT_IS_PLAYING) != 0 &&
-                                    (transport->flags & CLAP_TRANSPORT_IS_WITHIN_PRE_ROLL) == 0;
+            fTimePosition.isPlaying = (transport->flags & CLAP_TRANSPORT_IS_PLAYING) != 0 &&
+                                      (transport->flags & CLAP_TRANSPORT_IS_WITHIN_PRE_ROLL) == 0;
 
             fTimePosition.frame = process->steady_time >= 0 ? process->steady_time : 0;
 
             if (transport->flags & CLAP_TRANSPORT_HAS_TEMPO)
-                fTimePosition.bbt.beatsPerMinute = transport->tempo;
+                fTimePosition.bbt.bpm = transport->tempo;
             else
-                fTimePosition.bbt.beatsPerMinute = 120.0;
+                fTimePosition.bbt.bpm = 120.0;
 
             // ticksPerBeat is not possible with CLAP
             fTimePosition.bbt.ticksPerBeat = 1920.0;
@@ -813,35 +813,35 @@ public:
                     fTimePosition.bbt.tick = 0.0;
                 }
 
-                fTimePosition.bbt.valid       = true;
-                fTimePosition.bbt.beatsPerBar = transport->tsig_num;
-                fTimePosition.bbt.beatType    = transport->tsig_denom;
+                fTimePosition.bbtSupported    = true;
+                fTimePosition.bbt.timeSigNumerator = transport->tsig_num;
+                fTimePosition.bbt.timeSigDenominator    = transport->tsig_denom;
             }
             else
             {
-                fTimePosition.bbt.valid       = false;
+                fTimePosition.bbtSupported    = false;
                 fTimePosition.bbt.bar         = 1;
                 fTimePosition.bbt.beat        = 1;
                 fTimePosition.bbt.tick        = 0.0;
-                fTimePosition.bbt.beatsPerBar = 4.0f;
-                fTimePosition.bbt.beatType    = 4.0f;
+                fTimePosition.bbt.timeSigNumerator = 4.0f;
+                fTimePosition.bbt.timeSigDenominator    = 4.0f;
             }
 
             fTimePosition.bbt.barStartTick = fTimePosition.bbt.ticksPerBeat*
-                                             fTimePosition.bbt.beatsPerBar*
+                                             fTimePosition.bbt.timeSigNumerator*
                                              (fTimePosition.bbt.bar-1);
         }
         else
         {
-            fTimePosition.playing = false;
+            fTimePosition.isPlaying = false;
             fTimePosition.frame = 0;
-            fTimePosition.bbt.valid          = false;
-            fTimePosition.bbt.beatsPerMinute = 120.0;
+            fTimePosition.bbtSupported       = false;
+            fTimePosition.bbt.bpm            = 120.0;
             fTimePosition.bbt.bar            = 1;
             fTimePosition.bbt.beat           = 1;
             fTimePosition.bbt.tick           = 0.0;
-            fTimePosition.bbt.beatsPerBar    = 4.f;
-            fTimePosition.bbt.beatType       = 4.f;
+            fTimePosition.bbt.timeSigNumerator    = 4.f;
+            fTimePosition.bbt.timeSigDenominator       = 4.f;
             fTimePosition.bbt.barStartTick   = 0;
         }
 
@@ -1060,7 +1060,7 @@ public:
         info->cookie = nullptr;
         info->min_value = ranges.min;
         info->max_value = ranges.max;
-        info->default_value = ranges.def;
+        info->default_value = ranges.defaultValue;
         return true;
     }
 

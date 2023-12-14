@@ -654,7 +654,7 @@ void lv2_generate_ttl(const char* const basename)
                     if (hints & kParameterIsInteger)
                     {
                         if (plugin.isParameterInput(i))
-                            pluginString += "        lv2:default " + String(int(ranges.def)) + " ;\n";
+                            pluginString += "        lv2:default " + String(int(ranges.defaultValue)) + " ;\n";
                         pluginString += "        lv2:minimum " + String(int(ranges.min)) + " ;\n";
                         pluginString += "        lv2:maximum " + String(int(ranges.max)) + " ;\n";
                     }
@@ -662,9 +662,9 @@ void lv2_generate_ttl(const char* const basename)
                     {
                         if (plugin.isParameterInput(i))
                         {
-                            if (d_isNotZero(ranges.def))
-                                pluginString += "        lv2:default " + String(ranges.def) + " ;\n";
-                            else if (d_isEqual(ranges.def, ranges.max))
+                            if (d_isNotZero(ranges.defaultValue))
+                                pluginString += "        lv2:default " + String(ranges.defaultValue) + " ;\n";
+                            else if (d_isEqual(ranges.defaultValue, ranges.max))
                                 pluginString += "        lv2:default -0.0001 ;\n";
                             else
                                 pluginString += "        lv2:default 0.0001 ;\n";
@@ -683,7 +683,7 @@ void lv2_generate_ttl(const char* const basename)
                     else
                     {
                         if (plugin.isParameterInput(i))
-                            pluginString += "        lv2:default " + String(ranges.def) + " ;\n";
+                            pluginString += "        lv2:default " + String(ranges.defaultValue) + " ;\n";
                         pluginString += "        lv2:minimum " + String(ranges.min) + " ;\n";
                         pluginString += "        lv2:maximum " + String(ranges.max) + " ;\n";
                     }

@@ -192,17 +192,17 @@ public:
     void lv2_activate()
     {
 #if DISTRHO_PLUGIN_WANT_TIMEPOS
-        fTimePosition.clear();
+        memset(&fTimePosition, 0, sizeof(fTimePosition));
 
         // hosts may not send all values, resulting on some invalid data, let's reset everything
         fTimePosition.bbt.bar   = 1;
         fTimePosition.bbt.beat  = 1;
         fTimePosition.bbt.tick  = 0.0;
         fTimePosition.bbt.barStartTick = 0;
-        fTimePosition.bbt.beatsPerBar  = 4;
-        fTimePosition.bbt.beatType     = 4;
+        fTimePosition.bbt.timeSigNumerator  = 4;
+        fTimePosition.bbt.timeSigDenominator     = 4;
         fTimePosition.bbt.ticksPerBeat = 1920.0;
-        fTimePosition.bbt.beatsPerMinute = 120.0;
+        fTimePosition.bbt.bpm = 120.0;
 #endif
         fPlugin.activate();
     }
@@ -376,7 +376,7 @@ public:
                     else
                         d_stderr("Unknown lv2 speed value type");
 
-                    fTimePosition.playing = d_isNotZero(fLastPositionData.speed);
+                    fTimePosition.isPlaying = d_isNotZero(fLastPositionData.speed);
                 }
 
                 if (bar != nullptr)
@@ -431,7 +431,7 @@ public:
                         d_stderr("Unknown lv2 beatUnit value type");
 
                     if (fLastPositionData.beatUnit > 0)
-                        fTimePosition.bbt.beatType = fLastPositionData.beatUnit;
+                        fTimePosition.bbt.timeSigDenominator = fLastPositionData.beatUnit;
                 }
 
                 if (beatsPerBar != nullptr)
@@ -448,7 +448,7 @@ public:
                         d_stderr("Unknown lv2 beatsPerBar value type");
 
                     if (fLastPositionData.beatsPerBar > 0.0f)
-                        fTimePosition.bbt.beatsPerBar = fLastPositionData.beatsPerBar;
+                        fTimePosition.bbt.timeSigNumerator = fLastPositionData.beatsPerBar;
                 }
 
                 if (beatsPerMinute != nullptr)
@@ -466,10 +466,10 @@ public:
 
                     if (fLastPositionData.beatsPerMinute > 0.0f)
                     {
-                        fTimePosition.bbt.beatsPerMinute = fLastPositionData.beatsPerMinute;
+                        fTimePosition.bbt.bpm = fLastPositionData.beatsPerMinute;
 
                         if (d_isNotZero(fLastPositionData.speed))
-                            fTimePosition.bbt.beatsPerMinute *= std::abs(fLastPositionData.speed);
+                            fTimePosition.bbt.bpm *= std::abs(fLastPositionData.speed);
                     }
                 }
 
@@ -491,12 +491,12 @@ public:
                 }
 
                 fTimePosition.bbt.barStartTick = fTimePosition.bbt.ticksPerBeat*
-                                                 fTimePosition.bbt.beatsPerBar*
+                                                 fTimePosition.bbt.timeSigNumerator*
                                                  (fTimePosition.bbt.bar-1);
 
-                fTimePosition.bbt.valid = (fLastPositionData.beatsPerMinute > 0.0 &&
-                                           fLastPositionData.beatUnit > 0 &&
-                                           fLastPositionData.beatsPerBar > 0.0f);
+                fTimePosition.bbtSupported = (fLastPositionData.beatsPerMinute > 0.0 &&
+                                              fLastPositionData.beatUnit > 0 &&
+                                              fLastPositionData.beatsPerBar > 0.0f);
 
                 fPlugin.setTimePosition(fTimePosition);
 
@@ -559,7 +559,7 @@ public:
 
                 fTimePosition.frame = fLastPositionData.frame;
 
-                if (fTimePosition.bbt.valid)
+                if (fTimePosition.bbtSupported)
                 {
                     const double beatsPerMinute = fLastPositionData.beatsPerMinute * fLastPositionData.speed;
                     const double framesPerBeat  = 60.0 * fSampleRate / beatsPerMinute;
@@ -585,12 +585,12 @@ public:
                             fTimePosition.bbt.bar = fLastPositionData.bar + 1;
 
                             fTimePosition.bbt.barStartTick = fTimePosition.bbt.ticksPerBeat*
-                                                             fTimePosition.bbt.beatsPerBar*
+                                                             fTimePosition.bbt.timeSigNumerator*
                                                             (fTimePosition.bbt.bar-1);
                         }
                     }
 
-                    fTimePosition.bbt.beatsPerMinute = std::abs(beatsPerMinute);
+                    fTimePosition.bbt.bpm = std::abs(beatsPerMinute);
                 }
 
                 fPlugin.setTimePosition(fTimePosition);

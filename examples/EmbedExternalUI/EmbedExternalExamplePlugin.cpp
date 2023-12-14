@@ -98,7 +98,7 @@ void plugin_initParameter(void*, uint32_t index, Parameter& parameter)
     {
     case kParameterWidth:
         parameter.hints      = kParameterIsAutomatable|kParameterIsInteger;
-        parameter.ranges.def = 512.0f;
+        parameter.ranges.defaultValue = 512.0f;
         parameter.ranges.min = 256.0f;
         parameter.ranges.max = 4096.0f;
         parameter.name   = "Width";
@@ -107,7 +107,7 @@ void plugin_initParameter(void*, uint32_t index, Parameter& parameter)
         break;
     case kParameterHeight:
         parameter.hints      = kParameterIsAutomatable|kParameterIsInteger;
-        parameter.ranges.def = 256.0f;
+        parameter.ranges.defaultValue = 256.0f;
         parameter.ranges.min = 256.0f;
         parameter.ranges.max = 4096.0f;
         parameter.name   = "Height";

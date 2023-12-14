@@ -178,28 +178,28 @@ protected:
             parameter.hints |= kParameterIsLogarithmic;
             parameter.ranges.min = 0.001f;
             parameter.ranges.max = 1.0f;
-            parameter.ranges.def = 0.5f;
+            parameter.ranges.defaultValue = 0.5f;
             break;
         case 1:
             parameter.name = "DecayTime";
             parameter.hints |= kParameterIsLogarithmic;
             parameter.ranges.min = 0.001f;
             parameter.ranges.max = 1.0f;
-            parameter.ranges.def = 0.2f;
+            parameter.ranges.defaultValue = 0.2f;
             break;
         case 2:
             parameter.name = "Semitone";
             parameter.hints |= kParameterIsInteger;
             parameter.ranges.min = 0;
             parameter.ranges.max = 127;
-            parameter.ranges.def = 72;
+            parameter.ranges.defaultValue = 72;
             break;
         case 3:
             parameter.name = "Cent";
             parameter.hints |= kParameterIsInteger;
             parameter.ranges.min = -100;
             parameter.ranges.max = 100;
-            parameter.ranges.def = 0;
+            parameter.ranges.defaultValue = 0;
             break;
         }
 
@@ -277,7 +277,7 @@ protected:
         if (timePos.playing && timePos.bbt.valid)
         {
             // Better to use double when manipulating time.
-            double secondsPerBeat = 60.0 / timePos.bbt.beatsPerMinute;
+            double secondsPerBeat = 60.0 / timePos.bbt.bpm;
             double framesPerBeat  = sampleRate * secondsPerBeat;
             double beatFraction   = timePos.bbt.tick / timePos.bbt.ticksPerBeat;
 
@@ -313,7 +313,7 @@ protected:
                 {
                     envelope = 1.0f;
                     counter = static_cast<uint32_t>(framesPerBeat + 0.5);
-                    octave = (!wasPlaying || timePos.bbt.beat == static_cast<int32_t>(timePos.bbt.beatsPerBar)) ? 2.0f
+                    octave = (!wasPlaying || timePos.bbt.beat == static_cast<int32_t>(timePos.bbt.timeSigNumerator)) ? 2.0f
                                                                                                                 : 1.0f;
                 }
                 --counter;

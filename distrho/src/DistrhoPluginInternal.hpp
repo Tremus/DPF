@@ -601,7 +601,7 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0.0f);
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr && index < DISTRHO_PLUGIN_NUM_PARAMS, 0.0f);
 
-        return fData->parameters[index].ranges.def;
+        return fData->parameters[index].ranges.defaultValue;
     }
 #else
     uint32_t getParameterHints(const uint32_t index) const noexcept { return 0; }

@@ -134,7 +134,7 @@ void plugin_initParameter(void* ptr, uint32_t index, Parameter& parameter)
     */
     parameter.ranges.min = 0.0f;
     parameter.ranges.max = 1.0f;
-    parameter.ranges.def = 0.0f;
+    parameter.ranges.defaultValue = 0.0f;
 
     /**
         Set the (unique) parameter name.

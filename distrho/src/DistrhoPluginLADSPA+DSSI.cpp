@@ -339,7 +339,7 @@ private:
             else if ((fPlugin.getParameterHints(i) & kParameterIsTrigger) == kParameterIsTrigger)
             {
                 // NOTE: no trigger support in LADSPA control ports, simulate it here
-                value = fPlugin.getParameterRanges(i).def;
+                value = fPlugin.getParameterRanges(i).defaultValue;
 
                 if (d_isEqual(value, fPlugin.getParameterValue(i)))
                     continue;
@@ -539,7 +539,7 @@ static const struct DescriptorInitializer
 
             {
                 const ParameterRanges& ranges(plugin.getParameterRanges(i));
-                const float defValue = ranges.def;
+                const float defValue = ranges.defaultValue;
 
                 // LADSPA doesn't allow bounded hints on toggles
                 portRangeHints[port].HintDescriptor = hints & kParameterIsBoolean

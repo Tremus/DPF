@@ -108,7 +108,7 @@ protected:
             return;
 
         parameter.hints      = kParameterIsAutomatable|kParameterIsInteger;
-        parameter.ranges.def = 0.0f;
+        parameter.ranges.defaultValue = 0.0f;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = 100.0f;
         parameter.name   = "Value";

@@ -162,7 +162,7 @@ protected:
         parameter.hints      = kParameterIsAutomatable|kParameterIsLogarithmic;
         parameter.ranges.min = 0.0f;
         parameter.ranges.max = kMaxHoldTime;
-        parameter.ranges.def = 0.1f;
+        parameter.ranges.defaultValue = 0.1f;
     }
 
    /* --------------------------------------------------------------------------------------------------------

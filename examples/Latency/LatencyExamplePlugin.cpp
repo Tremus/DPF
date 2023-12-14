@@ -116,7 +116,7 @@ void plugin_initParameter(void*, uint32_t index, Parameter& parameter)
     parameter.name   = "Latency";
     parameter.symbol = "latency";
     parameter.unit   = "s";
-    parameter.ranges.def = 1.0f;
+    parameter.ranges.defaultValue = 1.0f;
     parameter.ranges.min = 0.0f;
     parameter.ranges.max = 5.0f;
 }

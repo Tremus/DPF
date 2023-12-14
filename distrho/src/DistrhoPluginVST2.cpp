@@ -774,15 +774,15 @@ public:
         if (const VstTimeInfo* const vstTimeInfo = (const VstTimeInfo*)hostCallback(VST_HOST_OPCODE_07, 0, kWantVstTimeFlags))
         {
             fTimePosition.frame   = vstTimeInfo->samplePos;
-            fTimePosition.playing = vstTimeInfo->flags & 0x2;
+            fTimePosition.isPlaying = vstTimeInfo->flags & 0x2;
 
             // ticksPerBeat is not possible with VST2
             fTimePosition.bbt.ticksPerBeat = 1920.0;
 
             if (vstTimeInfo->flags & 0x400)
-                fTimePosition.bbt.beatsPerMinute = vstTimeInfo->tempo;
+                fTimePosition.bbt.bpm = vstTimeInfo->tempo;
             else
-                fTimePosition.bbt.beatsPerMinute = 120.0;
+                fTimePosition.bbt.bpm = 120.0;
 
             if ((vstTimeInfo->flags & 0x2200) == 0x2200)
             {
@@ -791,12 +791,12 @@ public:
                 const double barBeats  = (std::fmod(ppqPos, ppqPerBar) / ppqPerBar) * vstTimeInfo->timeSigNumerator;
                 const double rest      =  std::fmod(barBeats, 1.0);
 
-                fTimePosition.bbt.valid       = true;
+                fTimePosition.bbtSupported    = true;
                 fTimePosition.bbt.bar         = static_cast<int32_t>(ppqPos) / ppqPerBar + 1;
                 fTimePosition.bbt.beat        = static_cast<int32_t>(barBeats - rest + 0.5) + 1;
                 fTimePosition.bbt.tick        = rest * fTimePosition.bbt.ticksPerBeat;
-                fTimePosition.bbt.beatsPerBar = vstTimeInfo->timeSigNumerator;
-                fTimePosition.bbt.beatType    = vstTimeInfo->timeSigDenominator;
+                fTimePosition.bbt.timeSigNumerator = vstTimeInfo->timeSigNumerator;
+                fTimePosition.bbt.timeSigDenominator    = vstTimeInfo->timeSigDenominator;
 
                 if (vstTimeInfo->ppqPos < 0.0)
                 {
@@ -807,16 +807,16 @@ public:
             }
             else
             {
-                fTimePosition.bbt.valid       = false;
+                fTimePosition.bbtSupported    = false;
                 fTimePosition.bbt.bar         = 1;
                 fTimePosition.bbt.beat        = 1;
                 fTimePosition.bbt.tick        = 0.0;
-                fTimePosition.bbt.beatsPerBar = 4.0f;
-                fTimePosition.bbt.beatType    = 4.0f;
+                fTimePosition.bbt.timeSigNumerator = 4.0f;
+                fTimePosition.bbt.timeSigDenominator    = 4.0f;
             }
 
             fTimePosition.bbt.barStartTick = fTimePosition.bbt.ticksPerBeat*
-                                             fTimePosition.bbt.beatsPerBar*
+                                             fTimePosition.bbt.timeSigNumerator*
                                              (fTimePosition.bbt.bar-1);
 
             fPlugin.setTimePosition(fTimePosition);
@@ -938,7 +938,7 @@ private:
                 // NOTE: no trigger support in VST parameters, simulate it here
                 curValue = fPlugin.getParameterValue(i);
 
-                if (d_isEqual(curValue, fPlugin.getParameterRanges(i).def))
+                if (d_isEqual(curValue, fPlugin.getParameterRanges(i).defaultValue))
                     continue;
 
                #if DISTRHO_PLUGIN_HAS_UI

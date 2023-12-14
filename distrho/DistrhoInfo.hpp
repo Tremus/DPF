@@ -176,7 +176,7 @@ START_NAMESPACE_DISTRHO
    public:
      /**
         Plugin class constructor.
-        You must set all parameter values to their defaults, matching ParameterRanges::def.
+        You must set all parameter values to their defaults, matching ParameterRanges::defaultValue.
       */
       GainPlugin()
           : Plugin(1, 0, 0), // 1 parameter, 0 programs and 0 states
@@ -229,7 +229,7 @@ START_NAMESPACE_DISTRHO
           parameter.symbol     = "gain";
           parameter.ranges.min = 0.0f;
           parameter.ranges.max = 2.0f;
-          parameter.ranges.def = 1.0f;
+          parameter.ranges.defaultValue = 1.0f;
       }
 
      /* ----------------------------------------------------------------------------------------
