@@ -17,7 +17,6 @@
 #include "TopLevelWidgetPrivateData.hpp"
 #include "../Window.hpp"
 
-START_NAMESPACE_DGL
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -148,4 +147,3 @@ void TopLevelWidget::requestSizeChange(uint32_t, uint32_t)
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL

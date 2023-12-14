@@ -29,7 +29,6 @@
 # define DISTRHO_USE_CONFIGTHREADLOCALE
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // ScopedSafeLocale class definition
@@ -131,6 +130,5 @@ inline ScopedSafeLocale::~ScopedSafeLocale() noexcept
 #undef DISTRHO_USE_CONFIGTHREADLOCALE
 #undef DISTRHO_USE_NEWLOCALE
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_SCOPED_SAFE_LOCALE_HPP_INCLUDED

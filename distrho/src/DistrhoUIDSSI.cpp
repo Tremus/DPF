@@ -24,7 +24,6 @@
 
 #include <lo/lo.h>
 
-START_NAMESPACE_DISTRHO
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static constexpr const sendNoteFunc sendNoteCallback = nullptr;
@@ -93,7 +92,7 @@ struct OscData {
 
 // -----------------------------------------------------------------------
 
-class UIDssi : public DGL_NAMESPACE::IdleCallback
+class UIDssi : public IdleCallback
 {
 public:
     UIDssi(const OscData& oscData, const char* const uiTitle, const double sampleRate)
@@ -321,14 +320,11 @@ int osc_quit_handler(const char*, const char*, lo_arg**, int, lo_message, void*)
     return 0;
 }
 
-END_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
-    USE_NAMESPACE_DISTRHO
-
     // dummy test mode
     if (argc == 1)
     {

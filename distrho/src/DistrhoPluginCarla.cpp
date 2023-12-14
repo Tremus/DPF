@@ -28,7 +28,6 @@
 
 // -----------------------------------------------------------------------
 
-START_NAMESPACE_DISTRHO
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 static constexpr const writeMidiFunc writeMidiCallback = nullptr;
@@ -448,6 +447,5 @@ public:
     }
 };
 
-END_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------

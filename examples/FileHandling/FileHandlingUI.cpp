@@ -21,11 +21,10 @@
 #include "DistrhoPluginInfo.h"
 #include "NanoButton.hpp"
 
-START_NAMESPACE_DISTRHO
 
-using DGL_NAMESPACE::Button;
-using DGL_NAMESPACE::ButtonEventHandler;
-using DGL_NAMESPACE::SubWidget;
+using Button;
+using ButtonEventHandler;
+using SubWidget;
 
 const char* kStateKeys[kStateCount] = {
     "file1",
@@ -281,4 +280,3 @@ UI* createUI()
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

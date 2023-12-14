@@ -26,7 +26,6 @@
 
 #include <string>
 
-START_NAMESPACE_DGL
 
 class Button : public NanoSubWidget,
                public ButtonEventHandler
@@ -54,6 +53,5 @@ private:
     DISTRHO_LEAK_DETECTOR(Button)
 };
 
-END_NAMESPACE_DGL
 
 #endif // NANO_BUTTON_HPP_INCLUDED

@@ -30,7 +30,6 @@
 #include <sys/types.h>
 #endif
 
-START_NAMESPACE_DISTRHO
 
 #ifdef KDE_FIFO_TEST
 // TODO: generate a random, not-yet-existing, filename
@@ -260,4 +259,3 @@ UI* createUI()
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

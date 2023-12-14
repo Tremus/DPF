@@ -36,7 +36,6 @@
 
 #include "xaymar-vst2/vst.h"
 
-START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -231,8 +230,6 @@ public:
     int handlePluginKeyEvent(const bool down, const int32_t index, const intptr_t value)
     {
         d_stdout("handlePluginKeyEvent %i %i %li\n", down, index, (long int)value);
-
-        using namespace DGL_NAMESPACE;
 
         bool special;
         const uint32_t key = translateVstKeyCode(special, index, static_cast<int32_t>(value));
@@ -1310,7 +1307,6 @@ static void VST_FUNCTION_INTERFACE vst_processReplacingCallback(vst_effect* cons
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 DISTRHO_PLUGIN_EXPORT
 #if defined(DISTRHO_OS_MAC) || defined(DISTRHO_OS_WASM) || defined(DISTRHO_OS_WINDOWS)
@@ -1322,8 +1318,6 @@ const vst_effect* VSTPluginMain(vst_host_callback audioMaster) asm ("main");
 DISTRHO_PLUGIN_EXPORT
 const vst_effect* VSTPluginMain(const vst_host_callback audioMaster)
 {
-    USE_NAMESPACE_DISTRHO
-
     // old version
     if (audioMaster(nullptr, VST_HOST_OPCODE_01 /* version */, 0, 0, nullptr, 0.0f) == 0)
         return nullptr;

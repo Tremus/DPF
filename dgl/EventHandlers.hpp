@@ -19,7 +19,6 @@
 
 #include "Widget.hpp"
 
-START_NAMESPACE_DGL
 
 /* NOTE none of these classes get assigned to a widget automatically
    Manual plugging into Widget events is needed, like so:
@@ -191,7 +190,6 @@ private:
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_EVENT_HANDLERS_HPP_INCLUDED
 

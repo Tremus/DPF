@@ -27,16 +27,13 @@
 # define DISTRHO_FILE_BROWSER_DIALOG_HPP_INCLUDED
 # define FILE_BROWSER_DIALOG_NAMESPACE DISTRHO_NAMESPACE
 # define FILE_BROWSER_DIALOG_DISTRHO_NAMESPACE
-START_NAMESPACE_DISTRHO
 # include "extra/FileBrowserDialogImpl.hpp"
-END_NAMESPACE_DISTRHO
 # include "extra/FileBrowserDialogImpl.cpp"
 #endif
 
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 # include <algorithm>
 # include <cmath>
-START_NAMESPACE_DISTRHO
 double getDesktopScaleFactor(const uintptr_t parentWindowHandle)
 {
     if (NSView* const parentView = (NSView*)parentWindowHandle)
@@ -45,5 +42,4 @@ double getDesktopScaleFactor(const uintptr_t parentWindowHandle)
 
     return [NSScreen mainScreen].backingScaleFactor;
 }
-END_NAMESPACE_DISTRHO
 #endif

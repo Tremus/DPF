@@ -37,7 +37,6 @@ typedef pthread_t d_ThreadHandle;
 typedef struct PuglWorldImpl PuglWorld;
 #endif
 
-START_NAMESPACE_DGL
 
 class Window;
 
@@ -71,10 +70,10 @@ struct Application::PrivateData {
     d_ThreadHandle mainThreadHandle;
 
     /** List of windows for this application. Only used during `close`. */
-    std::list<DGL_NAMESPACE::Window*> windows;
+    std::list<Window*> windows;
 
     /** List of idle callbacks for this application. */
-    std::list<DGL_NAMESPACE::IdleCallback*> idleCallbacks;
+    std::list<IdleCallback*> idleCallbacks;
 
     /** Constructor and destructor */
     explicit PrivateData(bool standalone);
@@ -111,6 +110,5 @@ struct Application::PrivateData {
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_APP_PRIVATE_DATA_HPP_INCLUDED

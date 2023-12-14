@@ -33,8 +33,6 @@
 # define DISTRHO_PLUGIN_NUM_OUTPUTS_2 DISTRHO_PLUGIN_NUM_OUTPUTS
 #endif
 
-using DISTRHO_NAMESPACE::HeapRingBuffer;
-
 struct NativeBridge {
     // Current status information
     uint32_t bufferSize;

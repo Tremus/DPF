@@ -19,7 +19,6 @@
 
 #include "pugl.hpp"
 
-START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
 // ScopedGraphicsContext
@@ -555,4 +554,3 @@ void Window::onFileSelected(const char*)
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL

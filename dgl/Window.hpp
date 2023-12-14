@@ -25,14 +25,7 @@
 
 #include <vector>
 
-#ifdef DISTRHO_NAMESPACE
-START_NAMESPACE_DISTRHO
-class PluginWindow;
-END_NAMESPACE_DISTRHO
-#endif
-
-START_NAMESPACE_DGL
-
+struct PluginWindow;
 class Application;
 class TopLevelWidget;
 
@@ -59,11 +52,11 @@ class TopLevelWidget;
 
    ...
  */
-class DISTRHO_API Window
+class Window
 {
-   struct PrivateData;
-
 public:
+    struct PrivateData;
+    PrivateData* const pData;
    /**
       Window graphics context as a scoped struct.
       This class gives graphics context drawing time to a window's widgets.
@@ -403,7 +396,7 @@ public:
 
       This function does not block the event loop.
     */
-    bool openFileBrowser(const DGL_NAMESPACE::FileBrowserOptions& options = FileBrowserOptions());
+    bool openFileBrowser(const FileBrowserOptions& options = FileBrowserOptions());
 #endif
 
    /**
@@ -453,7 +446,6 @@ public:
     */
     void setTransientParent(uintptr_t transientParentWindowHandle);
 
-protected:
    /**
       Get the types available for the data in a clipboard.
       Must only be called within the context of onClipboardDataOffer.
@@ -476,7 +468,7 @@ protected:
       Returning true closes the window, which is the default behaviour.
       Override this method and return false to prevent the window from being closed by the user.
 
-      This method is not used for embed windows, and not even made available in DISTRHO_NAMESPACE::UI.
+      This method is not used for embed windows, and not even made available in UI.
       For embed windows, closing is handled by the host/parent process and we have no control over it.
       As such, a close action on embed windows will always succeed and cannot be cancelled.
 
@@ -513,14 +505,6 @@ protected:
     virtual void onFileSelected(const char* filename);
 #endif
 
-private:
-    PrivateData* const pData;
-    friend class Application;
-    friend class TopLevelWidget;
-   #ifdef DISTRHO_NAMESPACE
-    friend class DISTRHO_NAMESPACE::PluginWindow;
-   #endif
-
    /** @internal */
     explicit Window(Application& app,
                     uintptr_t parentWindowHandle,
@@ -531,11 +515,11 @@ private:
                     bool usesSizeRequest,
                     bool doPostInit);
 
+private:
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Window)
 };
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_WINDOW_HPP_INCLUDED

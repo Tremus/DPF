@@ -50,14 +50,6 @@
 # include "sofd/libsofd.c"
 #endif
 
-#ifdef FILE_BROWSER_DIALOG_DGL_NAMESPACE
-START_NAMESPACE_DGL
-using DISTRHO_NAMESPACE::ScopedPointer;
-using DISTRHO_NAMESPACE::String;
-#else
-START_NAMESPACE_DISTRHO
-#endif
-
 // --------------------------------------------------------------------------------------------------------------------
 
 // static pointer used for signal null/none action taken
@@ -838,12 +830,6 @@ const char* fileBrowserGetPath(const FileBrowserHandle handle)
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-
-#ifdef FILE_BROWSER_DIALOG_DGL_NAMESPACE
-END_NAMESPACE_DGL
-#else
-END_NAMESPACE_DISTRHO
-#endif
 
 #undef FILE_BROWSER_DIALOG_DISTRHO_NAMESPACE
 #undef FILE_BROWSER_DIALOG_DGL_NAMESPACE

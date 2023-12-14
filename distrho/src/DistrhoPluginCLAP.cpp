@@ -67,7 +67,6 @@
 # define DPF_CLAP_TIMER_INTERVAL 16 /* ~60 fps */
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -182,7 +181,7 @@ static constexpr const sendNoteFunc sendNoteCallback = nullptr;
 /**
  * CLAP UI class.
  */
-class ClapUI : public DGL_NAMESPACE::IdleCallback
+class ClapUI : public IdleCallback
 {
 public:
     ClapUI(PluginExporter& plugin,
@@ -2409,11 +2408,10 @@ static const clap_plugin_entry_t clap_plugin_entry = {
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
 DISTRHO_PLUGIN_EXPORT
-const clap_plugin_entry_t clap_entry = DISTRHO_NAMESPACE::clap_plugin_entry;
+const clap_plugin_entry_t clap_entry = clap_plugin_entry;
 
 // --------------------------------------------------------------------------------------------------------------------

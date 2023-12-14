@@ -41,20 +41,6 @@ jobs:
       run: |
         make clean >/dev/null
         make -j $(nproc)
-    - name: No namespace
-      env:
-        CFLAGS: -Werror
-        CXXFLAGS: -Werror -DDONT_SET_USING_DISTRHO_NAMESPACE -DDONT_SET_USING_DGL_NAMESPACE
-      run: |
-        make clean >/dev/null
-        make -j $(nproc)
-    - name: Custom namespace
-      env:
-        CFLAGS: -Werror
-        CXXFLAGS: -Werror -DDISTRHO_NAMESPACE=WubbWubb -DDGL_NAMESPACE=DabDab
-      run: |
-        make clean >/dev/null
-        make -j $(nproc)
     - name: With OpenGL 3.x
       env:
         CFLAGS: -Werror

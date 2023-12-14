@@ -551,17 +551,6 @@ HAVE_DGL = $(HAVE_X11)
 endif
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Namespace flags
-
-ifneq ($(DISTRHO_NAMESPACE),)
-BUILD_CXX_FLAGS += -DDISTRHO_NAMESPACE=$(DISTRHO_NAMESPACE)
-endif
-
-ifneq ($(DGL_NAMESPACE),)
-BUILD_CXX_FLAGS += -DDGL_NAMESPACE=$(DGL_NAMESPACE)
-endif
-
-# ---------------------------------------------------------------------------------------------------------------------
 # Optional flags
 
 ifeq ($(NVG_DISABLE_SKIPPING_WHITESPACE),true)

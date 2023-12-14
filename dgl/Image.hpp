@@ -19,10 +19,8 @@
 
 #include "OpenGL.hpp"
 
-START_NAMESPACE_DGL
 
 typedef OpenGLImage Image;
 
-END_NAMESPACE_DGL
 
 #endif

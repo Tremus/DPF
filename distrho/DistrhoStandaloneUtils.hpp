@@ -19,7 +19,6 @@
 
 #include "src/DistrhoDefines.h"
 
-START_NAMESPACE_DISTRHO
 
 /* ------------------------------------------------------------------------------------------------------------
  * Standalone plugin related utilities */
@@ -94,6 +93,5 @@ bool requestMIDI();
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_STANDALONE_UTILS_HPP_INCLUDED

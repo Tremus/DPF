@@ -21,7 +21,6 @@
 
 #include <list>
 
-START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
 
@@ -45,6 +44,5 @@ struct TopLevelWidget::PrivateData {
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_TOP_LEVEL_WIDGET_PRIVATE_DATA_HPP_INCLUDED

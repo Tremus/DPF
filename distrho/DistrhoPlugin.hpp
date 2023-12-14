@@ -20,7 +20,6 @@
 #include "DistrhoDetails.hpp"
 #include "extra/LeakDetector.hpp"
 
-START_NAMESPACE_DISTRHO
 
 /* ------------------------------------------------------------------------------------------------------------
  * DPF Plugin */
@@ -265,6 +264,5 @@ extern struct PluginPrivateData* getPluginPrivateData(void*);
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_PLUGIN_HPP_INCLUDED

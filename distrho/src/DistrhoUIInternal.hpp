@@ -19,7 +19,6 @@
 
 #include "DistrhoUIPrivateData.hpp"
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // Static data, see DistrhoUI.cpp
@@ -138,7 +137,7 @@ public:
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         uiData->window->getGeometryConstraints(minimumWidth, minimumHeight, keepAspectRatio);
 #else
-        const DGL_NAMESPACE::Size<uint32_t> size(uiData->window->getGeometryConstraints(keepAspectRatio));
+        const Size<uint32_t> size(uiData->window->getGeometryConstraints(keepAspectRatio));
         minimumWidth = size.getWidth();
         minimumHeight = size.getHeight();
 #endif
@@ -195,7 +194,7 @@ public:
     // -------------------------------------------------------------------
 
    #if DISTRHO_UI_IS_STANDALONE
-    void exec(DGL_NAMESPACE::IdleCallback* const cb)
+    void exec(IdleCallback* const cb)
     {
         DISTRHO_SAFE_ASSERT_RETURN(cb != nullptr,);
 
@@ -317,8 +316,6 @@ public:
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
     bool handlePluginKeyboardVST(const bool press, const bool special, const uint32_t keychar, const uint32_t keycode, const uint16_t mods)
     {
-        using namespace DGL_NAMESPACE;
-
         Widget::KeyboardEvent ev;
         ev.mod     = mods;
         ev.press   = press;
@@ -363,7 +360,7 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
 
-        ui->uiFocus(focus, DGL_NAMESPACE::kCrossingNormal);
+        ui->uiFocus(focus, kCrossingNormal);
     }
 #endif
 
@@ -387,6 +384,5 @@ public:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_UI_INTERNAL_HPP_INCLUDED

@@ -19,7 +19,6 @@
 
 #include "DistrhoPlugin.hpp"
 
-START_NAMESPACE_DISTRHO
 
 /* ------------------------------------------------------------------------------------------------------------
  * Plugin related utilities */
@@ -210,6 +209,5 @@ private:
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_PLUGIN_UTILS_HPP_INCLUDED

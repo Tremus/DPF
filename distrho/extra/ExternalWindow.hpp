@@ -26,7 +26,6 @@
 # include <unistd.h>
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // ExternalWindow class
@@ -437,7 +436,7 @@ protected:
     }
 
 private:
-    friend class PluginWindow;
+    friend struct PluginWindow;
     friend class UI;
 
 #ifndef DISTRHO_OS_WINDOWS
@@ -573,6 +572,5 @@ private:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_EXTERNAL_WINDOW_HPP_INCLUDED

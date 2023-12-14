@@ -47,7 +47,6 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD reason, LPVOID)
 # endif
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 
@@ -165,4 +164,3 @@ bool requestMIDI() { return false; }
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

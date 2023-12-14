@@ -21,7 +21,6 @@
 
 #include <algorithm>
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // The following code was based from juce-core ScopedPointer class
@@ -246,6 +245,5 @@ bool operator!=(const ScopedPointer<ObjectType>& pointer1, ObjectType* const poi
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_SCOPED_POINTER_HPP_INCLUDED

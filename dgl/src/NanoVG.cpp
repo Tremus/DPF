@@ -132,7 +132,6 @@ DGL_EXT(PFNGLUNIFORMBLOCKBINDINGPROC,      glUniformBlockBinding)
 
 // -----------------------------------------------------------------------
 
-START_NAMESPACE_DGL
 
 NVGcontext* nvgCreateGL(int flags)
 {
@@ -1187,7 +1186,6 @@ template class NanoBaseWidget<StandaloneWindow>;
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #undef final
 

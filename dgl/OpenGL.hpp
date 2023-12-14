@@ -22,7 +22,6 @@
 
 #include "OpenGL-include.hpp"
 
-START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
 
@@ -173,6 +172,5 @@ typedef ImageBaseSwitch<OpenGLImage> OpenGLImageSwitch;
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_OPENGL_HPP_INCLUDED

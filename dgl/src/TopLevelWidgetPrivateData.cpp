@@ -19,7 +19,6 @@
 #include "WindowPrivateData.hpp"
 #include "pugl.hpp"
 
-START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
 
@@ -142,4 +141,3 @@ void TopLevelWidget::PrivateData::fallbackOnResize()
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL

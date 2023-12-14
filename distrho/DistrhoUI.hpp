@@ -30,16 +30,16 @@
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 # include "../dgl/Base.hpp"
 # include "extra/ExternalWindow.hpp"
-typedef DISTRHO_NAMESPACE::ExternalWindow UIWidget;
+typedef ExternalWindow UIWidget;
 #elif DISTRHO_UI_USE_CUSTOM
 # include DISTRHO_UI_CUSTOM_INCLUDE_PATH
 typedef DISTRHO_UI_CUSTOM_WIDGET_TYPE UIWidget;
 #elif DISTRHO_UI_USE_NANOVG
 # include "../dgl/NanoVG.hpp"
-typedef DGL_NAMESPACE::NanoTopLevelWidget UIWidget;
+typedef NanoTopLevelWidget UIWidget;
 #else
 # include "../dgl/TopLevelWidget.hpp"
-typedef DGL_NAMESPACE::TopLevelWidget UIWidget;
+typedef TopLevelWidget UIWidget;
 #endif
 
 #if DISTRHO_UI_FILE_BROWSER
@@ -49,9 +49,8 @@ typedef DGL_NAMESPACE::TopLevelWidget UIWidget;
 # include <vector>
 #endif
 
-START_NAMESPACE_DISTRHO
 
-class PluginWindow;
+struct PluginWindow;
 
 /* ------------------------------------------------------------------------------------------------------------
  * DPF UI */
@@ -174,7 +173,7 @@ public:
       @note This is exactly the same API as provided by the Window class,
             but redeclared here so that non-embed/DGL based UIs can still use file browser related functions.
     */
-    bool openFileBrowser(const DISTRHO_NAMESPACE::FileBrowserOptions& options = FileBrowserOptions());
+    bool openFileBrowser(const FileBrowserOptions& options = FileBrowserOptions());
 #endif
 
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
@@ -260,7 +259,7 @@ protected:
       Get the types available for the data in a clipboard.
       Must only be called within the context of uiClipboardDataOffer.
     */
-    std::vector<DGL_NAMESPACE::ClipboardDataOffer> getClipboardDataOfferTypes();
+    std::vector<ClipboardDataOffer> getClipboardDataOfferTypes();
 
    /**
       Window clipboard data offer function, called when clipboard has data present, possibly with several datatypes.
@@ -279,7 +278,7 @@ protected:
 
       The default implementation does nothing.
     */
-    virtual void uiFocus(bool focus, DGL_NAMESPACE::CrossingMode mode);
+    virtual void uiFocus(bool focus, CrossingMode mode);
 
    /**
       Window reshape function, called when the window is resized.
@@ -331,7 +330,7 @@ protected:
 private:
     struct PrivateData;
     PrivateData* const uiData;
-    friend class PluginWindow;
+    friend struct PluginWindow;
     friend class UIExporter;
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
    /** @internal */
@@ -361,6 +360,5 @@ extern UI* createUI();
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_UI_HPP_INCLUDED

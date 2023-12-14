@@ -21,19 +21,6 @@
 #include "../distrho/extra/ScopedPointer.hpp"
 
 // --------------------------------------------------------------------------------------------------------------------
-// Define namespace
-
-#ifndef DGL_NAMESPACE
-# define DGL_NAMESPACE DGL
-#endif
-
-#define START_NAMESPACE_DGL namespace DGL_NAMESPACE {
-#define END_NAMESPACE_DGL }
-#define USE_NAMESPACE_DGL using namespace DGL_NAMESPACE;
-
-START_NAMESPACE_DGL
-
-// --------------------------------------------------------------------------------------------------------------------
 // Base DGL enums
 
 /**
@@ -214,16 +201,6 @@ struct IdleCallback
     virtual ~IdleCallback() {}
     virtual void idleCallback() = 0;
 };
-
-// --------------------------------------------------------------------------------------------------------------------
-
-END_NAMESPACE_DGL
-
-#ifndef DONT_SET_USING_DGL_NAMESPACE
-  // If your code uses a lot of DGL classes, then this will obviously save you
-  // a lot of typing, but can be disabled by setting DONT_SET_USING_DGL_NAMESPACE.
-  using namespace DGL_NAMESPACE;
-#endif
 
 // --------------------------------------------------------------------------------------------------------------------
 

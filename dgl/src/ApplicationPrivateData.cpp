@@ -21,9 +21,8 @@
 
 #include <ctime>
 
-START_NAMESPACE_DGL
 
-typedef std::list<DGL_NAMESPACE::Window*>::reverse_iterator WindowListReverseIterator;
+typedef std::list<Window*>::reverse_iterator WindowListReverseIterator;
 
 static d_ThreadHandle getCurrentThreadHandle() noexcept
 {
@@ -70,7 +69,7 @@ Application::PrivateData::PrivateData(const bool standalone)
    #ifdef __EMSCRIPTEN__
     puglSetClassName(world, "canvas");
    #else
-    puglSetClassName(world, DISTRHO_MACRO_AS_STRING(DGL_NAMESPACE));
+    puglSetClassName(world, "DGL");
    #endif
 }
 
@@ -152,7 +151,7 @@ void Application::PrivateData::quit()
 #ifndef DPF_TEST_APPLICATION_CPP
     for (WindowListReverseIterator rit = windows.rbegin(), rite = windows.rend(); rit != rite; ++rit)
     {
-        DGL_NAMESPACE::Window* const window(*rit);
+        Window* const window(*rit);
         window->close();
     }
 #endif
@@ -173,4 +172,3 @@ void Application::PrivateData::setClassName(const char* const name)
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL

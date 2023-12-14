@@ -18,7 +18,6 @@
 #include "SubWidgetPrivateData.hpp"
 #include "../TopLevelWidget.hpp"
 
-START_NAMESPACE_DGL
 
 #define FOR_EACH_SUBWIDGET(it) \
   for (std::list<SubWidget*>::iterator it = subWidgets.begin(); it != subWidgets.end(); ++it)
@@ -229,4 +228,3 @@ TopLevelWidget* Widget::PrivateData::findTopLevelWidget(Widget* const pw)
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL

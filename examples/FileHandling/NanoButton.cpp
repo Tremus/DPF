@@ -21,7 +21,6 @@
 #include "NanoButton.hpp"
 #include "Window.hpp"
 
-START_NAMESPACE_DGL
 
 Button::Button(Widget* const parent, ButtonEventHandler::Callback* const cb)
     : NanoWidget(parent),
@@ -103,4 +102,3 @@ bool Button::onMotion(const MotionEvent& ev)
     return ButtonEventHandler::motionEvent(ev);
 }
 
-END_NAMESPACE_DGL

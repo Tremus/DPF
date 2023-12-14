@@ -35,7 +35,6 @@
 struct NVGcontext;
 struct NVGpaint;
 
-START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
 // Forward class names
@@ -987,7 +986,6 @@ typedef NanoBaseWidget<StandaloneWindow> NanoStandaloneWindow;
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #ifdef _MSC_VER
 # pragma warning(pop)

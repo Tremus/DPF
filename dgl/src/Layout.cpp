@@ -17,7 +17,6 @@
 #include "../Layout.hpp"
 #include "../SubWidget.hpp"
 
-START_NAMESPACE_DGL
 
 typedef std::list<SubWidgetWithSizeHint>::iterator SubWidgetWithSizeHintIterator;
 typedef std::list<HorizontalLayout*>::iterator HorizontalLayoutIterator;
@@ -198,4 +197,3 @@ void VerticallyStackedHorizontalLayout::setAbsolutePos(const int x, int y, const
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL

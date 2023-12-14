@@ -46,9 +46,7 @@
 # define DISTRHO_FILE_BROWSER_DIALOG_HPP_INCLUDED
 # define FILE_BROWSER_DIALOG_NAMESPACE DISTRHO_NAMESPACE
 # define FILE_BROWSER_DIALOG_DISTRHO_NAMESPACE
-START_NAMESPACE_DISTRHO
 # include "../extra/FileBrowserDialogImpl.hpp"
-END_NAMESPACE_DISTRHO
 # include "../extra/FileBrowserDialogImpl.cpp"
 #endif
 
@@ -66,7 +64,6 @@ END_NAMESPACE_DISTRHO
 
 #include "DistrhoUIPrivateData.hpp"
 
-START_NAMESPACE_DISTRHO
 
 /* ------------------------------------------------------------------------------------------------------------
  * Static data, see DistrhoUIInternal.hpp */
@@ -311,7 +308,7 @@ void UI::sendNote(uint8_t channel, uint8_t note, uint8_t velocity)
 #if DISTRHO_UI_FILE_BROWSER
 bool UI::openFileBrowser(const FileBrowserOptions& options)
 {
-    return getWindow().openFileBrowser((DGL_NAMESPACE::FileBrowserOptions&)options);
+    return getWindow().openFileBrowser((FileBrowserOptions&)options);
 }
 #endif
 
@@ -362,18 +359,18 @@ void UI::uiScaleFactorChanged(double)
 }
 
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-std::vector<DGL_NAMESPACE::ClipboardDataOffer> UI::getClipboardDataOfferTypes()
+std::vector<ClipboardDataOffer> UI::getClipboardDataOfferTypes()
 {
     return uiData->window->getClipboardDataOfferTypes();
 }
 
 uint32_t UI::uiClipboardDataOffer()
 {
-    std::vector<DGL_NAMESPACE::ClipboardDataOffer> offers(uiData->window->getClipboardDataOfferTypes());
+    std::vector<ClipboardDataOffer> offers(uiData->window->getClipboardDataOfferTypes());
 
-    for (std::vector<DGL_NAMESPACE::ClipboardDataOffer>::iterator it=offers.begin(), end=offers.end(); it != end;++it)
+    for (std::vector<ClipboardDataOffer>::iterator it=offers.begin(), end=offers.end(); it != end;++it)
     {
-        const DGL_NAMESPACE::ClipboardDataOffer offer = *it;
+        const ClipboardDataOffer offer = *it;
         if (std::strcmp(offer.type, "text/plain") == 0)
             return offer.id;
     }
@@ -381,7 +378,7 @@ uint32_t UI::uiClipboardDataOffer()
     return 0;
 }
 
-void UI::uiFocus(bool, DGL_NAMESPACE::CrossingMode)
+void UI::uiFocus(bool, CrossingMode)
 {
 }
 
@@ -441,4 +438,3 @@ void UI::requestSizeChange(const uint32_t width, const uint32_t height)
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

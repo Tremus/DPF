@@ -27,12 +27,10 @@
 
 /* Check OS */
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
-# define DISTRHO_API
 # define DISTRHO_PLUGIN_EXPORT extern "C" __declspec (dllexport)
 # define DISTRHO_OS_WINDOWS 1
 # define DISTRHO_DLL_EXTENSION "dll"
 #else
-# define DISTRHO_API
 # define DISTRHO_PLUGIN_EXPORT extern "C" __attribute__ ((visibility("default")))
 # if defined(__APPLE__)
 #  define DISTRHO_OS_MAC 1
@@ -164,14 +162,6 @@ private:                                         \
 private:                                         \
     static void* operator new(std::size_t);
 #endif
-
-/* Define namespace */
-#ifndef DISTRHO_NAMESPACE
-# define DISTRHO_NAMESPACE
-#endif
-#define START_NAMESPACE_DISTRHO
-#define END_NAMESPACE_DISTRHO
-#define USE_NAMESPACE_DISTRHO
 
 /* Define DISTRHO_OS_SEP and DISTRHO_OS_SPLIT */
 #ifdef DISTRHO_OS_WINDOWS

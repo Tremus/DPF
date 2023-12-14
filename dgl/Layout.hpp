@@ -21,7 +21,6 @@
 
 #include <list>
 
-START_NAMESPACE_DGL
 
 class SubWidget;
 
@@ -66,6 +65,5 @@ struct VerticallyStackedHorizontalLayout
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_LAYOUT_HPP_INCLUDED

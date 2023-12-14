@@ -23,7 +23,6 @@
 # include <xmmintrin.h>
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 // ScopedDenormalDisable class definition
@@ -107,6 +106,5 @@ inline void ScopedDenormalDisable::setFlags(const cpuflags_t flags) noexcept
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_SCOPED_DENORMAL_DISABLE_HPP_INCLUDED

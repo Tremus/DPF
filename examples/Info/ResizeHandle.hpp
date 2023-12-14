@@ -23,7 +23,6 @@
 #include "OpenGL-include.hpp"
 #endif
 
-START_NAMESPACE_DGL
 
 /** Resize handle for DPF windows, will sit on bottom-right. */
 class ResizeHandle : public TopLevelWidget
@@ -208,4 +207,3 @@ private:
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ResizeHandle)
 };
 
-END_NAMESPACE_DGL

@@ -51,7 +51,6 @@
 #define DISTRHO_LV2_USE_EVENTS_IN  (DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_TIMEPOS)
 #define DISTRHO_LV2_USE_EVENTS_OUT DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 
-START_NAMESPACE_DISTRHO
 
 typedef std::map<const String, String> StringToStringMap;
 typedef std::map<const LV2_URID, String> UridToStringMap;
@@ -1078,12 +1077,10 @@ static const LV2_Descriptor sLv2Descriptor = {
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 DISTRHO_PLUGIN_EXPORT
 const LV2_Descriptor* lv2_descriptor(uint32_t index)
 {
-    USE_NAMESPACE_DISTRHO
     return (index == 0) ? &sLv2Descriptor : nullptr;
 }
 

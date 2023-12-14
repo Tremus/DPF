@@ -29,7 +29,6 @@
 # endif
 #endif
 
-START_NAMESPACE_DGL
 
 #ifdef DGL_DEBUG_EVENTS
 # define DGL_DBG(msg)  std::fprintf(stderr, "%s", msg);
@@ -1186,4 +1185,3 @@ static int printEvent(const PuglEvent* event, const char* prefix, const bool ver
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL

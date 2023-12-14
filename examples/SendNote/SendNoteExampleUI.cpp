@@ -20,14 +20,13 @@
 
 #include <cstring>
 
-START_NAMESPACE_DISTRHO
 
 /**
   We need a few classes from DGL.
  */
-using DGL_NAMESPACE::Color;
-using DGL_NAMESPACE::GraphicsContext;
-using DGL_NAMESPACE::Rectangle;
+using Color;
+using GraphicsContext;
+using Rectangle;
 
 // -----------------------------------------------------------------------------------------------------------
 
@@ -171,4 +170,3 @@ UI* createUI()
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

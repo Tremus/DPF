@@ -29,7 +29,6 @@
 # error Threads do not work under wasm!
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // Thread class
@@ -339,6 +338,5 @@ private:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_THREAD_HPP_INCLUDED

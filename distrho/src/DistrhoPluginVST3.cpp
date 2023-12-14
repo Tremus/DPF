@@ -61,7 +61,6 @@
 #include <vector>
 #include <atomic>
 
-START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -4424,7 +4423,6 @@ struct dpf_factory {
     }
 };
 
-END_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 // VST3 entry point
@@ -4459,8 +4457,6 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS);
 
 bool ENTRYFNNAME(ENTRYFNNAMEARGS)
 {
-    USE_NAMESPACE_DISTRHO;
-
     // find plugin bundle
     static String bundlePath;
     if (bundlePath.isEmpty())
@@ -4513,7 +4509,7 @@ bool EXITFNNAME(void);
 
 bool EXITFNNAME(void)
 {
-    DISTRHO_NAMESPACE::sPlugin = nullptr;
+    sPlugin = nullptr;
     return true;
 }
 

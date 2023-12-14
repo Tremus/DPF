@@ -20,7 +20,6 @@
 #include "Image.hpp"
 #include "ImageBaseWidgets.hpp"
 
-START_NAMESPACE_DGL
 
 typedef OpenGLImageAboutWindow ImageAboutWindow;
 typedef OpenGLImageButton ImageButton;
@@ -28,6 +27,5 @@ typedef OpenGLImageKnob ImageKnob;
 typedef OpenGLImageSlider ImageSlider;
 typedef OpenGLImageSwitch ImageSwitch;
 
-END_NAMESPACE_DGL
 
 #endif // DGL_IMAGE_WIDGETS_HPP_INCLUDED

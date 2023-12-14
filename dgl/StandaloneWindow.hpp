@@ -20,7 +20,6 @@
 #include "TopLevelWidget.hpp"
 #include "Window.hpp"
 
-START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
 
@@ -95,6 +94,5 @@ private:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_STANDALONE_WINDOW_HPP_INCLUDED

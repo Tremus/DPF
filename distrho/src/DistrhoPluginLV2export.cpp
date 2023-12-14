@@ -170,7 +170,7 @@ static const char* const lv2ManifestUiSupportedOptions[] =
 };
 #endif // DISTRHO_PLUGIN_HAS_UI
 
-static void addAttribute(DISTRHO_NAMESPACE::String& text,
+static void addAttribute(String& text,
                          const char* const attribute,
                          const char* const values[],
                          const uint32_t indent,
@@ -219,8 +219,6 @@ static void addAttribute(DISTRHO_NAMESPACE::String& text,
 DISTRHO_PLUGIN_EXPORT
 void lv2_generate_ttl(const char* const basename)
 {
-    USE_NAMESPACE_DISTRHO
-
     String bundlePath(getBinaryFilename());
     if (bundlePath.isNotEmpty())
     {

@@ -18,7 +18,6 @@
 #include "WidgetPrivateData.hpp"
 #include "../TopLevelWidget.hpp"
 
-START_NAMESPACE_DGL
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -195,4 +194,3 @@ bool SubWidget::contains(const Point<double>& pos) const noexcept
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL

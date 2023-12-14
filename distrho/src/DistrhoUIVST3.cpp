@@ -48,7 +48,6 @@
 
 #define tuid_match(a, b) memcmp(a, b, sizeof(Steinberg_TUID)) == 0
 
-START_NAMESPACE_DISTRHO
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -113,8 +112,6 @@ static void applyGeometryConstraints(const uint32_t minimumWidth,
 #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 static uint32_t translateVST3Modifiers(const int64_t modifiers) noexcept
 {
-    using namespace DGL_NAMESPACE;
-
     uint32_t dglmods = 0;
     if (modifiers & (1 << 0))
         dglmods |= kModifierShift;
@@ -1578,4 +1575,3 @@ Steinberg_IPlugView* dpf_plugin_view_create(Steinberg_Vst_IHostApplication* cons
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

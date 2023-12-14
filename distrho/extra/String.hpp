@@ -26,7 +26,6 @@
 # include <string_view>
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // String class
@@ -1005,6 +1004,5 @@ String operator+(const char* const strBufBefore, const String& strAfter) noexcep
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_STRING_HPP_INCLUDED

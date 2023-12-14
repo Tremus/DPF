@@ -26,7 +26,6 @@
 # include <emscripten/html5.h>
 #endif
 
-START_NAMESPACE_DISTRHO
 
 #ifdef DISTRHO_RUNNER_INDIRECT_WASM_CALLS
 long d_emscripten_set_interval(void (*)(void*), double, void*);
@@ -246,6 +245,5 @@ private:
 
 // -------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_RUNNER_HPP_INCLUDED

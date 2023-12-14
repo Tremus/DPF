@@ -18,7 +18,6 @@
 
 #include "src/DistrhoDefines.h"
 
-START_NAMESPACE_DISTRHO
 
 /* ------------------------------------------------------------------------------------------------------------
  * Intro */
@@ -46,19 +45,12 @@ START_NAMESPACE_DISTRHO
    The next step is to create your plugin code by subclassing DPF's Plugin class.@n
    You need to pass the number of parameters in the constructor and also the number of programs and states, if any.
 
-   Do note all of DPF code is within its own C++ namespace (@b DISTRHO for DSP/plugin stuff, @b DGL for UI stuff).@n
-   You can use @ref START_NAMESPACE_DISTRHO / @ref END_NAMESPACE_DISTRHO combo around your code, or globally set @ref USE_NAMESPACE_DISTRHO.@n
-   These are defined as compiler macros so that you can override the namespace name during build. When in doubt, just follow the examples.
-
    @section Examples
    Let's begin with some examples.@n
    Here is one of a stereo audio plugin that simply mutes the host output:
    @code
    /* DPF plugin include */
    #include "DistrhoPlugin.hpp"
-
-   /* Make DPF related classes available for us to use without any extra namespace references */
-   USE_NAMESPACE_DISTRHO;
 
    /**
       Our custom plugin class.
@@ -436,7 +428,7 @@ START_NAMESPACE_DISTRHO
    The top-level-widget typedef to use for the custom toolkit.
    This widget class MUST be a subclass of DGL TopLevelWindow class.
    It is recommended that you keep this widget class inside the DGL namespace,
-   and define widget type as e.g. DGL_NAMESPACE::MyCustomTopLevelWidget.
+   and define widget type as e.g. MyCustomTopLevelWidget.
    @see DISTRHO_UI_USE_CUSTOM
  */
 #define DISTRHO_UI_CUSTOM_WIDGET_TYPE
@@ -706,41 +698,6 @@ START_NAMESPACE_DISTRHO
    @{
  */
 
-/**
-   Compiler macro that sets the C++ namespace for DPF plugins.@n
-   If unset during build, it will use the name @b DISTRHO by default.
-
-   Unless you know exactly what you are doing, you do need to modify this value.@n
-   The only probable useful case for customizing it is if you are building a big collection of very similar DPF-based plugins in your application.@n
-   For example, having 2 different versions of the same plugin that should behave differently but still exist within the same binary.
-
-   On macOS (where due to Objective-C restrictions all code that interacts with Cocoa needs to be in a flat namespace),
-   DPF will automatically use the plugin name as prefix to flat namespace functions in order to avoid conflicts.
-
-   So, basically, it is DPF's job to make sure plugin binaries are 100% usable as-is.@n
-   You typically do not need to care about this at all.
- */
-#define DISTRHO_NAMESPACE DISTRHO
-
-/**
-   Compiler macro that begins the C++ namespace for @b DISTRHO, as needed for (the DSP side of) plugins.@n
-   All classes in DPF are within this namespace except for UI/graphics stuff.
-   @see END_NAMESPACE_DISTRHO
- */
-#define START_NAMESPACE_DISTRHO namespace DISTRHO_NAMESPACE {
-
-/**
-   Close the namespace previously started by @ref START_NAMESPACE_DISTRHO.@n
-   This doesn't really need to be a macro, it is just prettier/more consistent that way.
- */
-#define END_NAMESPACE_DISTRHO }
-
-/**
-   Make the @b DISTRHO namespace available in the current function scope.@n
-   This is not set by default in order to avoid conflicts with commonly used names such as "Parameter" and "Plugin".
- */
-#define USE_NAMESPACE_DISTRHO using namespace DISTRHO_NAMESPACE;
-
 /* TODO
  *
  * DISTRHO_MACRO_AS_STRING_VALUE
@@ -752,6 +709,5 @@ START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DOXYGEN

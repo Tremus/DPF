@@ -19,7 +19,6 @@
 
 #include "../DistrhoUtils.hpp"
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // Buffer structs
@@ -805,6 +804,5 @@ private:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_RING_BUFFER_HPP_INCLUDED

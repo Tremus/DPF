@@ -35,7 +35,6 @@
 #include <pthread.h>
 #endif
 
-START_NAMESPACE_DISTRHO
 
 class Signal;
 
@@ -369,6 +368,5 @@ typedef ScopeUnlocker<RecursiveMutex> RecursiveMutexUnlocker;
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_MUTEX_HPP_INCLUDED

@@ -19,7 +19,6 @@
 
 #include "../DistrhoUtils.hpp"
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // The following code was based from juce-core LeakDetector class
@@ -67,9 +66,9 @@ START_NAMESPACE_DISTRHO
     \endcode
 */
 # define DISTRHO_LEAK_DETECTOR(ClassName)                                         \
-    friend class DISTRHO_NAMESPACE::LeakedObjectDetector<ClassName>;              \
+    friend class LeakedObjectDetector<ClassName>;              \
     static const char* getLeakedObjectClassName() noexcept { return #ClassName; } \
-    DISTRHO_NAMESPACE::LeakedObjectDetector<ClassName> DISTRHO_JOIN_MACRO(leakDetector_, ClassName);
+    LeakedObjectDetector<ClassName> DISTRHO_JOIN_MACRO(leakDetector_, ClassName);
 
 # define DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ClassName) \
     DISTRHO_DECLARE_NON_COPYABLE(ClassName)                       \
@@ -161,6 +160,5 @@ private:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_LEAK_DETECTOR_HPP_INCLUDED

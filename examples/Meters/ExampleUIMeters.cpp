@@ -16,12 +16,11 @@
 
 #include "DistrhoUI.hpp"
 
-START_NAMESPACE_DISTRHO
 
 /**
   We need the Color class from DGL.
  */
-using DGL_NAMESPACE::Color;
+using Color;
 
 /**
   Smooth meters a bit.
@@ -252,4 +251,3 @@ UI* createUI()
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

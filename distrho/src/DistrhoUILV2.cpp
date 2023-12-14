@@ -35,7 +35,6 @@
 # define DISTRHO_PLUGIN_LV2_STATE_PREFIX "urn:distrho:"
 #endif
 
-START_NAMESPACE_DISTRHO
 
 typedef struct _LV2_Atom_MidiEvent {
     LV2_Atom atom;    /**< Atom header. */
@@ -585,12 +584,10 @@ static const LV2UI_Descriptor sLv2UiDescriptor = {
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 DISTRHO_PLUGIN_EXPORT
 const LV2UI_Descriptor* lv2ui_descriptor(uint32_t index)
 {
-    USE_NAMESPACE_DISTRHO
     return (index == 0) ? &sLv2UiDescriptor : nullptr;
 }
 

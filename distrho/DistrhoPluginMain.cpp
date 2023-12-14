@@ -33,12 +33,10 @@
 #elif defined(DISTRHO_PLUGIN_TARGET_VST3)
 # include "src/DistrhoPluginVST3.cpp"
 #elif defined(DISTRHO_PLUGIN_TARGET_SHARED)
-DISTRHO_PLUGIN_EXPORT DISTRHO_NAMESPACE::Plugin* createSharedPlugin();
-DISTRHO_PLUGIN_EXPORT DISTRHO_NAMESPACE::Plugin* createSharedPlugin() { return DISTRHO_NAMESPACE::createPlugin(); }
+DISTRHO_PLUGIN_EXPORT Plugin* createSharedPlugin();
+DISTRHO_PLUGIN_EXPORT Plugin* createSharedPlugin() { return createPlugin(); }
 #elif defined(DISTRHO_PLUGIN_TARGET_STATIC)
-START_NAMESPACE_DISTRHO
 Plugin* createStaticPlugin() { return createPlugin(); }
-END_NAMESPACE_DISTRHO
 #else
 # error unsupported format
 #endif

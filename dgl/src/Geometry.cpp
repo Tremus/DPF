@@ -25,7 +25,6 @@
 
 #include <cmath>
 
-START_NAMESPACE_DGL
 
 static const float M_2PIf = 3.14159265358979323846f*2.0f;
 
@@ -1050,4 +1049,3 @@ template class Rectangle<uint16_t>;
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL

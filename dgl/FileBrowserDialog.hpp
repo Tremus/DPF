@@ -19,10 +19,8 @@
 
 #include "Base.hpp"
 
-START_NAMESPACE_DGL
 
 #include "../distrho/extra/FileBrowserDialogImpl.hpp"
 
-END_NAMESPACE_DGL
 
 #endif // DGL_FILE_BROWSER_DIALOG_HPP_INCLUDED

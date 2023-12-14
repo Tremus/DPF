@@ -102,14 +102,11 @@
 # define FILE_BROWSER_DIALOG_DGL_NAMESPACE
 # define FILE_BROWSER_DIALOG_NAMESPACE DGL_NAMESPACE
 # define DGL_FILE_BROWSER_DIALOG_HPP_INCLUDED
-START_NAMESPACE_DGL
 # include "../../distrho/extra/FileBrowserDialogImpl.hpp"
-END_NAMESPACE_DGL
 # include "../../distrho/extra/FileBrowserDialogImpl.cpp"
 #endif
 
 #ifndef DISTRHO_OS_MAC
-START_NAMESPACE_DGL
 #endif
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -648,5 +645,4 @@ void puglX11SetWindowTypeAndPID(const PuglView* const view, const bool isStandal
 #endif // HAVE_X11
 
 #ifndef DISTRHO_OS_MAC
-END_NAMESPACE_DGL
 #endif

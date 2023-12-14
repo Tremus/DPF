@@ -49,7 +49,6 @@
 # define DISTRHO_UI_USER_RESIZABLE 0
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // Plugin Application, will set class name based on plugin details
@@ -57,14 +56,14 @@ START_NAMESPACE_DISTRHO
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
 struct PluginApplication
 {
-    DGL_NAMESPACE::IdleCallback* idleCallback;
+    IdleCallback* idleCallback;
     UI* ui;
 
     explicit PluginApplication(const char*)
         : idleCallback(nullptr),
           ui(nullptr) {}
 
-    void addIdleCallback(DGL_NAMESPACE::IdleCallback* const cb)
+    void addIdleCallback(IdleCallback* const cb)
     {
         DISTRHO_SAFE_ASSERT_RETURN(cb != nullptr,);
         DISTRHO_SAFE_ASSERT_RETURN(idleCallback == nullptr,);
@@ -102,11 +101,11 @@ struct PluginApplication
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginApplication)
 };
 #else
-class PluginApplication : public DGL_NAMESPACE::Application
+struct PluginApplication : public Application
 {
 public:
     explicit PluginApplication(const char* className)
-        : DGL_NAMESPACE::Application(DISTRHO_UI_IS_STANDALONE)
+        : Application(DISTRHO_UI_IS_STANDALONE)
     {
        #if defined(__MOD_DEVICES__) || !defined(__EMSCRIPTEN__)
         if (className == nullptr)
@@ -140,11 +139,11 @@ public:
 // Plugin Window, will pass some Window events to UI
 
 #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-class PluginWindow
+struct PluginWindow
 {
+public:
     UI* const ui;
 
-public:
     explicit PluginWindow(UI* const uiPtr, PluginApplication& app)
         : ui(uiPtr)
     {
@@ -175,7 +174,7 @@ public:
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginWindow)
 };
 #else // DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-class PluginWindow : public DGL_NAMESPACE::Window
+struct PluginWindow : public Window
 {
     UI* const ui;
     bool initializing;
@@ -241,7 +240,7 @@ public:
     }
    #endif
 
-    std::vector<DGL_NAMESPACE::ClipboardDataOffer> getClipboardDataOfferTypes()
+    std::vector<ClipboardDataOffer> getClipboardDataOfferTypes()
     {
         return Window::getClipboardDataOfferTypes();
     }
@@ -257,7 +256,7 @@ protected:
         return ui->uiClipboardDataOffer();
     }
 
-    void onFocus(const bool focus, const DGL_NAMESPACE::CrossingMode mode) override
+    void onFocus(const bool focus, const CrossingMode mode) override
     {
         DISTRHO_SAFE_ASSERT_RETURN(ui != nullptr,);
 
@@ -449,6 +448,5 @@ inline void PluginWindow::onFileSelected(const char* const filename)
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_UI_PRIVATE_DATA_HPP_INCLUDED

@@ -71,7 +71,6 @@
 
 // -----------------------------------------------------------------------
 
-START_NAMESPACE_DISTRHO
 
 #if DISTRHO_PLUGIN_HAS_UI && ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
 static const sendNoteFunc sendNoteCallback = nullptr;
@@ -124,7 +123,7 @@ static void initSignalHandler()
 // -----------------------------------------------------------------------
 
 #if DISTRHO_PLUGIN_HAS_UI
-class PluginJack : public DGL_NAMESPACE::IdleCallback
+class PluginJack : public IdleCallback
 #else
 class PluginJack
 #endif
@@ -889,14 +888,11 @@ bool runSelfTests()
 }
 #endif // DPF_RUNTIME_TESTING
 
-END_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 
 int main(int argc, char* argv[])
 {
-    USE_NAMESPACE_DISTRHO;
-
     initSignalHandler();
 
    #ifndef STATIC_BUILD

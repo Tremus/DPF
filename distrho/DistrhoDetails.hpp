@@ -173,10 +173,7 @@ enum PredefinedPortGroupsIds {
    but this is only supported in LV2 and JACK standalone formats.
  */
 struct AudioPort {
-   /**
-      Hints describing this audio port.
-      @see AudioPortHints
-    */
+    // @see AudioPortHints
     uint32_t hints;
     
     /**

@@ -22,7 +22,6 @@
 #include "WidgetPrivateData.hpp"
 #include "WindowPrivateData.hpp"
 
-START_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------
 
@@ -245,6 +244,5 @@ const GraphicsContext& Window::PrivateData::getGraphicsContext() const noexcept
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 // -----------------------------------------------------------------------

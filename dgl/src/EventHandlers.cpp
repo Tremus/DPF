@@ -17,7 +17,6 @@
 #include "../EventHandlers.hpp"
 #include "../SubWidget.hpp"
 
-START_NAMESPACE_DGL
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -681,4 +680,3 @@ KnobEventHandler::State KnobEventHandler::getState() const noexcept
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL

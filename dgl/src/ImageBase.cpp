@@ -16,7 +16,6 @@
 
 #include "../ImageBase.hpp"
 
-START_NAMESPACE_DGL
 
 // --------------------------------------------------------------------------------------------------------------------
 // protected constructors
@@ -129,4 +128,3 @@ bool ImageBase::operator!=(const ImageBase& image) const noexcept
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL

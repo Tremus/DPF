@@ -26,7 +26,6 @@
 
 #include <set>
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 // Maxmimum values
@@ -819,6 +818,5 @@ private:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_PLUGIN_INTERNAL_HPP_INCLUDED

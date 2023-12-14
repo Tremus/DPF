@@ -25,7 +25,6 @@
 
 #include <list>
 
-START_NAMESPACE_DGL
 
 class TopLevelWidget;
 
@@ -89,7 +88,7 @@ struct Window::PrivateData : IdleCallback {
 
 #ifndef DGL_FILE_BROWSER_DISABLED
     /** Handle for file browser dialog operations. */
-    DGL_NAMESPACE::FileBrowserHandle fileBrowserHandle;
+    FileBrowserHandle fileBrowserHandle;
 #endif
 
     /** Modal window setup. */
@@ -166,7 +165,7 @@ struct Window::PrivateData : IdleCallback {
 
 #ifndef DGL_FILE_BROWSER_DISABLED
     // file handling
-    bool openFileBrowser(const DGL_NAMESPACE::FileBrowserOptions& options);
+    bool openFileBrowser(const FileBrowserOptions& options);
 #endif
 
     static void renderToPicture(const char* filename, const GraphicsContext& context, uint32_t width, uint32_t height);
@@ -200,6 +199,5 @@ struct Window::PrivateData : IdleCallback {
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_WINDOW_PRIVATE_DATA_HPP_INCLUDED

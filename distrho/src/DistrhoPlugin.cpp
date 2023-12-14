@@ -16,7 +16,6 @@
 
 #include "DistrhoPluginInternal.hpp"
 
-START_NAMESPACE_DISTRHO
 
 /* ------------------------------------------------------------------------------------------------------------
  * Static data, see DistrhoPluginInternal.hpp */
@@ -104,4 +103,3 @@ void plugin_default_initPortGroup(const uint32_t groupId, PortGroup& portGroup)
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

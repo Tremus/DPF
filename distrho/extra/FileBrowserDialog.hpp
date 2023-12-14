@@ -19,10 +19,8 @@
 
 #include "../DistrhoUtils.hpp"
 
-START_NAMESPACE_DISTRHO
 
 #include "FileBrowserDialogImpl.hpp"
 
-END_NAMESPACE_DISTRHO
 
 #endif // DISTRHO_FILE_BROWSER_DIALOG_HPP_INCLUDED

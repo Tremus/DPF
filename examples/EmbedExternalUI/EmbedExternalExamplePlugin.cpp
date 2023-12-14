@@ -200,4 +200,3 @@ PluginPrivateData* getPluginPrivateData(void* ptr)
 
 // -----------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO

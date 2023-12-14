@@ -20,12 +20,9 @@
 #include "Widget.hpp"
 
 #ifdef DISTRHO_DEFINES_H_INCLUDED
-START_NAMESPACE_DISTRHO
 class UI;
-END_NAMESPACE_DISTRHO
 #endif
 
-START_NAMESPACE_DGL
 
 class Window;
 
@@ -125,7 +122,7 @@ private:
     PrivateData* const pData;
     friend class Window;
 #ifdef DISTRHO_DEFINES_H_INCLUDED
-    friend class DISTRHO_NAMESPACE::UI;
+    friend class UI;
 #endif
    /** @internal */
     virtual void requestSizeChange(uint32_t width, uint32_t height);
@@ -135,6 +132,5 @@ private:
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_TOP_LEVEL_WIDGET_HPP_INCLUDED

@@ -36,7 +36,6 @@
 # endif
 #endif
 
-START_NAMESPACE_DISTRHO
 
 // -----------------------------------------------------------------------
 
@@ -657,12 +656,10 @@ static const struct DescriptorInitializer
 
 // -----------------------------------------------------------------------
 
-END_NAMESPACE_DISTRHO
 
 DISTRHO_PLUGIN_EXPORT
 const LADSPA_Descriptor* ladspa_descriptor(unsigned long index)
 {
-    USE_NAMESPACE_DISTRHO
     return (index == 0) ? &sLadspaDescriptor : nullptr;
 }
 
@@ -670,7 +667,6 @@ const LADSPA_Descriptor* ladspa_descriptor(unsigned long index)
 DISTRHO_PLUGIN_EXPORT
 const DSSI_Descriptor* dssi_descriptor(uint64_t index)
 {
-    USE_NAMESPACE_DISTRHO
     return (index == 0) ? &sDssiDescriptor : nullptr;
 }
 #endif

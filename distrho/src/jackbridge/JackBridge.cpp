@@ -469,8 +469,6 @@ struct JackBridge {
         const char* const filename = "libjack.so.0";
        #endif
 
-        USE_NAMESPACE_DISTRHO
-
         lib = lib_open(filename);
 
         if (lib == nullptr)
@@ -615,8 +613,6 @@ struct JackBridge {
    #ifdef HAVE_JACK
     ~JackBridge() noexcept
     {
-        USE_NAMESPACE_DISTRHO
-
         if (lib != nullptr)
         {
             lib_close(lib);
@@ -2364,7 +2360,6 @@ void jackbridge_cycle_signal(jack_client_t* client, int status)
 
 #ifndef JACKBRIDGE_SKIP_NATIVE_UTILS
 
-START_NAMESPACE_DISTRHO
 
 bool isUsingNativeAudio() noexcept
 {
@@ -2456,7 +2451,6 @@ bool requestMIDI()
     return false;
 }
 
-END_NAMESPACE_DISTRHO
 
 #endif // JACKBRIDGE_SKIP_NATIVE_UTILS
 

@@ -19,13 +19,7 @@
 
 #include "Base.hpp"
 
-#ifdef DISTRHO_NAMESPACE
-START_NAMESPACE_DISTRHO
-class PluginApplication;
-END_NAMESPACE_DISTRHO
-#endif
-
-START_NAMESPACE_DGL
+struct PluginApplication;
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -39,7 +33,7 @@ START_NAMESPACE_DGL
 
    Unless stated otherwise, functions within this class are not thread-safe.
  */
-class DISTRHO_API Application
+class Application
 {
 public:
    /**
@@ -115,7 +109,6 @@ public:
       It is not displayed to the user, but can be used in scripts and by window managers,
       so it should be the same for every instance of the application, but different from other applications.
 
-      Plugins created with DPF have their class name automatically set based on DGL_NAMESPACE and plugin name.
     */
     const char* getClassName() const noexcept;
 
@@ -125,19 +118,14 @@ public:
     */
     void setClassName(const char* name);
 
-private:
     struct PrivateData;
     PrivateData* const pData;
-    friend class Window;
-   #ifdef DISTRHO_NAMESPACE
-    friend class DISTRHO_NAMESPACE::PluginApplication;
-   #endif
 
+private:
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Application)
 };
 
 // --------------------------------------------------------------------------------------------------------------------
 
-END_NAMESPACE_DGL
 
 #endif // DGL_APP_HPP_INCLUDED
