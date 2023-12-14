@@ -21,11 +21,6 @@
 #include "DistrhoPluginInfo.h"
 #include "NanoButton.hpp"
 
-
-using Button;
-using ButtonEventHandler;
-using SubWidget;
-
 const char* kStateKeys[kStateCount] = {
     "file1",
     "file2",
@@ -82,28 +77,6 @@ protected:
     void parameterChanged(uint32_t index, float value) override
     {
         fParameters[index] = value;
-        repaint();
-    }
-
-   /**
-      A state has changed on the plugin side.@n
-      This is called by the host to inform the UI about state changes.
-    */
-    void stateChanged(const char* key, const char* value) override
-    {
-        States stateId = kStateCount;
-
-        /**/ if (std::strcmp(key, "file1") == 0)
-            stateId = kStateFile1;
-        else if (std::strcmp(key, "file2") == 0)
-            stateId = kStateFile2;
-        else if (std::strcmp(key, "file3") == 0)
-            stateId = kStateFile3;
-
-        if (stateId == kStateCount)
-            return;
-
-        fState[stateId] = value;
         repaint();
     }
 
@@ -203,18 +176,6 @@ protected:
 
     void buttonClicked(SubWidget* const widget, int) override
     {
-        States stateId;
-
-        /**/ if (widget == &fButton1)
-            stateId = kStateFile1;
-        else if (widget == &fButton2)
-            stateId = kStateFile2;
-        else if (widget == &fButton3)
-            stateId = kStateFile3;
-        else
-            return;
-
-        requestStateFile(kStateKeys[stateId]);
     }
 
     // -------------------------------------------------------------------------------------------------------

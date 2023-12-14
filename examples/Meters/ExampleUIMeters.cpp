@@ -16,12 +16,6 @@
 
 #include "DistrhoUI.hpp"
 
-
-/**
-  We need the Color class from DGL.
- */
-using Color;
-
 /**
   Smooth meters a bit.
  */
@@ -89,15 +83,6 @@ protected:
         }
     }
 
-   /**
-      A state has changed on the plugin side.
-      This is called by the host to inform the UI about state changes.
-    */
-    void stateChanged(const char*, const char*) override
-    {
-        // nothing here
-    }
-
    /* --------------------------------------------------------------------------------------------------------
     * Widget Callbacks */
 
@@ -113,9 +98,6 @@ protected:
         // get meter values
         const float outLeft(fOutLeft);
         const float outRight(fOutRight);
-
-        // tell DSP side to reset meter values
-        setState("reset", "");
 
         // useful vars
         const float halfWidth        = static_cast<float>(getWidth())/2;

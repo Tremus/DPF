@@ -23,7 +23,7 @@
 
 
 Button::Button(Widget* const parent, ButtonEventHandler::Callback* const cb)
-    : NanoWidget(parent),
+    : NanoSubWidget(parent),
       ButtonEventHandler(this),
       backgroundColor(32, 32, 32),
       labelColor(255, 255, 255),
