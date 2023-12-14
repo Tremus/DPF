@@ -15,7 +15,6 @@
  */
 
 #include "DistrhoDetails.hpp"
-#include "src/DistrhoPluginChecks.h"
 #include "src/DistrhoDefines.h"
 
 #include <cstddef>

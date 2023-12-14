@@ -17,7 +17,7 @@
 #ifndef DISTRHO_PLUGIN_VST_HPP_INCLUDED
 #define DISTRHO_PLUGIN_VST_HPP_INCLUDED
 
-#include "DistrhoPluginChecks.h"
+#include "../DistrhoDetails.hpp"
 #include "../DistrhoUtils.hpp"
 
 #include <algorithm>

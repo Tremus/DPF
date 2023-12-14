@@ -17,7 +17,6 @@
 // A few utils declared in DistrhoUI.cpp but defined here because they use Obj-C
 
 #include "DistrhoDetails.hpp"
-#include "src/DistrhoPluginChecks.h"
 #include "src/DistrhoDefines.h"
 
 #if DISTRHO_UI_FILE_BROWSER || DISTRHO_PLUGIN_HAS_EXTERNAL_UI

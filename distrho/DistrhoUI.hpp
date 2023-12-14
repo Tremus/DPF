@@ -19,7 +19,6 @@
 
 #include "DistrhoDetails.hpp"
 #include "extra/LeakDetector.hpp"
-#include "src/DistrhoPluginChecks.h"
 
 #ifdef DGL_OPENGL
 # include "OpenGL.hpp"

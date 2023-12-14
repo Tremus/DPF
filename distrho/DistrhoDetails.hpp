@@ -19,8 +19,6 @@
 
 #include "extra/String.hpp"
 
-START_NAMESPACE_DISTRHO
-
 /* --------------------------------------------------------------------------------------------------------------------
  * Audio Port Hints */
 
@@ -576,5 +574,163 @@ struct TimePosition {
         memset(this, 0, sizeof(*this));
     }
 };
+
+// -----------------------------------------------------------------------
+
+#include "DistrhoPluginInfo.h"
+
+// -----------------------------------------------------------------------
+// Check if all required macros are defined
+
+#ifndef DISTRHO_PLUGIN_NAME
+# error DISTRHO_PLUGIN_NAME undefined!
+#endif
+
+#ifndef DISTRHO_PLUGIN_NUM_INPUTS
+# error DISTRHO_PLUGIN_NUM_INPUTS undefined!
+#endif
+
+#ifndef DISTRHO_PLUGIN_NUM_OUTPUTS
+# error DISTRHO_PLUGIN_NUM_OUTPUTS undefined!
+#endif
+
+#ifndef DISTRHO_PLUGIN_URI
+# error DISTRHO_PLUGIN_URI undefined!
+#endif
+
+// -----------------------------------------------------------------------
+// Define optional macros if not done yet
+
+#ifndef DISTRHO_PLUGIN_NUM_PARAMS
+# define DISTRHO_PLUGIN_NUM_PARAMS 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_HAS_UI
+# define DISTRHO_PLUGIN_HAS_UI 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+# define DISTRHO_PLUGIN_HAS_EXTERNAL_UI 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_IS_RT_SAFE
+# define DISTRHO_PLUGIN_IS_RT_SAFE 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_IS_SYNTH
+# define DISTRHO_PLUGIN_IS_SYNTH 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
+# define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_WANT_LATENCY
+# define DISTRHO_PLUGIN_WANT_LATENCY 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+# define DISTRHO_PLUGIN_WANT_MIDI_OUTPUT 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+# define DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST 0
+#endif
+
+#ifndef DISTRHO_PLUGIN_WANT_TIMEPOS
+# define DISTRHO_PLUGIN_WANT_TIMEPOS 0
+#endif
+
+#ifndef DISTRHO_UI_FILE_BROWSER
+# if defined(DGL_FILE_BROWSER_DISABLED) || DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+#  define DISTRHO_UI_FILE_BROWSER 0
+# else
+#  define DISTRHO_UI_FILE_BROWSER 1
+# endif
+#endif
+
+#ifndef DISTRHO_UI_USER_RESIZABLE
+# define DISTRHO_UI_USER_RESIZABLE 0
+#endif
+
+#ifndef DISTRHO_UI_USE_NANOVG
+# define DISTRHO_UI_USE_NANOVG 0
+#endif
+
+// -----------------------------------------------------------------------
+// Define DISTRHO_PLUGIN_HAS_EMBED_UI if needed
+
+#ifndef DISTRHO_PLUGIN_HAS_EMBED_UI
+# if (defined(DGL_OPENGL) && defined(HAVE_OPENGL))
+#  define DISTRHO_PLUGIN_HAS_EMBED_UI 1
+# else
+#  define DISTRHO_PLUGIN_HAS_EMBED_UI 0
+# endif
+#endif
+
+// -----------------------------------------------------------------------
+// Define DISTRHO_UI_URI if needed
+
+#ifndef DISTRHO_UI_URI
+# define DISTRHO_UI_URI DISTRHO_PLUGIN_URI "#DPF_UI"
+#endif
+
+// -----------------------------------------------------------------------
+// Test if synth has audio outputs
+
+#if DISTRHO_PLUGIN_IS_SYNTH && DISTRHO_PLUGIN_NUM_OUTPUTS == 0
+# error Synths need audio output to work!
+#endif
+
+// -----------------------------------------------------------------------
+// Enable MIDI input if synth, test if midi-input disabled when synth
+
+#ifndef DISTRHO_PLUGIN_WANT_MIDI_INPUT
+# define DISTRHO_PLUGIN_WANT_MIDI_INPUT DISTRHO_PLUGIN_IS_SYNTH
+#elif DISTRHO_PLUGIN_IS_SYNTH && ! DISTRHO_PLUGIN_WANT_MIDI_INPUT
+# error Synths need MIDI input to work!
+#endif
+
+// -----------------------------------------------------------------------
+// Disable file browser if using external UI
+
+#if DISTRHO_UI_FILE_BROWSER && DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+# warning file browser APIs do not work for external UIs
+# undef DISTRHO_UI_FILE_BROWSER 0
+# define DISTRHO_UI_FILE_BROWSER 0
+#endif
+
+// -----------------------------------------------------------------------
+// Disable UI if DGL or external UI is not available
+
+#if (defined(DGL_OPENGL) && ! defined(HAVE_OPENGL))
+# undef DISTRHO_PLUGIN_HAS_EMBED_UI
+# define DISTRHO_PLUGIN_HAS_EMBED_UI 0
+#endif
+
+#if DISTRHO_PLUGIN_HAS_UI && ! DISTRHO_PLUGIN_HAS_EMBED_UI && ! DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+# undef DISTRHO_PLUGIN_HAS_UI
+# define DISTRHO_PLUGIN_HAS_UI 0
+#endif
+
+// -----------------------------------------------------------------------
+// Make sure both default width and height are provided
+
+#if defined(DISTRHO_UI_DEFAULT_WIDTH) && !defined(DISTRHO_UI_DEFAULT_HEIGHT)
+# error DISTRHO_UI_DEFAULT_WIDTH is defined but DISTRHO_UI_DEFAULT_HEIGHT is not
+#endif
+
+#if defined(DISTRHO_UI_DEFAULT_HEIGHT) && !defined(DISTRHO_UI_DEFAULT_WIDTH)
+# error DISTRHO_UI_DEFAULT_HEIGHT is defined but DISTRHO_UI_DEFAULT_WIDTH is not
+#endif
+
+// -----------------------------------------------------------------------
+// Prevent users from messing about with DPF internals
+
+#ifdef DISTRHO_UI_IS_STANDALONE
+# error DISTRHO_UI_IS_STANDALONE must not be defined
+#endif
+
+// -----------------------------------------------------------------------
 
 #endif // DISTRHO_DETAILS_HPP_INCLUDED
