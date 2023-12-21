@@ -56,7 +56,7 @@ public:
               nullptr, // window size
               nullptr, // TODO file request
               nullptr, // bundle path
-              plugin->getInstancePointer())
+              plugin->fPlugin)
     {
         fUI.setWindowTitle(host->uiName);
 

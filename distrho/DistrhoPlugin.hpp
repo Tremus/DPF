@@ -106,50 +106,50 @@ extern bool plugin_requestParameterValueChange(void*, uint32_t index, float valu
     Get the plugin name.@n
     Returns DISTRHO_PLUGIN_NAME by default.
 */
-extern const char* plugin_getName(void*);
+extern const char* plugin_getName();
 
 /**
     Get the plugin label.@n
     This label is a short restricted name consisting of only _, a-z, A-Z and 0-9 characters.
     A plugin label follows the same rules as Parameter::symbol, with the exception that it can start with numbers.
 */
-extern const char* plugin_getLabel(void*);
+extern const char* plugin_getLabel();
 
 /**
     Get an extensive comment/description about the plugin.@n
     Optional, returns nothing by default.
 */
-extern const char* plugin_getDescription(void*);
+extern const char* plugin_getDescription();
 
 /**
     Get the plugin author/maker.
 */
-extern const char* plugin_getMaker(void*);
+extern const char* plugin_getMaker();
 
 /**
     Get the plugin homepage.@n
     Optional, returns nothing by default.
 */
-extern const char* plugin_getHomePage(void*);
+extern const char* plugin_getHomePage();
 
 /**
     Get the plugin license (a single line of text or a URL).@n
     For commercial plugins this should return some short copyright information.
 */
-extern const char* plugin_getLicense(void*);
+extern const char* plugin_getLicense();
 
 /**
     Get the plugin version, in hexadecimal.
     @see d_version()
 */
-extern uint32_t plugin_getVersion(void*);
+extern uint32_t plugin_getVersion();
 
 /**
     Get the plugin unique Id.@n
     This value is used by LADSPA, DSSI and VST plugin formats.
     @see d_cconst()
 */
-extern int64_t plugin_getUniqueId(void*);
+extern int64_t plugin_getUniqueId();
 
 /* --------------------------------------------------------------------------------------------------------
 * Init */

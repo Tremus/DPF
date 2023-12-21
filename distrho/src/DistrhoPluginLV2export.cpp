@@ -832,7 +832,7 @@ void lv2_generate_ttl(const char* const basename)
 
         // comment
         {
-            const String comment(plugin.getDescription());
+            const String comment(plugin_getDescription());
 
             if (comment.isNotEmpty())
             {
@@ -851,7 +851,7 @@ void lv2_generate_ttl(const char* const basename)
 
         // name
         {
-            const String name(plugin.getName());
+            const String name(plugin_getName());
 
             if (name.contains('"'))
                 pluginString += "    doap:name \"\"\"" + name + "\"\"\" ;\n";
@@ -861,7 +861,7 @@ void lv2_generate_ttl(const char* const basename)
 
         // license
         {
-            const String license(plugin.getLicense());
+            const String license(plugin_getLicense());
 
             // Using URL as license
             if (license.contains("://"))
@@ -1017,8 +1017,8 @@ void lv2_generate_ttl(const char* const basename)
 
         // developer
         {
-            const String homepage(plugin.getHomePage());
-            const String maker(plugin.getMaker());
+            const String homepage(plugin_getHomePage());
+            const String maker(plugin_getMaker());
 
             pluginString += "    doap:maintainer [\n";
 
@@ -1034,7 +1034,7 @@ void lv2_generate_ttl(const char* const basename)
         }
 
         {
-            const uint32_t version(plugin.getVersion());
+            const uint32_t version(plugin_getVersion());
 
             const uint32_t majorVersion = (version & 0xFF0000) >> 16;
             /* */ uint32_t minorVersion = (version & 0x00FF00) >> 8;

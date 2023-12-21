@@ -263,7 +263,7 @@ public:
        #else
         UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
                          nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
-                         fPlugin.getInstancePointer(), scaleFactor);
+                         fPlugin.fPlugin, scaleFactor);
         *width = tmpUI.getWidth();
         *height = tmpUI.getHeight();
         scaleFactor = tmpUI.getScaleFactor();
@@ -533,7 +533,7 @@ private:
                              setSizeCallback,
                              nullptr, // TODO fileRequestCallback,
                              d_nextBundlePath,
-                             fPlugin.getInstancePointer(),
+                             fPlugin.fPlugin,
                              fScaleFactor);
 
         for (uint32_t i=0; i<fCachedParameters.numParams; ++i)
@@ -2298,8 +2298,8 @@ static const clap_plugin_descriptor_t* CLAP_ABI clap_get_plugin_descriptor(const
     static const clap_plugin_descriptor_t descriptor = {
         CLAP_VERSION,
         DISTRHO_PLUGIN_CLAP_ID,
-        sPlugin->getName(),
-        sPlugin->getMaker(),
+        plugin_getName(),
+        plugin_getMaker(),
         // TODO url
         "",
         // TODO manual url
@@ -2308,7 +2308,7 @@ static const clap_plugin_descriptor_t* CLAP_ABI clap_get_plugin_descriptor(const
         "",
         // TODO version string
         "",
-        sPlugin->getDescription(),
+        plugin_getDescription(),
         features
     };
 

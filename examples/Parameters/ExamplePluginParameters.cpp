@@ -55,43 +55,43 @@ struct ExamplePluginParameters
 /* --------------------------------------------------------------------------------------------------------
 * Information */
 
-const char* plugin_getName(void* ptr)
+const char* plugin_getName()
 {
     return DISTRHO_PLUGIN_NAME;
 }
 
-const char* plugin_getLabel(void* ptr)
+const char* plugin_getLabel()
 {
     return "parameters";
 }
 
-const char* plugin_getDescription(void* ptr)
+const char* plugin_getDescription()
 {
     return "Simple plugin to demonstrate parameter usage (including UI).\n\
 The plugin will be treated as an effect, but it will not change the host audio.";
 }
 
-const char* plugin_getMaker(void* ptr)
+const char* plugin_getMaker()
 {
     return "DISTRHO";
 }
 
-const char* plugin_getHomePage(void* ptr)
+const char* plugin_getHomePage()
 {
     return "https://github.com/DISTRHO/DPF";
 }
 
-const char* plugin_getLicense(void* ptr)
+const char* plugin_getLicense()
 {
     return "ISC";
 }
 
-uint32_t plugin_getVersion(void* ptr)
+uint32_t plugin_getVersion()
 {
     return d_version(1, 0, 0);
 }
 
-int64_t plugin_getUniqueId(void* ptr)
+int64_t plugin_getUniqueId()
 {
     return d_cconst('d', 'P', 'r', 'm');
 }

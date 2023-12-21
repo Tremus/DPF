@@ -663,7 +663,7 @@ public:
    #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
     void* lv2_get_instance_pointer()
     {
-        return fPlugin.getInstancePointer();
+        return fPlugin.fPlugin;
     }
    #endif
 

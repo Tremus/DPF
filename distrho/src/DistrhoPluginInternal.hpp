@@ -254,9 +254,21 @@ struct PluginPrivateData {
 // -----------------------------------------------------------------------
 // Plugin exporter class
 
-class PluginExporter
+struct PluginExporter
 {
-public:
+    void* const fPlugin;
+    PluginPrivateData* const fData;
+    bool fIsActive;
+
+    // -------------------------------------------------------------------
+    // Static fallback data, see DistrhoPlugin.cpp
+
+    static const String                     sFallbackString;
+    static /* */ AudioPortWithBusId         sFallbackAudioPort;
+    static const ParameterRanges            sFallbackRanges;
+    static const ParameterEnumerationValues sFallbackEnumValues;
+    static const PortGroupWithId            sFallbackPortGroup;
+
     PluginExporter(void* const callbacksPtr,
                    const writeMidiFunc writeMidiCall,
                    const requestParameterValueChangeFunc requestParameterValueChangeCall)
@@ -354,69 +366,6 @@ public:
 
     // -------------------------------------------------------------------
 
-    const char* getName() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
-
-        return plugin_getName(fPlugin);
-    }
-
-    const char* getLabel() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
-
-        return plugin_getLabel(fPlugin);
-    }
-
-    const char* getDescription() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
-
-        return plugin_getDescription(fPlugin);
-    }
-
-    const char* getMaker() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
-
-        return plugin_getMaker(fPlugin);
-    }
-
-    const char* getHomePage() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
-
-        return plugin_getHomePage(fPlugin);
-    }
-
-    const char* getLicense() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, "");
-
-        return plugin_getLicense(fPlugin);
-    }
-
-    uint32_t getVersion() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0);
-
-        return plugin_getVersion(fPlugin);
-    }
-
-    long getUniqueId() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fPlugin != nullptr, 0);
-
-        return plugin_getUniqueId(fPlugin);
-    }
-
-    void* getInstancePointer() const noexcept
-    {
-        return fPlugin;
-    }
-
-    // -------------------------------------------------------------------
-
 #if DISTRHO_PLUGIN_WANT_LATENCY
     uint32_t getLatency() const noexcept
     {
@@ -445,11 +394,6 @@ public:
         }
 
         return fData->audioPorts[index + (input ? 0 : DISTRHO_PLUGIN_NUM_INPUTS)];
-    }
-
-    uint32_t getAudioPortHints(const bool input, const uint32_t index) const noexcept
-    {
-        return getAudioPort(input, index).hints;
     }
     
     uint32_t getAudioPortCountWithGroupId(const bool input, const uint32_t groupId) const noexcept
@@ -488,13 +432,6 @@ public:
         DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, 0);
 
         return DISTRHO_PLUGIN_NUM_PARAMS;
-    }
-
-    uint32_t getParameterOffset() const noexcept
-    {
-        DISTRHO_SAFE_ASSERT_RETURN(fData != nullptr, 0);
-
-        return fData->parameterOffset;
     }
 
     bool isParameterInput(const uint32_t index) const noexcept
@@ -796,23 +733,7 @@ public:
         }
     }
 
-    // -------------------------------------------------------------------
-    // Plugin and DistrhoPlugin data
-
-    void* const fPlugin;
-    PluginPrivateData* const fData;
-    bool fIsActive;
-
-    // -------------------------------------------------------------------
-    // Static fallback data, see DistrhoPlugin.cpp
-
 private:
-    static const String                     sFallbackString;
-    static /* */ AudioPortWithBusId         sFallbackAudioPort;
-    static const ParameterRanges            sFallbackRanges;
-    static const ParameterEnumerationValues sFallbackEnumValues;
-    static const PortGroupWithId            sFallbackPortGroup;
-
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginExporter)
 };
 

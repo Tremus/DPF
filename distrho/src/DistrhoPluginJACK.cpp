@@ -141,7 +141,7 @@ public:
               nullptr, // window size
               nullptr, // file request
               nullptr, // bundle
-              fPlugin.getInstancePointer(),
+              fPlugin.fPlugin,
               0.0),
 #endif
           fClient(client)
@@ -220,7 +220,7 @@ public:
         if (const char* const name = jackbridge_get_client_name(fClient))
             fUI.setWindowTitle(name);
         else
-            fUI.setWindowTitle(fPlugin.getName());
+            fUI.setWindowTitle(plugin_getName());
 
         fUI.exec(this);
 #else
@@ -800,7 +800,7 @@ bool runSelfTests()
        #if DISTRHO_PLUGIN_HAS_UI
         UIExporter ui(nullptr, 0, plugin.getSampleRate(),
                       nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                      plugin.getInstancePointer(), 0.0);
+                      plugin.fPlugin, 0.0);
         ui.showAndFocus();
        #endif
 
@@ -856,13 +856,13 @@ bool runSelfTests()
         {
             UIExporter uiA(nullptr, 0, pluginA.getSampleRate(),
                            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                           pluginA.getInstancePointer(), 0.0);
+                           pluginA.fPlugin, 0.0);
             UIExporter uiB(nullptr, 0, pluginA.getSampleRate(),
                            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                           pluginB.getInstancePointer(), 0.0);
+                           pluginB.fPlugin, 0.0);
             UIExporter uiC(nullptr, 0, pluginA.getSampleRate(),
                            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                           pluginC.getInstancePointer(), 0.0);
+                           pluginC.fPlugin, 0.0);
 
             // show UIs
             uiB.showAndFocus();

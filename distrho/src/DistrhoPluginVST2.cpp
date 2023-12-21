@@ -168,7 +168,7 @@ public:
               setSizeCallback,
               nullptr, // TODO file request
               d_nextBundlePath,
-              plugin->getInstancePointer(),
+              plugin->fPlugin,
               scaleFactor)
        #if !DISTRHO_PLUGIN_HAS_EXTERNAL_UI
         , fKeyboardModifiers(0)
@@ -549,7 +549,7 @@ public:
                #else
                 UIExporter tmpUI(nullptr, 0, fPlugin.getSampleRate(),
                                  nullptr, nullptr, nullptr, nullptr, nullptr, d_nextBundlePath,
-                                 fPlugin.getInstancePointer(), scaleFactor);
+                                 fPlugin.fPlugin, scaleFactor);
                 fVstRect.right = tmpUI.getWidth();
                 fVstRect.bottom = tmpUI.getHeight();
                 scaleFactor = tmpUI.getScaleFactor();
@@ -1233,7 +1233,7 @@ static intptr_t VST_FUNCTION_INTERFACE vst_dispatcherCallback(vst_effect* const 
     case VST_EFFECT_OPCODE_EFFECT_NAME:
         if (char* const cptr = (char*)ptr)
         {
-            d_strncpy(cptr, sPlugin->getName(), 32);
+            d_strncpy(cptr, plugin_getName(), 32);
             return 1;
         }
         return 0;
@@ -1241,7 +1241,7 @@ static intptr_t VST_FUNCTION_INTERFACE vst_dispatcherCallback(vst_effect* const 
     case VST_EFFECT_OPCODE_VENDOR_NAME:
         if (char* const cptr = (char*)ptr)
         {
-            d_strncpy(cptr, sPlugin->getMaker(), 32);
+            d_strncpy(cptr, plugin_getMaker(), 32);
             return 1;
         }
         return 0;
@@ -1249,13 +1249,13 @@ static intptr_t VST_FUNCTION_INTERFACE vst_dispatcherCallback(vst_effect* const 
     case VST_EFFECT_OPCODE_PRODUCT_NAME:
         if (char* const cptr = (char*)ptr)
         {
-            d_strncpy(cptr, sPlugin->getLabel(), 32);
+            d_strncpy(cptr, plugin_getLabel(), 32);
             return 1;
         }
         return 0;
 
     case VST_EFFECT_OPCODE_VENDOR_VERSION:
-        return sPlugin->getVersion();
+        return plugin_getVersion();
 
     case VST_EFFECT_OPCODE_VST_VERSION:
         return VST_VERSION_2_4_0_0;
@@ -1374,8 +1374,8 @@ const vst_effect* VSTPluginMain(const vst_host_callback audioMaster)
    #else
     effect->magic_number = 0x56737450;
    #endif
-    effect->unique_id    = sPlugin->getUniqueId();
-    effect->version      = sPlugin->getVersion();
+    effect->unique_id    = plugin_getUniqueId();
+    effect->version      = plugin_getVersion();
 
     // VST doesn't support parameter outputs. we can fake them, but it is a hack. Disabled by default.
    #ifdef DPF_VST_SHOW_PARAMETER_OUTPUTS

@@ -282,7 +282,7 @@ public:
 
     int dssi_get_midi_controller_for_port(const uint64_t port) noexcept
     {
-        const uint32_t parameterOffset = fPlugin.getParameterOffset();
+        const uint32_t parameterOffset = fPlugin.fData->parameterOffset;
 
         if (port > parameterOffset)
             return DSSI_NONE;
@@ -591,11 +591,11 @@ static const struct DescriptorInitializer
         }
 
         // Set data
-        sLadspaDescriptor.UniqueID  = plugin.getUniqueId();
-        sLadspaDescriptor.Label     = strdup(plugin.getLabel());
-        sLadspaDescriptor.Name      = strdup(plugin.getName());
-        sLadspaDescriptor.Maker     = strdup(plugin.getMaker());
-        sLadspaDescriptor.Copyright = strdup(plugin.getLicense());
+        sLadspaDescriptor.UniqueID  = plugin_getUniqueId();
+        sLadspaDescriptor.Label     = strdup(plugin_getLabel());
+        sLadspaDescriptor.Name      = strdup(plugin_getName());
+        sLadspaDescriptor.Maker     = strdup(plugin_getMaker());
+        sLadspaDescriptor.Copyright = strdup(plugin_getLicense());
         sLadspaDescriptor.PortCount = portCount;
         sLadspaDescriptor.PortNames = portNames;
         sLadspaDescriptor.PortDescriptors = portDescriptors;
