@@ -17,6 +17,7 @@ if (APPLE)
 elseif(WIN32)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
+add_compile_options("-Wno-deprecated-declarations")
 
 # check if we are building from this project, or are imported by another
 if(PROJECT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)

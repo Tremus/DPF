@@ -17,28 +17,31 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
-#define DISTRHO_PLUGIN_BRAND   "DISTRHO"
-#define DISTRHO_PLUGIN_NAME    "Info"
-#define DISTRHO_PLUGIN_URI     "http://distrho.sf.net/examples/Info"
+#define DISTRHO_PLUGIN_BRAND "DISTRHO"
+#define DISTRHO_PLUGIN_NAME "Info"
+#define DISTRHO_PLUGIN_URI "http://distrho.sf.net/examples/Info"
 #define DISTRHO_PLUGIN_CLAP_ID "studio.kx.distrho.examples.info"
 
 #define DISTRHO_PLUGIN_HAS_UI       1
-#define DISTRHO_PLUGIN_IS_RT_SAFE   1
-#define DISTRHO_PLUGIN_NUM_INPUTS   2
-#define DISTRHO_PLUGIN_NUM_OUTPUTS  2
-#define DISTRHO_PLUGIN_USES_MODGUI  1
+#define DISTRHO_PLUGIN_IS_RT_SAFE 1
+#define DISTRHO_PLUGIN_NUM_INPUTS 2
+#define DISTRHO_PLUGIN_NUM_OUTPUTS 2
+#define DISTRHO_PLUGIN_USES_MODGUI 1
 #define DISTRHO_PLUGIN_WANT_TIMEPOS 1
-#define DISTRHO_UI_DEFAULT_WIDTH    405
-#define DISTRHO_UI_DEFAULT_HEIGHT   256
-#define DISTRHO_UI_FILE_BROWSER     0
-#define DISTRHO_UI_USER_RESIZABLE   1
-#define DISTRHO_UI_USE_NANOVG       1
+#define DISTRHO_UI_DEFAULT_WIDTH 405
+#define DISTRHO_UI_DEFAULT_HEIGHT 256
+#define DISTRHO_UI_FILE_BROWSER 0
+#define DISTRHO_UI_USER_RESIZABLE 1
+#define DISTRHO_UI_USE_NANOVG 1
 
 // only checking if supported, not actually used
 #define DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST 1
 #define DISTRHO_PLUGIN_NUM_PARAMS 13
 
-enum Parameters {
+#define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 1
+
+enum Parameters
+{
     kParameterBufferSize = 0,
     kParameterCanRequestParameterValueChanges,
     kParameterTimePlaying,

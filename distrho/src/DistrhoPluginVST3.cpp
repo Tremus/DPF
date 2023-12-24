@@ -1,68 +1,56 @@
-/*
- * DISTRHO Plugin Framework (DPF)
- * Copyright (C) 2012-2023 Filipe Coelho <falktx@falktx.com>
- *
- * Permission to use, copy, modify, and/or distribute this software for any purpose with
- * or without fee is hereby granted, provided that the above copyright notice and this
- * permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD
- * TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN
- * NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER
- * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-/* TODO items:
- * == parameters
- * - test parameter triggers
- * - have parameter outputs host-provided UI working in at least 1 host
- * - parameter groups via unit ids
- * - test parameter changes from DSP (aka requestParameterValueChange)
- * - implement getParameterNormalized/setParameterNormalized for MIDI CC params ?
- * - float to int safe casting
- * - verify that latency changes works (with and without DPF_VST3_USES_SEPARATE_CONTROLLER)
- * == MIDI
- * - MIDI CC changes (need to store value to give to the host?)
- * - MIDI program changes
- * - MIDI sysex
- * == BUSES
- * - routing info, do we care?
- * == CV
- * - cv scaling to -1/+1
- * - test in at least 1 host
- * == INFO
- * - set factory email (needs new DPF API, useful for LV2 as well)
- * - do something with set_io_mode?
- */
-
-#include "DistrhoPluginInternal.hpp"
 #include "../DistrhoPluginUtils.hpp"
 #include "../extra/ScopedPointer.hpp"
+#include "DistrhoPluginInternal.hpp"
 #include "DistrhoPluginVST.hpp"
+
+#include "travesty/view.h"
+#include "vst3_c_api/vst3_c_api.h"
+
+#include <atomic>
+#include <vector>
 
 #define DPF_VST3_MAX_BUFFER_SIZE 32768
 #define DPF_VST3_MAX_SAMPLE_RATE 384000
-#define DPF_VST3_MAX_LATENCY     DPF_VST3_MAX_SAMPLE_RATE * 10
+#define DPF_VST3_MAX_LATENCY DPF_VST3_MAX_SAMPLE_RATE * 10
 
-#if DISTRHO_PLUGIN_HAS_UI
-# include "../extra/RingBuffer.hpp"
-#endif
 
-#include "vst3_c_api/vst3_c_api.h"
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpragma-pack"
-// Linux only. Not provided by official VST3 C API
-#include "travesty/edit_controller.h" // v3_event_handler_iid, v3_run_loop_iid, v3_timer_handler_iid
-#pragma clang diagnostic pop
-
-#include <vector>
-#include <atomic>
-
+#define tuid_match(a, b) memcmp(a, b, sizeof(Steinberg_TUID)) == 0
 
 // --------------------------------------------------------------------------------------------------------------------
+// custom, constant uids related to DPF
+
+typedef uint32_t dpf_tuid[4];
+#ifdef DISTRHO_PROPER_CPP11_SUPPORT
+static_assert(sizeof(Steinberg_TUID) == sizeof(dpf_tuid), "uid size mismatch");
+#endif
+
+// static constexpr const uint32_t dpf_id_entry2 = d_cconst('D', 'P', 'F', ' ');
+static constexpr const uint32_t dpf_id_entry = 0x44504620;
+// static constexpr const uint32_t dpf_id_clas2  = d_cconst('c', 'l', 'a', 's');
+static constexpr const uint32_t dpf_id_clas = 0x636c6173;
+// static constexpr const uint32_t dpf_id_comp2  = d_cconst('c', 'o', 'm', 'p');
+static constexpr const uint32_t dpf_id_comp = 0x636f6d70;
+// static constexpr const uint32_t dpf_id_ctrl2  = d_cconst('c', 't', 'r', 'l');
+static constexpr const uint32_t dpf_id_ctrl = 0x6374726c;
+// static constexpr const uint32_t dpf_id_proc2  = d_cconst('p', 'r', 'o', 'c');
+static constexpr const uint32_t dpf_id_proc = 0x70726f63;
+// static constexpr const uint32_t dpf_id_view2  = d_cconst('v', 'i', 'e', 'w');
+static constexpr const uint32_t dpf_id_view = 0x76696577;
+
+// --------------------------------------------------------------------------------------------------------------------
+// plugin specific uids (values are filled in during plugin init)
+
+static dpf_tuid dpf_tuid_class      = {dpf_id_entry, dpf_id_clas, 0, 0};
+static dpf_tuid dpf_tuid_component  = {dpf_id_entry, dpf_id_comp, 0, 0};
+static dpf_tuid dpf_tuid_controller = {dpf_id_entry, dpf_id_ctrl, 0, 0};
+static dpf_tuid dpf_tuid_processor  = {dpf_id_entry, dpf_id_proc, 0, 0};
+static dpf_tuid dpf_tuid_view       = {dpf_id_entry, dpf_id_view, 0, 0};
+// Steinberg Ids not working for some reason...
+// static Steinberg_TUID dpf_tuid_class      = SMTG_INLINE_UID(0x44504620, 0x636c6173, 0, 0);
+// static Steinberg_TUID dpf_tuid_component  = SMTG_INLINE_UID(0x44504620, 0x636f6d70, 0, 0);
+// static Steinberg_TUID dpf_tuid_controller = SMTG_INLINE_UID(0x44504620, 0x6374726c, 0, 0);
+// static Steinberg_TUID dpf_tuid_processor  = SMTG_INLINE_UID(0x44504620, 0x70726f63, 0, 0);
+// static Steinberg_TUID dpf_tuid_view       = SMTG_INLINE_UID(0x44504620, 0x76696577, 0, 0);
 
 #if ! DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
 static constexpr const writeMidiFunc writeMidiCallback = nullptr;
@@ -71,49 +59,16 @@ static constexpr const writeMidiFunc writeMidiCallback = nullptr;
 static constexpr const requestParameterValueChangeFunc requestParameterValueChangeCallback = nullptr;
 #endif
 
-// --------------------------------------------------------------------------------------------------------------------
-// custom Steinberg_TUID compatible type
+struct PluginVst3;
 
-typedef uint32_t dpf_tuid[4];
-#ifdef DISTRHO_PROPER_CPP11_SUPPORT
-static_assert(sizeof(Steinberg_TUID) == sizeof(dpf_tuid), "uid size mismatch");
-#endif
+// Guard against plugin hosts that lose track of their own refs to your plugin
+static std::vector<PluginVst3*> gPluginGarbage;
 
-#define tuid_match(a, b) memcmp(a, b, sizeof(Steinberg_TUID)) == 0
+static uint32_t dpf_static_ref(void*) { return 1; }
+static uint32_t dpf_static_unref(void*) { return 0; }
 
-// --------------------------------------------------------------------------------------------------------------------
-// custom, constant uids related to DPF
-
-// static constexpr const uint32_t dpf_id_entry2 = d_cconst('D', 'P', 'F', ' ');
-static constexpr const uint32_t dpf_id_entry = 0x44504620;
-// static constexpr const uint32_t dpf_id_clas2  = d_cconst('c', 'l', 'a', 's');
-static constexpr const uint32_t dpf_id_clas  = 0x636c6173;
-// static constexpr const uint32_t dpf_id_comp2  = d_cconst('c', 'o', 'm', 'p');
-static constexpr const uint32_t dpf_id_comp  = 0x636f6d70;
-// static constexpr const uint32_t dpf_id_ctrl2  = d_cconst('c', 't', 'r', 'l');
-static constexpr const uint32_t dpf_id_ctrl  = 0x6374726c;
-// static constexpr const uint32_t dpf_id_proc2  = d_cconst('p', 'r', 'o', 'c');
-static constexpr const uint32_t dpf_id_proc  = 0x70726f63;
-// static constexpr const uint32_t dpf_id_view2  = d_cconst('v', 'i', 'e', 'w');
-static constexpr const uint32_t dpf_id_view  = 0x76696577;
-
-// --------------------------------------------------------------------------------------------------------------------
-// plugin specific uids (values are filled in during plugin init)
-
-static dpf_tuid dpf_tuid_class      = { dpf_id_entry, dpf_id_clas, 0, 0 };
-static dpf_tuid dpf_tuid_component  = { dpf_id_entry, dpf_id_comp, 0, 0 };
-static dpf_tuid dpf_tuid_controller = { dpf_id_entry, dpf_id_ctrl, 0, 0 };
-static dpf_tuid dpf_tuid_processor  = { dpf_id_entry, dpf_id_proc, 0, 0 };
-static dpf_tuid dpf_tuid_view       = { dpf_id_entry, dpf_id_view, 0, 0 };
-// Steinberg Ids not working for some reason...
-// static Steinberg_TUID dpf_tuid_class      = SMTG_INLINE_UID(0x44504620, 0x636c6173, 0, 0);
-// static Steinberg_TUID dpf_tuid_component  = SMTG_INLINE_UID(0x44504620, 0x636f6d70, 0, 0);
-// static Steinberg_TUID dpf_tuid_controller = SMTG_INLINE_UID(0x44504620, 0x6374726c, 0, 0);
-// static Steinberg_TUID dpf_tuid_processor  = SMTG_INLINE_UID(0x44504620, 0x70726f63, 0, 0);
-// static Steinberg_TUID dpf_tuid_view       = SMTG_INLINE_UID(0x44504620, 0x76696577, 0, 0);
-
-// --------------------------------------------------------------------------------------------------------------------
-// Utility functions
+Steinberg_IPlugView*
+dpf_plugin_view_create(Steinberg_Vst_IHostApplication* host, void* instancePointer, double sampleRate);
 
 const char* tuid2str(const Steinberg_TUID iid)
 {
@@ -249,7 +204,7 @@ const char* tuid2str(const Steinberg_TUID iid)
     }
 
     static char buf[46];
-    std::snprintf(buf, sizeof(buf), "{0x%08X,0x%08X,0x%08X,0x%08X}",
+    snprintf(buf, sizeof(buf), "{0x%08X,0x%08X,0x%08X,0x%08X}",
                   (uint32_t)d_cconst(iid[ 0], iid[ 1], iid[ 2], iid[ 3]),
                   (uint32_t)d_cconst(iid[ 4], iid[ 5], iid[ 6], iid[ 7]),
                   (uint32_t)d_cconst(iid[ 8], iid[ 9], iid[10], iid[11]),
@@ -286,69 +241,260 @@ const char* get_bus_direction_str(int32_t d)
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-// dpf_plugin_view_create (implemented on UI side)
+// Structs
 
-Steinberg_IPlugView* dpf_plugin_view_create(Steinberg_Vst_IHostApplication* host, void* instancePointer, double sampleRate);
+struct PluginVst3;
+
+#if DISTRHO_PLUGIN_HAS_UI
+struct dpf_ctrl2view_connection_point
+{
+    Steinberg_Vst_IConnectionPointVtbl* lpVtbl;
+    Steinberg_Vst_IConnectionPointVtbl  base;
+    Steinberg_Vst_IConnectionPoint*     other;
+
+    dpf_ctrl2view_connection_point();
+    DISTRHO_PREVENT_HEAP_ALLOCATION
+};
+static Steinberg_tresult vst3ctrl2viewconnection_connect(void* const self, Steinberg_Vst_IConnectionPoint* const other);
+static Steinberg_tresult
+vst3ctrl2viewconnection_disconnect(void* const self, Steinberg_Vst_IConnectionPoint* const other);
+static Steinberg_tresult vst3ctrl2viewconnection_notify(void* const self, Steinberg_Vst_IMessage* const message);
+#endif
+
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+struct dpf_midi_mapping
+{
+    Steinberg_Vst_IMidiMappingVtbl* lpVtbl;
+    Steinberg_Vst_IMidiMappingVtbl  base;
+
+    dpf_midi_mapping();
+};
+
+static Steinberg_tresult
+vst3midimapping_query_interface(void* const self, const Steinberg_TUID iid, void** const iface);
+// Steinberg_Vst_IMidiMapping
+static Steinberg_tresult vst3midimapping_get_midi_controller_assignment(
+    void*,
+    const int32_t   bus,
+    const int16_t   channel,
+    const int16_t   cc,
+    uint32_t* const id);
+#endif // DISTRHO_PLUGIN_WANT_MIDI_INPUT
+
+struct dpf_edit_controller
+{
+    Steinberg_Vst_IEditControllerVtbl* lpVtbl;
+    Steinberg_Vst_IEditControllerVtbl  base;
+    std::atomic_int                    refcounter;
+
+    Steinberg_Vst_IComponentHandler* componentHandler;
+
+#if DISTRHO_PLUGIN_HAS_UI
+    dpf_ctrl2view_connection_point connectionCtrl2View;
+#endif
+
+    dpf_edit_controller();
+
+    DISTRHO_PREVENT_HEAP_ALLOCATION
+};
+
+static Steinberg_tresult vst3controller_query_interface(void* const self, const Steinberg_TUID iid, void** const iface);
+static uint32_t          vst3controller_ref(void* const self);
+static uint32_t          vst3controller_unref(void* const self);
+// Steinberg_IPluginBase
+static Steinberg_tresult vst3controller_initialize(void* const self, Steinberg_FUnknown* const context);
+static Steinberg_tresult vst3controller_terminate(void* self);
+// Steinberg_Vst_IEditController
+static Steinberg_tresult vst3controller_set_component_state(void* const self, Steinberg_IBStream* const stream);
+static Steinberg_tresult vst3controller_set_state(void* const self, Steinberg_IBStream* const stream);
+static Steinberg_tresult vst3controller_get_state(void* const self, Steinberg_IBStream* const stream);
+static int32_t           vst3controller_get_parameter_count(void* self);
+static Steinberg_tresult
+vst3controller_get_parameter_info(void* self, int32_t param_idx, Steinberg_Vst_ParameterInfo* param_info);
+static Steinberg_tresult vst3controller_get_parameter_string_for_value(
+    void*                   self,
+    uint32_t                index,
+    double                  normalized,
+    Steinberg_Vst_String128 output);
+static Steinberg_tresult
+vst3controller_get_parameter_value_for_string(void* self, uint32_t index, char16_t* input, double* output);
+static double vst3controller_normalised_parameter_to_plain(void* self, uint32_t index, double normalized);
+static double vst3controller_plain_parameter_to_normalised(void* self, uint32_t index, double plain);
+static double vst3controller_get_parameter_normalised(void* self, uint32_t index);
+static Steinberg_tresult
+vst3controller_set_parameter_normalised(void* const self, const uint32_t index, const double normalized);
+static Steinberg_tresult    vst3controller_set_component_handler(void* self, Steinberg_Vst_IComponentHandler* handler);
+static Steinberg_IPlugView* vst3controller_create_view(void* self, const char* name);
+
+struct dpf_process_context_requirements
+{
+    Steinberg_Vst_IProcessContextRequirementsVtbl* lpVtbl;
+    Steinberg_Vst_IProcessContextRequirementsVtbl  base;
+
+    dpf_process_context_requirements();
+
+    DISTRHO_PREVENT_HEAP_ALLOCATION
+};
+// Steinberg_FUnknown
+static Steinberg_tresult
+vst3processcontext_query_interface(void* const self, const Steinberg_TUID iid, void** const iface);
+// Steinberg_Vst_IProcessContextRequirements
+static uint32_t vst3processcontext_get_process_context_requirements(void*);
+
+struct dpf_audio_processor
+{
+    Steinberg_Vst_IAudioProcessorVtbl* lpVtbl;
+    Steinberg_Vst_IAudioProcessorVtbl  base;
+    std::atomic_int                    refcounter;
+
+    dpf_audio_processor();
+
+    DISTRHO_PREVENT_HEAP_ALLOCATION
+};
+
+// Steinberg_FUnknown
+static Steinberg_tresult vst3processor_query_interface(void* const self, const Steinberg_TUID iid, void** const iface);
+static uint32_t          vst3processor_addRef(void* const self);
+static uint32_t          vst3processor_release(void* const self);
+// Steinberg_Vst_IAudioProcessor
+static Steinberg_tresult vst3processor_set_bus_arrangements(
+    void* const                  self,
+    Steinberg_Vst_Speaker* const inputs,
+    const int32_t                num_inputs,
+    Steinberg_Vst_Speaker* const outputs,
+    const int32_t                num_outputs);
+static Steinberg_tresult vst3processor_get_bus_arrangement(
+    void* const                  self,
+    const int32_t                bus_direction,
+    const int32_t                idx,
+    Steinberg_Vst_Speaker* const arr);
+static Steinberg_tresult vst3processor_can_process_sample_size(void*, const int32_t symbolic_sample_size);
+static uint32_t          vst3processor_get_latency_samples(void* const self);
+static Steinberg_tresult vst3processor_setup_processing(void* const self, Steinberg_Vst_ProcessSetup* const setup);
+static Steinberg_tresult vst3processor_set_processing(void* const self, const Steinberg_TBool state);
+static Steinberg_tresult vst3processor_process(void* const self, Steinberg_Vst_ProcessData* const data);
+static uint32_t          vst3processor_get_tail_samples(void* const self);
+
+struct dpf_component
+{
+    Steinberg_Vst_IComponentVtbl* lpVtbl;
+    Steinberg_Vst_IComponentVtbl  base;
+    std::atomic_int               refcounter;
+
+    dpf_component();
+
+    DISTRHO_PREVENT_HEAP_ALLOCATION
+};
+
+static Steinberg_tresult vst3component_query_interface(void* const self, const Steinberg_TUID iid, void** const iface);
+static uint32_t          vst3component_ref(void* const self);
+static uint32_t          vst3component_unref(void* const self);
+// Steinberg_IPluginBase
+static Steinberg_tresult vst3component_initialize(void* const self, Steinberg_FUnknown* const context);
+static Steinberg_tresult vst3component_terminate(void* const self);
+// Steinberg_Vst_IComponent
+static Steinberg_tresult vst3component_get_controller_class_id(void*, Steinberg_TUID class_id);
+static Steinberg_tresult vst3component_set_io_mode(void* const self, const int32_t io_mode);
+static int32_t vst3component_get_bus_count(void* const self, const int32_t media_type, const int32_t bus_direction);
+static Steinberg_tresult vst3component_get_bus_info(
+    void* const                      self,
+    const Steinberg_Vst_MediaType    media_type,
+    const Steinberg_Vst_BusDirection bus_direction,
+    const int32_t                    bus_idx,
+    Steinberg_Vst_BusInfo* const     info);
+static Steinberg_tresult vst3component_get_routing_info(
+    void* const                      self,
+    Steinberg_Vst_RoutingInfo* const input,
+    Steinberg_Vst_RoutingInfo* const output);
+static Steinberg_tresult vst3component_activate_bus(
+    void* const           self,
+    const int32_t         media_type,
+    const int32_t         bus_direction,
+    const int32_t         bus_idx,
+    const Steinberg_TBool state);
+
+static Steinberg_tresult vst3component_set_active(void* const self, const Steinberg_TBool state);
+static Steinberg_tresult vst3component_set_state(void* const self, Steinberg_IBStream* const stream);
+static Steinberg_tresult vst3component_get_state(void* const self, Steinberg_IBStream* const stream);
+
+struct dpf_factory
+{
+    Steinberg_IPluginFactory3Vtbl* lpVtbl;
+    Steinberg_IPluginFactory3Vtbl  base;
+
+    std::atomic_int refcounter;
+
+    // cached values
+    Steinberg_FUnknown* hostContext;
+
+    dpf_factory();
+    ~dpf_factory();
+};
+
+// Steinberg_FUnknown
+static Steinberg_tresult vst3factory_query_interface(void* const self, const Steinberg_TUID iid, void** const iface);
+static uint32_t          vst3factory_ref(void* const self);
+static uint32_t          vst3factory_unref(void* const self);
+// Steinberg_IPluginFactory
+static Steinberg_tresult vst3factory_get_factory_info(void*, Steinberg_PFactoryInfo* const info);
+static int32_t           vst3factory_num_classes(void*);
+static Steinberg_tresult vst3factory_get_class_info(void*, const int32_t idx, Steinberg_PClassInfo* const info);
+static Steinberg_tresult
+vst3factory_create_instance(void* self, const Steinberg_TUID class_id, const Steinberg_TUID iid, void** const instance);
+// Steinberg_IPluginFactory2
+static Steinberg_tresult vst3factory_get_class_info_2(void*, const int32_t idx, Steinberg_PClassInfo2* const info);
+// Steinberg_IPluginFactory3
+static Steinberg_tresult vst3factory_get_class_info_utf16(void*, const int32_t idx, Steinberg_PClassInfoW* const info);
+static Steinberg_tresult vst3factory_set_host_context(void* const self, Steinberg_FUnknown* const context);
 
 // --------------------------------------------------------------------------------------------------------------------
 
-/**
- * VST3 DSP class.
- *
- * All the dynamic things from VST3 get implemented here, free of complex low-level VST3 pointer things.
- * This class is created during the "initialize" component event, and destroyed during "terminate".
- *
- * The low-level VST3 stuff comes after.
- */
 struct PluginVst3
 {
     // Plugin
     PluginExporter fPlugin;
 
+    dpf_component       component;
+    dpf_edit_controller controller;
+    dpf_audio_processor processor;
+
     // VST3 stuff
-    Steinberg_Vst_IComponentHandler* fComponentHandler;
-  #if DISTRHO_PLUGIN_HAS_UI
-   #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    Steinberg_Vst_IConnectionPoint* fConnectionFromCompToCtrl;
-   #endif
+#if DISTRHO_PLUGIN_HAS_UI
     Steinberg_Vst_IConnectionPoint* fConnectionFromCtrlToView;
-    Steinberg_Vst_IHostApplication* const fHostApplication;
-  #endif
+#endif
+    Steinberg_Vst_IHostApplication* const fHost;
 
     // Temporary data
     const uint32_t fParameterCount;
-    const uint32_t fVst3ParameterCount; // full offset + real
-    float* fCachedParameterValues; // basic offset + real
-    float* fDummyAudioBuffer;
-    bool* fParameterValuesChangedDuringProcessing; // basic offset + real
-   #if DISTRHO_PLUGIN_NUM_INPUTS > 0
+    const uint32_t fVst3ParameterCount;    // full offset + real
+    float*         fCachedParameterValues; // basic offset + real
+    float*         fDummyAudioBuffer;
+    bool*          fParameterValuesChangedDuringProcessing; // basic offset + real
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
     bool fEnabledInputs[DISTRHO_PLUGIN_NUM_INPUTS];
-   #endif
-   #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#endif
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
     bool fEnabledOutputs[DISTRHO_PLUGIN_NUM_OUTPUTS];
-   #endif
-   #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    const bool fIsComponent;
-   #endif
-   #if DISTRHO_PLUGIN_HAS_UI
+#endif
+#if DISTRHO_PLUGIN_HAS_UI
     bool* fParameterValueChangesForUI; // basic offset + real
-    bool fConnectedToUI;
-   #endif
-   #if DISTRHO_PLUGIN_WANT_LATENCY
+    bool  fConnectedToUI;
+#endif
+#if DISTRHO_PLUGIN_WANT_LATENCY
     uint32_t fLastKnownLatency;
-   #endif
-  #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#endif
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     MidiEvent fMidiEvents[kMaxMidiEvents];
-   #if DISTRHO_PLUGIN_HAS_UI
+#if DISTRHO_PLUGIN_HAS_UI
     SmallStackRingBuffer fNotesRingBuffer;
-   #endif
-  #endif
-   #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#endif
+#endif
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
     Steinberg_Vst_IEventList* fHostEventOutputHandle;
-   #endif
-   #if DISTRHO_PLUGIN_WANT_TIMEPOS
+#endif
+#if DISTRHO_PLUGIN_WANT_TIMEPOS
     TimePosition fTimePosition;
-   #endif
+#endif
 
     /* Buses: count possible buses we can provide to the host, in case they are not yet defined by the developer.
      * These values are only used if port groups aren't set.
@@ -364,9 +510,10 @@ struct PluginVst3
      *
      * MIDI will have a single bus, nothing special there.
      */
-    struct BusInfo {
-        uint8_t audio;     // either 0 or 1
-        uint8_t sidechain; // either 0 or 1
+    struct BusInfo
+    {
+        uint8_t  audio;     // either 0 or 1
+        uint8_t  sidechain; // either 0 or 1
         uint32_t groups;
         uint32_t audioPorts;
         uint32_t sidechainPorts;
@@ -374,21 +521,24 @@ struct PluginVst3
         uint32_t cvPorts;
 
         BusInfo()
-          : audio(0),
-            sidechain(0),
-            groups(0),
-            audioPorts(0),
-            sidechainPorts(0),
-            groupPorts(0),
-            cvPorts(0) {}
+            : audio(0)
+            , sidechain(0)
+            , groups(0)
+            , audioPorts(0)
+            , sidechainPorts(0)
+            , groupPorts(0)
+            , cvPorts(0)
+        {}
     } inputBuses, outputBuses;
 
-   #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     /* Handy class for storing and sorting VST3 events and MIDI CC parameters.
      * It will only store events for which a MIDI conversion is possible.
      */
-    struct InputEventList {
-        enum Type {
+    struct InputEventList
+    {
+        enum Type
+        {
             NoteOn,
             NoteOff,
             SysexData,
@@ -398,34 +548,37 @@ struct PluginVst3
             CC_Pitchbend,
             UI_MIDI // event from UI
         };
-        struct InputEventStorage {
+        struct InputEventStorage
+        {
             Type type;
-            union {
-                Steinberg_Vst_NoteOnEvent noteOn;
-                Steinberg_Vst_NoteOffEvent noteOff;
-                Steinberg_Vst_DataEvent sysexData;
+            union
+            {
+                Steinberg_Vst_NoteOnEvent       noteOn;
+                Steinberg_Vst_NoteOffEvent      noteOff;
+                Steinberg_Vst_DataEvent         sysexData;
                 Steinberg_Vst_PolyPressureEvent polyPressure;
-                uint8_t midi[3];
+                uint8_t                         midi[3];
             };
         } eventListStorage[kMaxMidiEvents];
 
-        struct InputEvent {
-            int32_t sampleOffset;
+        struct InputEvent
+        {
+            int32_t                  sampleOffset;
             const InputEventStorage* storage;
-            InputEvent* next;
+            InputEvent*              next;
         } eventList[kMaxMidiEvents];
 
-        uint16_t numUsed;
-        int32_t firstSampleOffset;
-        int32_t lastSampleOffset;
+        uint16_t    numUsed;
+        int32_t     firstSampleOffset;
+        int32_t     lastSampleOffset;
         InputEvent* firstEvent;
         InputEvent* lastEvent;
 
         void init()
         {
-            numUsed = 0;
+            numUsed           = 0;
             firstSampleOffset = lastSampleOffset = 0;
-            firstEvent = nullptr;
+            firstEvent                           = nullptr;
         }
 
         uint32_t convert(MidiEvent midiEvents[kMaxMidiEvents]) const noexcept
@@ -442,14 +595,14 @@ struct PluginVst3
                 switch (eventStorage.type)
                 {
                 case NoteOn:
-                    midiEvent.size = 3;
+                    midiEvent.size    = 3;
                     midiEvent.data[0] = 0x90 | (eventStorage.noteOn.channel & 0xf);
                     midiEvent.data[1] = eventStorage.noteOn.pitch;
                     midiEvent.data[2] = std::max(0, std::min(127, (int)(eventStorage.noteOn.velocity * 127)));
                     midiEvent.data[3] = 0;
                     break;
                 case NoteOff:
-                    midiEvent.size = 3;
+                    midiEvent.size    = 3;
                     midiEvent.data[0] = 0x80 | (eventStorage.noteOff.channel & 0xf);
                     midiEvent.data[1] = eventStorage.noteOff.pitch;
                     midiEvent.data[2] = std::max(0, std::min(127, (int)(eventStorage.noteOff.velocity * 127)));
@@ -460,32 +613,32 @@ struct PluginVst3
                     break;
                 */
                 case PolyPressure:
-                    midiEvent.size = 3;
+                    midiEvent.size    = 3;
                     midiEvent.data[0] = 0xA0 | (eventStorage.polyPressure.channel & 0xf);
                     midiEvent.data[1] = eventStorage.polyPressure.pitch;
                     midiEvent.data[2] = std::max(0, std::min(127, (int)(eventStorage.polyPressure.pressure * 127)));
                     midiEvent.data[3] = 0;
                     break;
                 case CC_Normal:
-                    midiEvent.size = 3;
+                    midiEvent.size    = 3;
                     midiEvent.data[0] = 0xB0 | (eventStorage.midi[0] & 0xf);
                     midiEvent.data[1] = eventStorage.midi[1];
                     midiEvent.data[2] = eventStorage.midi[2];
                     break;
                 case CC_ChannelPressure:
-                    midiEvent.size = 2;
+                    midiEvent.size    = 2;
                     midiEvent.data[0] = 0xD0 | (eventStorage.midi[0] & 0xf);
                     midiEvent.data[1] = eventStorage.midi[1];
                     midiEvent.data[2] = 0;
                     break;
                 case CC_Pitchbend:
-                    midiEvent.size = 3;
+                    midiEvent.size    = 3;
                     midiEvent.data[0] = 0xE0 | (eventStorage.midi[0] & 0xf);
                     midiEvent.data[1] = eventStorage.midi[1];
                     midiEvent.data[2] = eventStorage.midi[2];
                     break;
                 case UI_MIDI:
-                    midiEvent.size = 3;
+                    midiEvent.size    = 3;
                     midiEvent.data[0] = eventStorage.midi[0];
                     midiEvent.data[1] = eventStorage.midi[1];
                     midiEvent.data[2] = eventStorage.midi[2];
@@ -518,19 +671,19 @@ struct PluginVst3
             switch (event.type)
             {
             case Steinberg_Vst_Event_EventTypes_kNoteOnEvent:
-                eventStorage.type = NoteOn;
+                eventStorage.type   = NoteOn;
                 eventStorage.noteOn = event.Steinberg_Vst_Event_noteOn;
                 break;
             case Steinberg_Vst_Event_EventTypes_kNoteOffEvent:
-                eventStorage.type = NoteOff;
+                eventStorage.type    = NoteOff;
                 eventStorage.noteOff = event.Steinberg_Vst_Event_noteOff;
                 break;
             case Steinberg_Vst_Event_EventTypes_kDataEvent:
-                eventStorage.type = SysexData;
+                eventStorage.type      = SysexData;
                 eventStorage.sysexData = event.Steinberg_Vst_Event_data;
                 break;
             case Steinberg_Vst_Event_EventTypes_kPolyPressureEvent:
-                eventStorage.type = PolyPressure;
+                eventStorage.type         = PolyPressure;
                 eventStorage.polyPressure = event.Steinberg_Vst_Event_polyPressure;
                 break;
             default:
@@ -538,7 +691,7 @@ struct PluginVst3
             }
 
             eventList[numUsed].sampleOffset = event.sampleOffset;
-            eventList[numUsed].storage = &eventStorage;
+            eventList[numUsed].storage      = &eventStorage;
 
             return placeSorted(event.sampleOffset);
         }
@@ -554,17 +707,17 @@ struct PluginVst3
             switch (cc)
             {
             case 128:
-                eventStorage.type = CC_ChannelPressure;
+                eventStorage.type    = CC_ChannelPressure;
                 eventStorage.midi[1] = std::max(0, std::min(127, (int)(normalized * 127)));
                 eventStorage.midi[2] = 0;
                 break;
             case 129:
-                eventStorage.type = CC_Pitchbend;
+                eventStorage.type    = CC_Pitchbend;
                 eventStorage.midi[1] = std::max(0, std::min(16384, (int)(normalized * 16384))) & 0x7f;
                 eventStorage.midi[2] = std::max(0, std::min(16384, (int)(normalized * 16384))) >> 7;
                 break;
             default:
-                eventStorage.type = CC_Normal;
+                eventStorage.type    = CC_Normal;
                 eventStorage.midi[1] = cc;
                 eventStorage.midi[2] = std::max(0, std::min(127, (int)(normalized * 127)));
                 break;
@@ -573,25 +726,25 @@ struct PluginVst3
             eventStorage.midi[0] = paramId / 130;
 
             eventList[numUsed].sampleOffset = sampleOffset;
-            eventList[numUsed].storage = &eventStorage;
+            eventList[numUsed].storage      = &eventStorage;
 
             return placeSorted(sampleOffset);
         }
 
-       #if DISTRHO_PLUGIN_HAS_UI
+#if DISTRHO_PLUGIN_HAS_UI
         // NOTE always runs first
         bool appendFromUI(const uint8_t midiData[3])
         {
             InputEventStorage& eventStorage(eventListStorage[numUsed]);
 
             eventStorage.type = UI_MIDI;
-            std::memcpy(eventStorage.midi, midiData, sizeof(uint8_t)*3);
+            memcpy(eventStorage.midi, midiData, sizeof(uint8_t) * 3);
 
             InputEvent* const event = &eventList[numUsed];
 
             event->sampleOffset = 0;
-            event->storage = &eventStorage;
-            event->next = nullptr;
+            event->storage      = &eventStorage;
+            event->next         = nullptr;
 
             if (numUsed == 0)
             {
@@ -600,12 +753,12 @@ struct PluginVst3
             else
             {
                 lastEvent->next = event;
-                lastEvent = event;
+                lastEvent       = event;
             }
 
             return ++numUsed == kMaxMidiEvents;
         }
-       #endif
+#endif
 
     private:
         bool placeSorted(const int32_t sampleOffset) noexcept
@@ -617,22 +770,22 @@ struct PluginVst3
             {
                 firstSampleOffset = lastSampleOffset = sampleOffset;
                 firstEvent = lastEvent = event;
-                event->next = nullptr;
+                event->next            = nullptr;
             }
             // push to the back
             else if (sampleOffset >= lastSampleOffset)
             {
                 lastSampleOffset = sampleOffset;
-                lastEvent->next = event;
-                lastEvent = event;
-                event->next = nullptr;
+                lastEvent->next  = event;
+                lastEvent        = event;
+                event->next      = nullptr;
             }
             // push to the front
             else if (sampleOffset < firstSampleOffset)
             {
                 firstSampleOffset = sampleOffset;
-                event->next = firstEvent;
-                firstEvent = event;
+                event->next       = firstEvent;
+                firstEvent        = event;
             }
             // find place in between events
             else
@@ -651,93 +804,74 @@ struct PluginVst3
                     if (sampleOffset == event2->sampleOffset)
                     {
                         event2 = event2->next;
-                        for (; event2 != nullptr && sampleOffset == event2->sampleOffset; event2 = event2->next) {}
+                        for (; event2 != nullptr && sampleOffset == event2->sampleOffset; event2 = event2->next)
+                        {}
                         break;
                     }
                 }
 
                 DISTRHO_SAFE_ASSERT_RETURN(event2 != nullptr, true);
 
-                event->next = event2->next;
+                event->next  = event2->next;
                 event2->next = event;
             }
 
             return ++numUsed == kMaxMidiEvents;
         }
     } inputEventList;
-   #endif // DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#endif // DISTRHO_PLUGIN_WANT_MIDI_INPUT
 
 public:
-    PluginVst3(Steinberg_Vst_IHostApplication* const host, const bool isComponent)
-        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback),
-          fComponentHandler(nullptr),
-        #if DISTRHO_PLUGIN_HAS_UI
-         #if DPF_VST3_USES_SEPARATE_CONTROLLER
-          fConnectionFromCompToCtrl(nullptr),
-         #endif
-          fConnectionFromCtrlToView(nullptr),
-          fHostApplication(host),
-        #endif
-          fParameterCount(fPlugin.getParameterCount()),
-          fVst3ParameterCount(fParameterCount + kVst3InternalParameterCount),
-          fCachedParameterValues(nullptr),
-          fDummyAudioBuffer(nullptr),
-          fParameterValuesChangedDuringProcessing(nullptr)
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        , fIsComponent(isComponent)
-       #endif
-       #if DISTRHO_PLUGIN_HAS_UI
+    PluginVst3()
+        : fPlugin(this, writeMidiCallback, requestParameterValueChangeCallback)
+        , fHost(NULL)
+#if DISTRHO_PLUGIN_HAS_UI
+        , fConnectionFromCtrlToView(nullptr)
+#endif
+        , fParameterCount(fPlugin.getParameterCount())
+        , fVst3ParameterCount(fParameterCount + kVst3InternalParameterCount)
+        , fCachedParameterValues(nullptr)
+        , fDummyAudioBuffer(nullptr)
+        , fParameterValuesChangedDuringProcessing(nullptr)
+#if DISTRHO_PLUGIN_HAS_UI
         , fParameterValueChangesForUI(nullptr)
         , fConnectedToUI(false)
-       #endif
-       #if DISTRHO_PLUGIN_WANT_LATENCY
+#endif
+#if DISTRHO_PLUGIN_WANT_LATENCY
         , fLastKnownLatency(fPlugin.getLatency())
-       #endif
-       #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#endif
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
         , fHostEventOutputHandle(nullptr)
-       #endif
+#endif
     {
-       #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-        DISTRHO_SAFE_ASSERT(isComponent);
-       #endif
-
-       #if DISTRHO_PLUGIN_NUM_INPUTS > 0
-        std::memset(fEnabledInputs, 0, sizeof(fEnabledInputs));
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
+        memset(fEnabledInputs, 0, sizeof(fEnabledInputs));
         fillInBusInfoDetails<true>();
-       #endif
-       #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-        std::memset(fEnabledOutputs, 0, sizeof(fEnabledOutputs));
+#endif
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+        memset(fEnabledOutputs, 0, sizeof(fEnabledOutputs));
         fillInBusInfoDetails<false>();
-       #endif
+#endif
 
         if (const uint32_t extraParameterCount = fParameterCount + kVst3InternalParameterBaseCount)
         {
             fCachedParameterValues = new float[extraParameterCount];
 
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            fCachedParameterValues[kVst3InternalParameterBufferSize] = fPlugin.getBufferSize();
-            fCachedParameterValues[kVst3InternalParameterSampleRate] = fPlugin.getSampleRate();
-           #endif
-           #if DISTRHO_PLUGIN_WANT_LATENCY
-            fCachedParameterValues[kVst3InternalParameterLatency]    = fLastKnownLatency;
-           #endif
+#if DISTRHO_PLUGIN_WANT_LATENCY
+            fCachedParameterValues[kVst3InternalParameterLatency] = fLastKnownLatency;
+#endif
 
-            for (uint32_t i=0; i < fParameterCount; ++i)
+            for (uint32_t i = 0; i < fParameterCount; ++i)
                 fCachedParameterValues[kVst3InternalParameterBaseCount + i] = fPlugin.getParameterDefault(i);
 
             fParameterValuesChangedDuringProcessing = new bool[extraParameterCount];
-            std::memset(fParameterValuesChangedDuringProcessing, 0, sizeof(bool)*extraParameterCount);
+            memset(fParameterValuesChangedDuringProcessing, 0, sizeof(bool) * extraParameterCount);
 
-           #if DISTRHO_PLUGIN_HAS_UI
+#if DISTRHO_PLUGIN_HAS_UI
             fParameterValueChangesForUI = new bool[extraParameterCount];
-            std::memset(fParameterValueChangesForUI, 0, sizeof(bool)*extraParameterCount);
-           #endif
+            memset(fParameterValueChangesForUI, 0, sizeof(bool) * extraParameterCount);
+#endif
         }
-
-       #if !DISTRHO_PLUGIN_HAS_UI
-        // unused
-        return; (void)host;
-       #endif
     }
 
     ~PluginVst3()
@@ -760,13 +894,13 @@ public:
             fParameterValuesChangedDuringProcessing = nullptr;
         }
 
-       #if DISTRHO_PLUGIN_HAS_UI
+#if DISTRHO_PLUGIN_HAS_UI
         if (fParameterValueChangesForUI != nullptr)
         {
             delete[] fParameterValueChangesForUI;
             fParameterValueChangesForUI = nullptr;
         }
-       #endif
+#endif
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -775,7 +909,7 @@ public:
     double _getNormalizedParameterValue(const uint32_t index, const double plain)
     {
         const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
-        double value = ranges.getFixedAndNormalizedValue(plain);
+        double                 value = ranges.getFixedAndNormalizedValue(plain);
         if (value <= ranges.min)
             return 0.0;
         if (value >= ranges.max)
@@ -794,14 +928,14 @@ public:
     void _setNormalizedPluginParameterValue(const uint32_t index, const double normalized)
     {
         const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
-        const uint32_t hints = fPlugin.getParameterHints(index);
-        float value = ranges.getUnnormalizedValue(normalized);
+        const uint32_t         hints = fPlugin.getParameterHints(index);
+        float                  value = ranges.getUnnormalizedValue(normalized);
 
         // convert as needed as check for changes
         if (hints & kParameterIsBoolean)
         {
             const float midRange = ranges.min + (ranges.max - ranges.min) / 2.f;
-            const bool isHigh = value > midRange;
+            const bool  isHigh   = value > midRange;
 
             if (isHigh == (fCachedParameterValues[kVst3InternalParameterBaseCount + index] > midRange))
                 return;
@@ -810,7 +944,7 @@ public:
         }
         else if (hints & kParameterIsInteger)
         {
-            const int ivalue = static_cast<int>(std::round(value));
+            const int ivalue = static_cast<int>(roundf(value));
 
             if (static_cast<int>(fCachedParameterValues[kVst3InternalParameterBaseCount + index]) == ivalue)
                 return;
@@ -820,29 +954,26 @@ public:
         else
         {
             // deal with low resolution of some hosts, which convert double to float internally and lose precision
-            double v = static_cast<double>(fCachedParameterValues[kVst3InternalParameterBaseCount + index]);
+            double v         = static_cast<double>(fCachedParameterValues[kVst3InternalParameterBaseCount + index]);
             double normValue = (v - ranges.min) / (ranges.max - ranges.min);
 
             if (normValue <= 0.0)
                 normValue = 0.0;
             if (normValue >= 1.0)
                 normValue = 1.0;
-            if (std::abs(normValue - normalized) < 0.0000001)
+            if (abs(normValue - normalized) < 0.0000001)
                 return;
         }
 
         fCachedParameterValues[kVst3InternalParameterBaseCount + index] = value;
 
-      #if DISTRHO_PLUGIN_HAS_UI
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        if (!fIsComponent)
-       #endif
+#if DISTRHO_PLUGIN_HAS_UI
         {
             fParameterValueChangesForUI[kVst3InternalParameterBaseCount + index] = true;
         }
-      #endif
+#endif
 
-        if (!fPlugin.isParameterOutputOrTrigger(index))
+        if (! fPlugin.isParameterOutputOrTrigger(index))
             fPlugin.setParameterValue(index, value);
     }
 
@@ -860,86 +991,96 @@ public:
                 return outputBuses.audio + outputBuses.sidechain + outputBuses.groups + outputBuses.cvPorts;
             break;
         case Steinberg_Vst_MediaTypes_kEvent:
-           #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
             if (busDirection == Steinberg_Vst_BusDirections_kInput)
                 return 1;
-           #endif
-           #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#endif
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
             if (busDirection == Steinberg_Vst_BusDirections_kOutput)
                 return 1;
-           #endif
+#endif
             break;
         }
 
         return 0;
     }
 
-    Steinberg_tresult getBusInfo(const int32_t mediaType,
-                         const int32_t busDirection,
-                         const int32_t busIndex,
-                         Steinberg_Vst_BusInfo* const info) const
+    Steinberg_tresult getBusInfo(
+        const int32_t                mediaType,
+        const int32_t                busDirection,
+        const int32_t                busIndex,
+        Steinberg_Vst_BusInfo* const info) const
     {
-        DISTRHO_SAFE_ASSERT_INT_RETURN(mediaType == Steinberg_Vst_MediaTypes_kAudio || mediaType == Steinberg_Vst_MediaTypes_kEvent, mediaType, Steinberg_kInvalidArgument);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(busDirection == Steinberg_Vst_BusDirections_kInput || busDirection == Steinberg_Vst_BusDirections_kOutput, busDirection, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_INT_RETURN(
+            mediaType == Steinberg_Vst_MediaTypes_kAudio || mediaType == Steinberg_Vst_MediaTypes_kEvent,
+            mediaType,
+            Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_INT_RETURN(
+            busDirection == Steinberg_Vst_BusDirections_kInput || busDirection == Steinberg_Vst_BusDirections_kOutput,
+            busDirection,
+            Steinberg_kInvalidArgument);
         DISTRHO_SAFE_ASSERT_INT_RETURN(busIndex >= 0, busIndex, Steinberg_kInvalidArgument);
 
-       #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0 || DISTRHO_PLUGIN_WANT_MIDI_INPUT || DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#if DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS > 0 || DISTRHO_PLUGIN_WANT_MIDI_INPUT ||                    \
+    DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
         const uint32_t busId = static_cast<uint32_t>(busIndex);
-       #endif
+#endif
 
         if (mediaType == Steinberg_Vst_MediaTypes_kAudio)
         {
-           #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#if DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS > 0
             if (busDirection == Steinberg_Vst_BusDirections_kInput)
             {
-               #if DISTRHO_PLUGIN_NUM_INPUTS > 0
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
                 return getAudioBusInfo<true>(busId, info);
-               #else
+#else
                 d_stderr("invalid input bus %d", busId);
                 return Steinberg_kInvalidArgument;
-               #endif // DISTRHO_PLUGIN_NUM_INPUTS
+#endif // DISTRHO_PLUGIN_NUM_INPUTS
             }
             else
             {
-               #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
                 return getAudioBusInfo<false>(busId, info);
-               #else
+#else
                 d_stderr("invalid output bus %d", busId);
                 return Steinberg_kInvalidArgument;
-               #endif // DISTRHO_PLUGIN_NUM_OUTPUTS
+#endif // DISTRHO_PLUGIN_NUM_OUTPUTS
             }
-           #else
+#else
             d_stderr("invalid bus, line %d", __LINE__);
             return Steinberg_kInvalidArgument;
-           #endif // DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS
+#endif // DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS
         }
         else
         {
             if (busDirection == Steinberg_Vst_BusDirections_kInput)
             {
-               #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
                 DISTRHO_SAFE_ASSERT_RETURN(busId == 0, Steinberg_kInvalidArgument);
-               #else
+#else
                 d_stderr("invalid bus, line %d", __LINE__);
                 return Steinberg_kInvalidArgument;
-               #endif
+#endif
             }
             else
             {
-               #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
                 DISTRHO_SAFE_ASSERT_RETURN(busId == 0, Steinberg_kInvalidArgument);
-               #else
+#else
                 d_stderr("invalid bus, line %d", __LINE__);
                 return Steinberg_kInvalidArgument;
-               #endif
+#endif
             }
-            info->mediaType = Steinberg_Vst_MediaTypes_kEvent;
-            info->direction = busDirection;
+            info->mediaType    = Steinberg_Vst_MediaTypes_kEvent;
+            info->direction    = busDirection;
             info->channelCount = 1;
-            strncpy_utf16((int16_t*)info->name, busDirection == Steinberg_Vst_BusDirections_kInput ? "Event/MIDI Input"
-                                                                   : "Event/MIDI Output", 128);
+            strncpy_utf16(
+                (int16_t*)info->name,
+                busDirection == Steinberg_Vst_BusDirections_kInput ? "Event/MIDI Input" : "Event/MIDI Output",
+                128);
             info->busType = Steinberg_Vst_BusTypes_kMain;
-            info->flags = Steinberg_Vst_BusInfo_BusFlags_kDefaultActive;
+            info->flags   = Steinberg_Vst_BusInfo_BusFlags_kDefaultActive;
             return Steinberg_kResultOk;
         }
     }
@@ -956,52 +1097,53 @@ public:
         return Steinberg_kNotImplemented;
     }
 
-    Steinberg_tresult activateBus(const int32_t mediaType,
-                          const int32_t busDirection,
-                          const int32_t busIndex,
-                          const bool state) noexcept
+    Steinberg_tresult
+    activateBus(const int32_t mediaType, const int32_t busDirection, const int32_t busIndex, const bool state) noexcept
     {
-        DISTRHO_SAFE_ASSERT_INT_RETURN(busDirection == Steinberg_Vst_BusDirections_kInput || busDirection == Steinberg_Vst_BusDirections_kOutput, busDirection, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_INT_RETURN(
+            busDirection == Steinberg_Vst_BusDirections_kInput || busDirection == Steinberg_Vst_BusDirections_kOutput,
+            busDirection,
+            Steinberg_kInvalidArgument);
         DISTRHO_SAFE_ASSERT_INT_RETURN(busIndex >= 0, busIndex, Steinberg_kInvalidArgument);
 
         if (mediaType == Steinberg_Vst_MediaTypes_kAudio)
         {
-           #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#if DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS > 0
             const uint32_t busId = static_cast<uint32_t>(busIndex);
 
             if (busDirection == Steinberg_Vst_BusDirections_kInput)
             {
-               #if DISTRHO_PLUGIN_NUM_INPUTS > 0
-                for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_INPUTS; ++i)
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
+                for (uint32_t i = 0; i < DISTRHO_PLUGIN_NUM_INPUTS; ++i)
                 {
                     const AudioPortWithBusId& port(fPlugin.getAudioPort(true, i));
 
                     if (port.busId == busId)
                         fEnabledInputs[i] = state;
                 }
-               #endif
+#endif
             }
             else
             {
-               #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-                for (uint32_t i=0; i<DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+                for (uint32_t i = 0; i < DISTRHO_PLUGIN_NUM_OUTPUTS; ++i)
                 {
                     const AudioPortWithBusId& port(fPlugin.getAudioPort(false, i));
 
                     if (port.busId == busId)
                         fEnabledOutputs[i] = state;
                 }
-               #endif
+#endif
             }
-           #endif
+#endif
         }
 
         return Steinberg_kResultOk;
 
-       #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS == 0
+#if DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS == 0
         // unused
         (void)state;
-       #endif
+#endif
     }
 
     Steinberg_tresult setActive(const bool active)
@@ -1029,57 +1171,66 @@ public:
     // ----------------------------------------------------------------------------------------------------------------
     // Steinberg_Vst_IAudioProcessor interface calls
 
-    Steinberg_tresult setBusArrangements(Steinberg_Vst_Speaker* const inputs, const int32_t numInputs,
-                                 Steinberg_Vst_Speaker* const outputs, const int32_t numOutputs)
+    Steinberg_tresult setBusArrangements(
+        Steinberg_Vst_Speaker* const inputs,
+        const int32_t                numInputs,
+        Steinberg_Vst_Speaker* const outputs,
+        const int32_t                numOutputs)
     {
-       #if DISTRHO_PLUGIN_NUM_INPUTS > 0
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
         DISTRHO_SAFE_ASSERT_RETURN(numInputs >= 0, Steinberg_kInvalidArgument);
-        if (!setAudioBusArrangement<true>(inputs, static_cast<uint32_t>(numInputs)))
+        if (! setAudioBusArrangement<true>(inputs, static_cast<uint32_t>(numInputs)))
             return Steinberg_kInternalError;
-       #else
+#else
         DISTRHO_SAFE_ASSERT_RETURN(numInputs == 0, Steinberg_kInvalidArgument);
         // unused
         (void)inputs;
-       #endif
+#endif
 
-       #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
         DISTRHO_SAFE_ASSERT_RETURN(numOutputs >= 0, Steinberg_kInvalidArgument);
-        if (!setAudioBusArrangement<false>(outputs, static_cast<uint32_t>(numOutputs)))
+        if (! setAudioBusArrangement<false>(outputs, static_cast<uint32_t>(numOutputs)))
             return Steinberg_kInternalError;
-       #else
+#else
         DISTRHO_SAFE_ASSERT_RETURN(numOutputs == 0, Steinberg_kInvalidArgument);
         // unused
         (void)outputs;
-       #endif
+#endif
 
         return Steinberg_kResultOk;
     }
 
-    Steinberg_tresult getBusArrangement(const int32_t busDirection, const int32_t busIndex, Steinberg_Vst_Speaker* const speaker) const noexcept
+    Steinberg_tresult getBusArrangement(
+        const int32_t                busDirection,
+        const int32_t                busIndex,
+        Steinberg_Vst_Speaker* const speaker) const noexcept
     {
-        DISTRHO_SAFE_ASSERT_INT_RETURN(busDirection == Steinberg_Vst_BusDirections_kInput || busDirection == Steinberg_Vst_BusDirections_kOutput, busDirection, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_INT_RETURN(
+            busDirection == Steinberg_Vst_BusDirections_kInput || busDirection == Steinberg_Vst_BusDirections_kOutput,
+            busDirection,
+            Steinberg_kInvalidArgument);
         DISTRHO_SAFE_ASSERT_INT_RETURN(busIndex >= 0, busIndex, Steinberg_kInvalidArgument);
         DISTRHO_SAFE_ASSERT_RETURN(speaker != nullptr, Steinberg_kInvalidArgument);
 
-       #if DISTRHO_PLUGIN_NUM_INPUTS > 0 || DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0 || DISTRHO_PLUGIN_NUM_OUTPUTS > 0
         const uint32_t busId = static_cast<uint32_t>(busIndex);
-       #endif
+#endif
 
         if (busDirection == Steinberg_Vst_BusDirections_kInput)
         {
-           #if DISTRHO_PLUGIN_NUM_INPUTS > 0
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
             if (getAudioBusArrangement<true>(busId, speaker))
                 return Steinberg_kResultOk;
-           #endif
+#endif
             d_stderr("invalid input bus arrangement %d, line %d", busIndex, __LINE__);
             return Steinberg_kInvalidArgument;
         }
         else
         {
-           #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
             if (getAudioBusArrangement<false>(busId, speaker))
                 return Steinberg_kResultOk;
-           #endif
+#endif
             d_stderr("invalid output bus arrangement %d, line %d", busIndex, __LINE__);
             return Steinberg_kInvalidArgument;
         }
@@ -1087,35 +1238,27 @@ public:
 
     uint32_t getLatencySamples() const noexcept
     {
-       #if DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         return fPlugin.getLatency();
-       #else
+#else
         return 0;
-       #endif
+#endif
     }
 
     Steinberg_tresult setupProcessing(Steinberg_Vst_ProcessSetup* const setup)
     {
-        DISTRHO_SAFE_ASSERT_RETURN(setup->symbolicSampleSize == Steinberg_Vst_SymbolicSampleSizes_kSample32, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_RETURN(
+            setup->symbolicSampleSize == Steinberg_Vst_SymbolicSampleSizes_kSample32,
+            Steinberg_kInvalidArgument);
 
         const bool active = fPlugin.fIsActive;
         fPlugin.deactivateIfNeeded();
 
-        // TODO process_mode can be Steinberg_Vst_ProcessModes_kRealtime, Steinberg_Vst_ProcessModes_kPrefetch, Steinberg_Vst_ProcessModes_kOffline
+        // TODO process_mode can be Steinberg_Vst_ProcessModes_kRealtime, Steinberg_Vst_ProcessModes_kPrefetch,
+        // Steinberg_Vst_ProcessModes_kOffline
 
         fPlugin.setSampleRate(setup->sampleRate, true);
         fPlugin.setBufferSize(setup->maxSamplesPerBlock, true);
-
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        fCachedParameterValues[kVst3InternalParameterBufferSize] = setup->maxSamplesPerBlock;
-        fParameterValuesChangedDuringProcessing[kVst3InternalParameterBufferSize] = true;
-
-        fCachedParameterValues[kVst3InternalParameterSampleRate] = setup->sampleRate;
-        fParameterValuesChangedDuringProcessing[kVst3InternalParameterSampleRate] = true;
-       #if DISTRHO_PLUGIN_HAS_UI
-        fParameterValueChangesForUI[kVst3InternalParameterSampleRate] = true;
-       #endif
-      #endif
 
         if (active)
             fPlugin.activate();
@@ -1143,14 +1286,16 @@ public:
 
     Steinberg_tresult process(Steinberg_Vst_ProcessData* const data)
     {
-        DISTRHO_SAFE_ASSERT_RETURN(data->symbolicSampleSize == Steinberg_Vst_SymbolicSampleSizes_kSample32, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_RETURN(
+            data->symbolicSampleSize == Steinberg_Vst_SymbolicSampleSizes_kSample32,
+            Steinberg_kInvalidArgument);
         // d_debug("process %i", data->symbolicSampleSize);
 
         // activate plugin if not done yet
         if (! fPlugin.fIsActive)
             fPlugin.activate();
 
-       #if DISTRHO_PLUGIN_WANT_TIMEPOS
+#if DISTRHO_PLUGIN_WANT_TIMEPOS
         if (Steinberg_Vst_ProcessContext* const ctx = data->processContext)
         {
             /*
@@ -1169,12 +1314,15 @@ public:
             else
                 fTimePosition.bbt.bpm = 120.0;
 
-            if ((ctx->state & (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid)) == (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid))
+            if ((ctx->state &
+            (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid))
+            ==
+            (Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid|Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid))
             {
-                const double ppqPos    = std::abs(ctx->projectTimeMusic);
+                const double ppqPos    = abs(ctx->projectTimeMusic);
                 const int    ppqPerBar = ctx->timeSigNumerator * 4 / ctx->timeSigDenominator;
-                const double barBeats  = (std::fmod(ppqPos, ppqPerBar) / ppqPerBar) * ctx->timeSigNumerator;
-                const double rest      =  std::fmod(barBeats, 1.0);
+                const double barBeats  = (fmod(ppqPos, ppqPerBar) / ppqPerBar) * ctx->timeSigNumerator;
+                const double rest      =  fmod(barBeats, 1.0);
 
                 fTimePosition.bbt.valid       = true;
                 fTimePosition.bbt.bar         = static_cast<int32_t>(ppqPos) / ppqPerBar + 1;
@@ -1207,7 +1355,7 @@ public:
             fPlugin.setTimePosition(fTimePosition);
             */
         }
-       #endif
+#endif
 
         if (data->numSamples <= 0)
         {
@@ -1218,18 +1366,20 @@ public:
         const float* inputs[DISTRHO_PLUGIN_NUM_INPUTS != 0 ? DISTRHO_PLUGIN_NUM_INPUTS : 1];
         /* */ float* outputs[DISTRHO_PLUGIN_NUM_OUTPUTS != 0 ? DISTRHO_PLUGIN_NUM_OUTPUTS : 1];
 
-        std::memset(fDummyAudioBuffer, 0, sizeof(float)*data->numSamples);
+        memset(fDummyAudioBuffer, 0, sizeof(float) * data->numSamples);
 
         {
             int32_t i = 0;
-           #if DISTRHO_PLUGIN_NUM_INPUTS > 0
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
             if (data->inputs != nullptr)
             {
-                for (int32_t b = 0; b < data->numInputs; ++b) {
+                for (int32_t b = 0; b < data->numInputs; ++b)
+                {
                     for (int32_t j = 0; j < data->inputs[b].numChannels; ++j)
                     {
                         DISTRHO_SAFE_ASSERT_INT_BREAK(i < DISTRHO_PLUGIN_NUM_INPUTS, i);
-                        if (!fEnabledInputs[i] && i < DISTRHO_PLUGIN_NUM_INPUTS) {
+                        if (! fEnabledInputs[i] && i < DISTRHO_PLUGIN_NUM_INPUTS)
+                        {
                             inputs[i++] = fDummyAudioBuffer;
                             continue;
                         }
@@ -1238,21 +1388,23 @@ public:
                     }
                 }
             }
-           #endif
+#endif
             for (; i < std::max(1, DISTRHO_PLUGIN_NUM_INPUTS); ++i)
                 inputs[i] = fDummyAudioBuffer;
         }
 
         {
             int32_t i = 0;
-           #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
             if (data->outputs != nullptr)
             {
-                for (int32_t b = 0; b < data->numOutputs; ++b) {
+                for (int32_t b = 0; b < data->numOutputs; ++b)
+                {
                     for (int32_t j = 0; j < data->outputs[b].numChannels; ++j)
                     {
                         DISTRHO_SAFE_ASSERT_INT_BREAK(i < DISTRHO_PLUGIN_NUM_OUTPUTS, i);
-                        if (!fEnabledOutputs[i] && i < DISTRHO_PLUGIN_NUM_OUTPUTS) {
+                        if (! fEnabledOutputs[i] && i < DISTRHO_PLUGIN_NUM_OUTPUTS)
+                        {
                             outputs[i++] = fDummyAudioBuffer;
                             continue;
                         }
@@ -1261,20 +1413,20 @@ public:
                     }
                 }
             }
-           #endif
+#endif
             for (; i < std::max(1, DISTRHO_PLUGIN_NUM_OUTPUTS); ++i)
                 outputs[i] = fDummyAudioBuffer;
         }
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
         fHostEventOutputHandle = data->outputEvents;
-       #endif
+#endif
 
-      #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         bool canAppendMoreEvents = true;
         inputEventList.init();
 
-       #if DISTRHO_PLUGIN_HAS_UI
+#if DISTRHO_PLUGIN_HAS_UI
         while (fNotesRingBuffer.isDataAvailableForReading())
         {
             uint8_t midiData[3];
@@ -1287,7 +1439,7 @@ public:
                 break;
             }
         }
-       #endif
+#endif
 
         if (canAppendMoreEvents)
         {
@@ -1307,12 +1459,12 @@ public:
                 }
             }
         }
-      #endif
+#endif
 
         if (Steinberg_Vst_IParameterChanges* const inparamsptr = data->inputParameterChanges)
         {
             int32_t offset;
-            double normalized;
+            double  normalized;
 
             for (int32_t i = 0, count = inparamsptr->lpVtbl->getParameterCount(inparamsptr); i < count; ++i)
             {
@@ -1322,12 +1474,13 @@ public:
                 const uint32_t rindex = queue->lpVtbl->getParameterId(queue);
                 DISTRHO_SAFE_ASSERT_UINT_BREAK(rindex < fVst3ParameterCount, rindex);
 
-               #if DPF_VST3_HAS_INTERNAL_PARAMETERS
+#if DPF_VST3_HAS_INTERNAL_PARAMETERS
                 if (rindex < kVst3InternalParameterCount)
                 {
-                   #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
                     // if there are any MIDI CC events as parameter changes, handle them here
-                    if (canAppendMoreEvents && rindex >= kVst3InternalParameterMidiCC_start && rindex <= kVst3InternalParameterMidiCC_end)
+                    if (canAppendMoreEvents && rindex >= kVst3InternalParameterMidiCC_start &&
+                        rindex <= kVst3InternalParameterMidiCC_end)
                     {
                         for (int32_t j = 0, pcount = queue->lpVtbl->getPointCount(queue); j < pcount; ++j)
                         {
@@ -1341,10 +1494,10 @@ public:
                             }
                         }
                     }
-                   #endif
+#endif
                     continue;
                 }
-               #endif
+#endif
 
                 if (queue->lpVtbl->getPointCount(queue) <= 0)
                     continue;
@@ -1361,22 +1514,22 @@ public:
             }
         }
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         const uint32_t midiEventCount = inputEventList.convert(fMidiEvents);
         fPlugin.run(inputs, outputs, data->numSamples, fMidiEvents, midiEventCount);
-       #else
+#else
         fPlugin.run(inputs, outputs, data->numSamples);
-       #endif
+#endif
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
         fHostEventOutputHandle = nullptr;
-       #endif
+#endif
 
         // if there are any parameter changes after frame 0, set them here
         if (Steinberg_Vst_IParameterChanges* const inparamsptr = data->inputParameterChanges)
         {
             int32_t offset;
-            double normalized;
+            double  normalized;
 
             for (int32_t i = 0, count = inparamsptr->lpVtbl->getParameterCount(inparamsptr); i < count; ++i)
             {
@@ -1386,10 +1539,10 @@ public:
                 const uint32_t rindex = queue->lpVtbl->getParameterId(queue);
                 DISTRHO_SAFE_ASSERT_UINT_BREAK(rindex < fVst3ParameterCount, rindex);
 
-               #if DPF_VST3_HAS_INTERNAL_PARAMETERS
+#if DPF_VST3_HAS_INTERNAL_PARAMETERS
                 if (rindex < kVst3InternalParameterCount)
                     continue;
-               #endif
+#endif
 
                 const int32_t pcount = queue->lpVtbl->getPointCount(queue);
 
@@ -1411,70 +1564,49 @@ public:
         return Steinberg_kResultOk;
     }
 
-    uint32_t getTailSamples() const noexcept
-    {
-        return 0;
-    }
+    uint32_t getTailSamples() const noexcept { return 0; }
 
     // ----------------------------------------------------------------------------------------------------------------
     // Steinberg_Vst_IEditController interface calls
 
-    int32_t getParameterCount() const noexcept
-    {
-        return fVst3ParameterCount;
-    }
+    int32_t getParameterCount() const noexcept { return fVst3ParameterCount; }
 
     Steinberg_tresult getParameterInfo(const int32_t rindex, Steinberg_Vst_ParameterInfo* const info) const noexcept
     {
-        std::memset(info, 0, sizeof(*info));
+        memset(info, 0, sizeof(*info));
         DISTRHO_SAFE_ASSERT_RETURN(rindex >= 0, Steinberg_kInvalidArgument);
 
         // TODO hash the parameter symbol
         info->id = rindex;
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        case kVst3InternalParameterBufferSize:
-            info->flags = Steinberg_Vst_ParameterInfo_ParameterFlags_kNoFlags | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
-            info->stepCount = DPF_VST3_MAX_BUFFER_SIZE - 1;
-            strncpy_utf16((int16_t*)info->title, "Buffer Size", 128);
-            strncpy_utf16((int16_t*)info->shortTitle, "Buffer Size", 128);
-            strncpy_utf16((int16_t*)info->units, "frames", 128);
-            return Steinberg_kResultOk;
-        case kVst3InternalParameterSampleRate:
-            info->flags = Steinberg_Vst_ParameterInfo_ParameterFlags_kNoFlags | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
-            strncpy_utf16((int16_t*)info->title, "Sample Rate", 128);
-            strncpy_utf16((int16_t*)info->shortTitle, "Sample Rate", 128);
-            strncpy_utf16((int16_t*)info->units, "frames", 128);
-            return Steinberg_kResultOk;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
-            info->flags = Steinberg_Vst_ParameterInfo_ParameterFlags_kNoFlags | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
+            info->flags = Steinberg_Vst_ParameterInfo_ParameterFlags_kNoFlags |
+                          Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
             strncpy_utf16((int16_t*)info->title, "Latency", 128);
             strncpy_utf16((int16_t*)info->shortTitle, "Latency", 128);
             strncpy_utf16((int16_t*)info->units, "frames", 128);
             return Steinberg_kResultOk;
-       #endif
         }
-      #endif
+#endif
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         if (rindex < kVst3InternalParameterCount)
         {
             const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterMidiCC_start);
-            info->flags = Steinberg_Vst_ParameterInfo_ParameterFlags_kCanAutomate | Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
+            info->flags          = Steinberg_Vst_ParameterInfo_ParameterFlags_kCanAutomate |
+                          Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden;
             info->stepCount = 127;
             char ccstr[24];
             snprintf(ccstr, sizeof(ccstr), "MIDI Ch. %d CC %d", static_cast<uint8_t>(index / 130) + 1, index % 130);
             strncpy_utf16((int16_t*)info->title, ccstr, 128);
             snprintf(ccstr, sizeof(ccstr), "Ch.%d CC%d", index / 130 + 1, index % 130);
-            strncpy_utf16((int16_t*)info->shortTitle, ccstr+5, 128);
+            strncpy_utf16((int16_t*)info->shortTitle, ccstr + 5, 128);
             return Steinberg_kResultOk;
         }
-       #endif
+#endif
 
         const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
         DISTRHO_SAFE_ASSERT_UINT_RETURN(index < fParameterCount, index, Steinberg_kInvalidArgument);
@@ -1483,8 +1615,8 @@ public:
         int32_t flags = 0;
 
         const ParameterEnumerationValues& enumValues(fPlugin.getParameterEnumValues(index));
-        const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
-        const uint32_t hints = fPlugin.getParameterHints(index);
+        const ParameterRanges&            ranges(fPlugin.getParameterRanges(index));
+        const uint32_t                    hints = fPlugin.getParameterHints(index);
 
         switch (fPlugin.getParameterDesignation(index))
         {
@@ -1510,70 +1642,61 @@ public:
 
         if (enumValues.count >= 2 && enumValues.restrictedMode)
         {
-            flags |= Steinberg_Vst_ParameterInfo_ParameterFlags_kIsList;
+            flags      |= Steinberg_Vst_ParameterInfo_ParameterFlags_kIsList;
             step_count = enumValues.count - 1;
         }
 
-        info->flags = flags;
-        info->stepCount = step_count;
+        info->flags                  = flags;
+        info->stepCount              = step_count;
         info->defaultNormalizedValue = ranges.getNormalizedValue(ranges.defaultValue);
         // int32_t unit_id;
-        strncpy_utf16((int16_t*)info->title,       fPlugin.getParameterName(index), 128);
+        strncpy_utf16((int16_t*)info->title, fPlugin.getParameterName(index), 128);
         strncpy_utf16((int16_t*)info->shortTitle, fPlugin.getParameterShortName(index), 128);
-        strncpy_utf16((int16_t*)info->units,       fPlugin.getParameterUnit(index), 128);
+        strncpy_utf16((int16_t*)info->units, fPlugin.getParameterUnit(index), 128);
         return Steinberg_kResultOk;
     }
 
-    Steinberg_tresult getParameterStringForValue(const uint32_t rindex, const double normalized, Steinberg_Vst_String128 output)
+    Steinberg_tresult
+    getParameterStringForValue(const uint32_t rindex, const double normalized, Steinberg_Vst_String128 output)
     {
         DISTRHO_SAFE_ASSERT_RETURN(normalized >= 0.0 && normalized <= 1.0, Steinberg_kInvalidArgument);
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        case kVst3InternalParameterBufferSize:
-            snprintf_i32_utf16((int16_t*)output, static_cast<int>(normalized * DPF_VST3_MAX_BUFFER_SIZE + 0.5), 128);
-            return Steinberg_kResultOk;
-        case kVst3InternalParameterSampleRate:
-            snprintf_f32_utf16((int16_t*)output, std::round(normalized * DPF_VST3_MAX_SAMPLE_RATE), 128);
-            return Steinberg_kResultOk;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
-            snprintf_f32_utf16((int16_t*)output, std::round(normalized * DPF_VST3_MAX_LATENCY), 128);
+            snprintf_f32_utf16((int16_t*)output, round(normalized * DPF_VST3_MAX_LATENCY), 128);
             return Steinberg_kResultOk;
-       #endif
         }
-      #endif
+#endif
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         if (rindex < kVst3InternalParameterCount)
         {
-            snprintf_f32_utf16((int16_t*)output, std::round(normalized * 127), 128);
+            snprintf_f32_utf16((int16_t*)output, round(normalized * 127), 128);
             return Steinberg_kResultOk;
         }
-       #endif
+#endif
 
         const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
         DISTRHO_SAFE_ASSERT_UINT_RETURN(index < fParameterCount, index, Steinberg_kInvalidArgument);
 
         const ParameterEnumerationValues& enumValues(fPlugin.getParameterEnumValues(index));
-        const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
-        const uint32_t hints = fPlugin.getParameterHints(index);
-        float value = ranges.getUnnormalizedValue(normalized);
+        const ParameterRanges&            ranges(fPlugin.getParameterRanges(index));
+        const uint32_t                    hints = fPlugin.getParameterHints(index);
+        float                             value = ranges.getUnnormalizedValue(normalized);
 
         if (hints & kParameterIsBoolean)
         {
             const float midRange = ranges.min + (ranges.max - ranges.min) * 0.5f;
-            value = value > midRange ? ranges.max : ranges.min;
+            value                = value > midRange ? ranges.max : ranges.min;
         }
         else if (hints & kParameterIsInteger)
         {
-            value = std::round(value);
+            value = round(value);
         }
 
-        for (uint32_t i=0; i < enumValues.count; ++i)
+        for (uint32_t i = 0; i < enumValues.count; ++i)
         {
             if (d_isEqual(enumValues.values[i].value, value))
             {
@@ -1592,40 +1715,30 @@ public:
 
     Steinberg_tresult getParameterValueForString(const uint32_t rindex, char16_t* const input, double* const output)
     {
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        case kVst3InternalParameterBufferSize:
-            *output = static_cast<double>(std::atoi(ScopedUTF8String(input))) / DPF_VST3_MAX_BUFFER_SIZE;
-            return Steinberg_kResultOk;
-        case kVst3InternalParameterSampleRate:
-            *output = std::atof(ScopedUTF8String(input)) / DPF_VST3_MAX_SAMPLE_RATE;
-            return Steinberg_kResultOk;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
             *output = std::atof(ScopedUTF8String(input)) / DPF_VST3_MAX_LATENCY;
             return Steinberg_kResultOk;
-       #endif
         }
-      #endif
+#endif
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         if (rindex < kVst3InternalParameterCount)
         {
             // TODO find CC/channel based on name
             return Steinberg_kNotImplemented;
         }
-       #endif
+#endif
 
         const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
         DISTRHO_SAFE_ASSERT_UINT_RETURN(index < fParameterCount, index, Steinberg_kInvalidArgument);
 
         const ParameterEnumerationValues& enumValues(fPlugin.getParameterEnumValues(index));
-        const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
+        const ParameterRanges&            ranges(fPlugin.getParameterRanges(index));
 
-        for (uint32_t i=0; i < enumValues.count; ++i)
+        for (uint32_t i = 0; i < enumValues.count; ++i)
         {
             if (strcmp_utf16((int16_t*)input, enumValues.values[i].label))
             {
@@ -1650,42 +1763,34 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(normalized >= 0.0 && normalized <= 1.0, 0.0);
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        case kVst3InternalParameterBufferSize:
-            return std::round(normalized * DPF_VST3_MAX_BUFFER_SIZE);
-        case kVst3InternalParameterSampleRate:
-            return normalized * DPF_VST3_MAX_SAMPLE_RATE;
-       #endif
-       #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
             return normalized * DPF_VST3_MAX_LATENCY;
-       #endif
         }
-      #endif
+#endif
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         if (rindex < kVst3InternalParameterCount)
-            return std::round(normalized * 127);
-       #endif
+            return round(normalized * 127);
+#endif
 
         const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
         DISTRHO_SAFE_ASSERT_UINT2_RETURN(index < fParameterCount, index, fParameterCount, 0.0);
 
         const ParameterRanges& ranges(fPlugin.getParameterRanges(index));
-        const uint32_t hints = fPlugin.getParameterHints(index);
-        float value = ranges.getUnnormalizedValue(normalized);
+        const uint32_t         hints = fPlugin.getParameterHints(index);
+        float                  value = ranges.getUnnormalizedValue(normalized);
 
         if (hints & kParameterIsBoolean)
         {
             const float midRange = ranges.min + (ranges.max - ranges.min) / 2.0f;
-            value = value > midRange ? ranges.max : ranges.min;
+            value                = value > midRange ? ranges.max : ranges.min;
         }
         else if (hints & kParameterIsInteger)
         {
-            value = std::round(value);
+            value = round(value);
         }
 
         return value;
@@ -1693,26 +1798,22 @@ public:
 
     double plainParameterToNormalized(const uint32_t rindex, const double plain)
     {
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
         case kVst3InternalParameterBufferSize:
             return std::max(0.0, std::min(1.0, plain / DPF_VST3_MAX_BUFFER_SIZE));
         case kVst3InternalParameterSampleRate:
             return std::max(0.0, std::min(1.0, plain / DPF_VST3_MAX_SAMPLE_RATE));
-       #endif
-       #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
             return std::max(0.0, std::min(1.0, plain / DPF_VST3_MAX_LATENCY));
-       #endif
         }
-      #endif
+#endif
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         if (rindex < kVst3InternalParameterCount)
             return std::max(0.0, std::min(1.0, plain / 127));
-       #endif
+#endif
 
         const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
         DISTRHO_SAFE_ASSERT_UINT2_RETURN(index < fParameterCount, index, fParameterCount, 0.0);
@@ -1722,29 +1823,23 @@ public:
 
     double getParameterNormalized(const uint32_t rindex)
     {
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         // TODO something to do here?
         if (
-           #if !DPF_VST3_PURE_MIDI_INTERNAL_PARAMETERS
+#if ! DPF_VST3_PURE_MIDI_INTERNAL_PARAMETERS
             rindex >= kVst3InternalParameterMidiCC_start &&
-           #endif
+#endif
             rindex <= kVst3InternalParameterMidiCC_end)
             return 0.0;
-       #endif
+#endif
 
-      #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         switch (rindex)
         {
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        case kVst3InternalParameterBufferSize:
-        case kVst3InternalParameterSampleRate:
-       #endif
-       #if DISTRHO_PLUGIN_WANT_LATENCY
         case kVst3InternalParameterLatency:
-       #endif
             return plainParameterToNormalized(rindex, fCachedParameterValues[rindex]);
         }
-      #endif
+#endif
 
         const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
         DISTRHO_SAFE_ASSERT_UINT2_RETURN(index < fParameterCount, index, fParameterCount, 0.0);
@@ -1756,102 +1851,46 @@ public:
     {
         DISTRHO_SAFE_ASSERT_RETURN(normalized >= 0.0 && normalized <= 1.0, Steinberg_kInvalidArgument);
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         // TODO something to do here?
         if (
-           #if !DPF_VST3_PURE_MIDI_INTERNAL_PARAMETERS
+#if ! DPF_VST3_PURE_MIDI_INTERNAL_PARAMETERS
             rindex >= kVst3InternalParameterMidiCC_start &&
-           #endif
+#endif
             rindex <= kVst3InternalParameterMidiCC_end)
             return Steinberg_kInvalidArgument;
-       #endif
+#endif
 
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         if (rindex < kVst3InternalParameterBaseCount)
         {
             fCachedParameterValues[rindex] = normalizedParameterToPlain(rindex, normalized);
-            int flags = 0;
+            int flags                      = 0;
 
             switch (rindex)
             {
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            case kVst3InternalParameterBufferSize:
-                fPlugin.setBufferSize(fCachedParameterValues[rindex], true);
-                break;
-            case kVst3InternalParameterSampleRate:
-                fPlugin.setSampleRate(fCachedParameterValues[rindex], true);
-                break;
-           #endif
-           #if DISTRHO_PLUGIN_WANT_LATENCY
             case kVst3InternalParameterLatency:
                 flags = Steinberg_Vst_RestartFlags_kLatencyChanged;
                 break;
-           #endif
             }
 
-            if (fComponentHandler != nullptr && flags != 0)
-                fComponentHandler->lpVtbl->restartComponent(fComponentHandler, flags);
+            if (controller.componentHandler != nullptr && flags != 0)
+                controller.componentHandler->lpVtbl->restartComponent(controller.componentHandler, flags);
 
             return Steinberg_kResultOk;
         }
-       #endif
+#endif
 
-        DISTRHO_SAFE_ASSERT_UINT2_RETURN(rindex >= kVst3InternalParameterCount, rindex, kVst3InternalParameterCount, Steinberg_kInvalidArgument);
+        DISTRHO_SAFE_ASSERT_UINT2_RETURN(
+            rindex >= kVst3InternalParameterCount,
+            rindex,
+            kVst3InternalParameterCount,
+            Steinberg_kInvalidArgument);
 
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        const uint32_t index = static_cast<uint32_t>(rindex - kVst3InternalParameterCount);
-        DISTRHO_SAFE_ASSERT_UINT2_RETURN(index < fParameterCount, index, fParameterCount, Steinberg_kInvalidArgument);
-
-        if (fIsComponent) {
-            DISTRHO_SAFE_ASSERT_RETURN(!fPlugin.isParameterOutputOrTrigger(index), Steinberg_kInvalidArgument);
-        }
-
-        _setNormalizedPluginParameterValue(index, normalized);
-       #endif
-
-        return Steinberg_kResultOk;
-    }
-
-    Steinberg_tresult setComponentHandler(Steinberg_Vst_IComponentHandler* const handler) noexcept
-    {
-        fComponentHandler = handler;
         return Steinberg_kResultOk;
     }
 
 #if DISTRHO_PLUGIN_HAS_UI
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_Vst_IConnectionPoint interface calls
-
-   #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    void comp2ctrl_connect(Steinberg_Vst_IConnectionPoint* const other)
-    {
-        fConnectionFromCompToCtrl = other;
-    }
-
-    void comp2ctrl_disconnect()
-    {
-        fConnectionFromCompToCtrl = nullptr;
-    }
-
-    Steinberg_tresult comp2ctrl_notify(Steinberg_Vst_IMessage* const message)
-    {
-        const char* const msgid = message->lpVtbl->getMessageID(message);
-        DISTRHO_SAFE_ASSERT_RETURN(msgid != nullptr, Steinberg_kInvalidArgument);
-
-        Steinberg_Vst_IAttributeList* const attrs = message->lpVtbl->getAttributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrs != nullptr, Steinberg_kInvalidArgument);
-
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (std::strcmp(msgid, "midi") == 0)
-            return notify_midi(attrs);
-       #endif
-
-        d_stderr("comp2ctrl_notify received unknown msg '%s'", msgid);
-
-        return Steinberg_kNotImplemented;
-    }
-   #endif // DPF_VST3_USES_SEPARATE_CONTROLLER
-
     // ----------------------------------------------------------------------------------------------------------------
 
     void ctrl2view_connect(Steinberg_Vst_IConnectionPoint* const other)
@@ -1859,12 +1898,12 @@ public:
         DISTRHO_SAFE_ASSERT(fConnectedToUI == false);
 
         fConnectionFromCtrlToView = other;
-        fConnectedToUI = false;
+        fConnectedToUI            = false;
     }
 
     void ctrl2view_disconnect()
     {
-        fConnectedToUI = false;
+        fConnectedToUI            = false;
         fConnectionFromCtrlToView = nullptr;
     }
 
@@ -1875,21 +1914,16 @@ public:
         const char* const msgid = message->lpVtbl->getMessageID(message);
         DISTRHO_SAFE_ASSERT_RETURN(msgid != nullptr, Steinberg_kInvalidArgument);
 
-        if (std::strcmp(msgid, "init") == 0)
+        if (strcmp(msgid, "init") == 0)
         {
             fConnectedToUI = true;
 
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            fParameterValueChangesForUI[kVst3InternalParameterSampleRate] = false;
-            sendParameterSetToUI(kVst3InternalParameterSampleRate,
-                                 fCachedParameterValues[kVst3InternalParameterSampleRate]);
-           #endif
-
-            for (uint32_t i=0; i<fParameterCount; ++i)
+            for (uint32_t i = 0; i < fParameterCount; ++i)
             {
                 fParameterValueChangesForUI[kVst3InternalParameterBaseCount + i] = false;
-                sendParameterSetToUI(kVst3InternalParameterCount + i,
-                                     fCachedParameterValues[kVst3InternalParameterBaseCount + i]);
+                sendParameterSetToUI(
+                    kVst3InternalParameterCount + i,
+                    fCachedParameterValues[kVst3InternalParameterBaseCount + i]);
             }
 
             sendReadyToUI();
@@ -1901,111 +1935,110 @@ public:
         Steinberg_Vst_IAttributeList* const attrs = message->lpVtbl->getAttributes(message);
         DISTRHO_SAFE_ASSERT_RETURN(attrs != nullptr, Steinberg_kInvalidArgument);
 
-        if (std::strcmp(msgid, "idle") == 0)
+        if (strcmp(msgid, "idle") == 0)
         {
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            if (fParameterValueChangesForUI[kVst3InternalParameterSampleRate])
-            {
-                fParameterValueChangesForUI[kVst3InternalParameterSampleRate] = false;
-                sendParameterSetToUI(kVst3InternalParameterSampleRate,
-                                     fCachedParameterValues[kVst3InternalParameterSampleRate]);
-            }
-           #endif
-
-            for (uint32_t i=0; i<fParameterCount; ++i)
+            for (uint32_t i = 0; i < fParameterCount; ++i)
             {
                 if (! fParameterValueChangesForUI[kVst3InternalParameterBaseCount + i])
                     continue;
 
                 fParameterValueChangesForUI[kVst3InternalParameterBaseCount + i] = false;
-                sendParameterSetToUI(kVst3InternalParameterCount + i,
-                                     fCachedParameterValues[kVst3InternalParameterBaseCount + i]);
+                sendParameterSetToUI(
+                    kVst3InternalParameterCount + i,
+                    fCachedParameterValues[kVst3InternalParameterBaseCount + i]);
             }
 
             sendReadyToUI();
             return Steinberg_kResultOk;
         }
 
-        if (std::strcmp(msgid, "close") == 0)
+        if (strcmp(msgid, "close") == 0)
         {
             fConnectedToUI = false;
             return Steinberg_kResultOk;
         }
 
-        if (std::strcmp(msgid, "parameter-edit") == 0)
+        if (strcmp(msgid, "parameter-edit") == 0)
         {
-            DISTRHO_SAFE_ASSERT_RETURN(fComponentHandler != nullptr, Steinberg_kInternalError);
+            DISTRHO_SAFE_ASSERT_RETURN(controller.componentHandler != nullptr, Steinberg_kInternalError);
 
-            int64_t rindex;
-            int64_t started;
+            int64_t           rindex;
+            int64_t           started;
             Steinberg_tresult res;
 
             res = attrs->lpVtbl->getInt(attrs, "rindex", &rindex);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-            DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex >= kVst3InternalParameterCount,
-                                            rindex, fParameterCount, Steinberg_kInternalError);
-            DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex < kVst3InternalParameterCount + fParameterCount,
-                                            rindex, fParameterCount, Steinberg_kInternalError);
+            DISTRHO_SAFE_ASSERT_INT2_RETURN(
+                rindex >= kVst3InternalParameterCount,
+                rindex,
+                fParameterCount,
+                Steinberg_kInternalError);
+            DISTRHO_SAFE_ASSERT_INT2_RETURN(
+                rindex < kVst3InternalParameterCount + fParameterCount,
+                rindex,
+                fParameterCount,
+                Steinberg_kInternalError);
 
             res = attrs->lpVtbl->getInt(attrs, "started", &started);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
             DISTRHO_SAFE_ASSERT_INT_RETURN(started == 0 || started == 1, started, Steinberg_kInternalError);
 
-            return started != 0 ? fComponentHandler->lpVtbl->beginEdit(fComponentHandler, rindex)
-                                : fComponentHandler->lpVtbl->endEdit(fComponentHandler, rindex);
+            return started != 0 ? controller.componentHandler->lpVtbl->beginEdit(controller.componentHandler, rindex)
+                                : controller.componentHandler->lpVtbl->endEdit(controller.componentHandler, rindex);
         }
 
-        if (std::strcmp(msgid, "parameter-set") == 0)
+        if (strcmp(msgid, "parameter-set") == 0)
         {
-            DISTRHO_SAFE_ASSERT_RETURN(fComponentHandler != nullptr, Steinberg_kInternalError);
+            DISTRHO_SAFE_ASSERT_RETURN(controller.componentHandler != nullptr, Steinberg_kInternalError);
 
-            int64_t rindex;
-            double value;
+            int64_t           rindex;
+            double            value;
             Steinberg_tresult res;
 
             res = attrs->lpVtbl->getInt(attrs, "rindex", &rindex);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
-            DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex >= kVst3InternalParameterCount,
-                                            rindex, fParameterCount, Steinberg_kInternalError);
-            DISTRHO_SAFE_ASSERT_INT2_RETURN(rindex < kVst3InternalParameterCount + fParameterCount,
-                                            rindex, fParameterCount, Steinberg_kInternalError);
+            DISTRHO_SAFE_ASSERT_INT2_RETURN(
+                rindex >= kVst3InternalParameterCount,
+                rindex,
+                fParameterCount,
+                Steinberg_kInternalError);
+            DISTRHO_SAFE_ASSERT_INT2_RETURN(
+                rindex < kVst3InternalParameterCount + fParameterCount,
+                rindex,
+                fParameterCount,
+                Steinberg_kInternalError);
 
             res = attrs->lpVtbl->getFloat(attrs, "value", &value);
             DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultOk, res, res);
 
-            const uint32_t index = rindex - kVst3InternalParameterCount;
-            const double normalized = _getNormalizedParameterValue(index, value);
+            const uint32_t index      = rindex - kVst3InternalParameterCount;
+            const double   normalized = _getNormalizedParameterValue(index, value);
 
             fCachedParameterValues[kVst3InternalParameterBaseCount + index] = value;
 
             if (! fPlugin.isParameterOutputOrTrigger(index))
                 fPlugin.setParameterValue(index, value);
 
-            return fComponentHandler->lpVtbl->performEdit(fComponentHandler, rindex, normalized);
+            return controller.componentHandler->lpVtbl->performEdit(controller.componentHandler, rindex, normalized);
         }
 
-       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-        if (std::strcmp(msgid, "midi") == 0)
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+        if (strcmp(msgid, "midi") == 0)
         {
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            DISTRHO_SAFE_ASSERT_RETURN(fConnectionFromCompToCtrl != nullptr, Steinberg_kInternalError);
-            return fConnectionFromCompToCtrl->lpVtbl->notify(fConnectionFromCompToCtrl, message);
-           #else
             return notify_midi(attrs);
-           #endif
         }
-       #endif
+#endif
 
         d_stderr("ctrl2view_notify received unknown msg '%s'", msgid);
 
         return Steinberg_kNotImplemented;
     }
 
-   #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
     Steinberg_tresult notify_midi(Steinberg_Vst_IAttributeList* const attrs)
     {
-        uint8_t* data;
-        uint32_t size;
+        uint8_t*          data;
+        uint32_t          size;
         Steinberg_tresult res;
 
         res = attrs->lpVtbl->getBinary(attrs, "data", (const void**)&data, &size);
@@ -2014,34 +2047,35 @@ public:
         // known maximum size
         DISTRHO_SAFE_ASSERT_UINT_RETURN(size == 3, size, Steinberg_kInternalError);
 
-        return fNotesRingBuffer.writeCustomData(data, size) && fNotesRingBuffer.commitWrite() ? Steinberg_kResultOk : Steinberg_kOutOfMemory;
+        return fNotesRingBuffer.writeCustomData(data, size) && fNotesRingBuffer.commitWrite() ? Steinberg_kResultOk
+                                                                                              : Steinberg_kOutOfMemory;
     }
-   #endif // DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#endif // DISTRHO_PLUGIN_WANT_MIDI_INPUT
 #endif
 
     // ----------------------------------------------------------------------------------------------------------------
     // helper functions for dealing with buses
 
-   #if DISTRHO_PLUGIN_NUM_INPUTS+DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-    template<bool isInput>
+#if DISTRHO_PLUGIN_NUM_INPUTS + DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+    template <bool isInput>
     void fillInBusInfoDetails()
     {
         constexpr const uint32_t numPorts = isInput ? DISTRHO_PLUGIN_NUM_INPUTS : DISTRHO_PLUGIN_NUM_OUTPUTS;
-        BusInfo& busInfo(isInput ? inputBuses : outputBuses);
-        bool* const enabledPorts = isInput
-                                #if DISTRHO_PLUGIN_NUM_INPUTS > 0
-                                 ? fEnabledInputs
-                                #else
-                                 ? nullptr
-                                #endif
-                                #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-                                 : fEnabledOutputs;
-                                #else
-                                 : nullptr;
-                                #endif
+        BusInfo&                 busInfo(isInput ? inputBuses : outputBuses);
+        bool* const              enabledPorts = isInput
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
+                                       ? fEnabledInputs
+#else
+                                       ? nullptr
+#endif
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+                                       : fEnabledOutputs;
+#else
+                                       : nullptr;
+#endif
 
         std::vector<uint32_t> visitedPortGroups;
-        for (uint32_t i=0; i<numPorts; ++i)
+        for (uint32_t i = 0; i < numPorts; ++i)
         {
             const AudioPortWithBusId& port(fPlugin.getAudioPort(isInput, i));
 
@@ -2070,11 +2104,11 @@ public:
         if (busInfo.sidechainPorts != 0)
             busInfo.sidechain = 1;
 
-        uint32_t busIdForCV = 0;
-        const std::vector<uint32_t>::iterator vpgStart = visitedPortGroups.begin();
-        const std::vector<uint32_t>::iterator vpgEnd = visitedPortGroups.end();
+        uint32_t                              busIdForCV = 0;
+        const std::vector<uint32_t>::iterator vpgStart   = visitedPortGroups.begin();
+        const std::vector<uint32_t>::iterator vpgEnd     = visitedPortGroups.end();
 
-        for (uint32_t i=0; i<numPorts; ++i)
+        for (uint32_t i = 0; i < numPorts; ++i)
         {
             AudioPortWithBusId& port(fPlugin.getAudioPort(isInput, i));
 
@@ -2097,7 +2131,7 @@ public:
                 }
                 else
                 {
-                    port.busId = 0;
+                    port.busId      = 0;
                     enabledPorts[i] = true;
                 }
 
@@ -2106,22 +2140,22 @@ public:
         }
     }
 
-    template<bool isInput>
+    template <bool isInput>
     Steinberg_tresult getAudioBusInfo(const uint32_t busId, Steinberg_Vst_BusInfo* const info) const
     {
         constexpr const uint32_t numPorts = isInput ? DISTRHO_PLUGIN_NUM_INPUTS : DISTRHO_PLUGIN_NUM_OUTPUTS;
-        const BusInfo& busInfo(isInput ? inputBuses : outputBuses);
+        const BusInfo&           busInfo(isInput ? inputBuses : outputBuses);
 
-        int32_t numChannels;
-        uint32_t flags;
-        Steinberg_Vst_BusTypes busType;
+        int32_t                 numChannels;
+        uint32_t                flags;
+        Steinberg_Vst_BusTypes  busType;
         Steinberg_Vst_String128 busName = {};
 
         if (busId < busInfo.groups)
         {
             numChannels = 0;
 
-            for (uint32_t i=0; i<numPorts; ++i)
+            for (uint32_t i = 0; i < numPorts; ++i)
             {
                 const AudioPortWithBusId& port(fPlugin.getAudioPort(isInput, i));
 
@@ -2146,17 +2180,17 @@ public:
                     if (port.hints & kAudioPortIsCV)
                     {
                         busType = Steinberg_Vst_BusTypes_kMain;
-                        flags = Steinberg_Vst_BusInfo_BusFlags_kIsControlVoltage;
+                        flags   = Steinberg_Vst_BusInfo_BusFlags_kIsControlVoltage;
                     }
                     else if (port.hints & kAudioPortIsSidechain)
                     {
                         busType = Steinberg_Vst_BusTypes_kAux;
-                        flags = 0;
+                        flags   = 0;
                     }
                     else
                     {
                         busType = Steinberg_Vst_BusTypes_kMain;
-                        flags = busInfo.audio == 0 ? Steinberg_Vst_BusInfo_BusFlags_kDefaultActive : 0;
+                        flags   = busInfo.audio == 0 ? Steinberg_Vst_BusInfo_BusFlags_kDefaultActive : 0;
                     }
                     break;
                 }
@@ -2172,8 +2206,8 @@ public:
                 if (busInfo.audio)
                 {
                     numChannels = busInfo.audioPorts;
-                    busType = Steinberg_Vst_BusTypes_kMain;
-                    flags = Steinberg_Vst_BusInfo_BusFlags_kDefaultActive;
+                    busType     = Steinberg_Vst_BusTypes_kMain;
+                    flags       = Steinberg_Vst_BusInfo_BusFlags_kDefaultActive;
                     break;
                 }
             // fall-through
@@ -2181,15 +2215,15 @@ public:
                 if (busInfo.sidechain)
                 {
                     numChannels = busInfo.sidechainPorts;
-                    busType = Steinberg_Vst_BusTypes_kAux;
-                    flags = 0;
+                    busType     = Steinberg_Vst_BusTypes_kAux;
+                    flags       = 0;
                     break;
                 }
             // fall-through
             default:
                 numChannels = 1;
-                busType = Steinberg_Vst_BusTypes_kMain;
-                flags = Steinberg_Vst_BusInfo_BusFlags_kIsControlVoltage;
+                busType     = Steinberg_Vst_BusTypes_kMain;
+                flags       = Steinberg_Vst_BusInfo_BusFlags_kIsControlVoltage;
                 break;
             }
 
@@ -2199,7 +2233,7 @@ public:
             }
             else
             {
-                for (uint32_t i=0; i<numPorts; ++i)
+                for (uint32_t i = 0; i < numPorts; ++i)
                 {
                     const AudioPortWithBusId& port(fPlugin.getAudioPort(isInput, i));
 
@@ -2218,13 +2252,13 @@ public:
         }
 
         // d_debug("getAudioBusInfo %d %d %d", (int)isInput, busId, numChannels);
-        std::memset(info, 0, sizeof(*info));
-        info->mediaType = Steinberg_Vst_MediaTypes_kAudio;
-        info->direction = isInput ? Steinberg_Vst_BusDirections_kInput : Steinberg_Vst_BusDirections_kOutput;
+        memset(info, 0, sizeof(*info));
+        info->mediaType    = Steinberg_Vst_MediaTypes_kAudio;
+        info->direction    = isInput ? Steinberg_Vst_BusDirections_kInput : Steinberg_Vst_BusDirections_kOutput;
         info->channelCount = numChannels;
-        std::memcpy(info->name, busName, sizeof(busName));
+        memcpy(info->name, busName, sizeof(busName));
         info->busType = busType;
-        info->flags = flags;
+        info->flags   = flags;
         return Steinberg_kResultOk;
     }
 
@@ -2236,45 +2270,65 @@ public:
         switch (portCount)
         {
         // regular mono
-        case 1: return Steinberg_Vst_kSpeakerM;
+        case 1:
+            return Steinberg_Vst_kSpeakerM;
         // regular stereo
-        case 2: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR;
+        case 2:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR;
         // stereo with center channel
-        case 3: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerC;
+        case 3:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerC;
         // stereo with surround (quadro)
-        case 4: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs;
+        case 4:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                   Steinberg_Vst_kSpeakerRs;
         // regular 5.0
-        case 5: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerC;
+        case 5:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                   Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerC;
         // regular 6.0
-        case 6: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr;
+        case 6:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                   Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr;
         // regular 7.0
-        case 7: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr | Steinberg_Vst_kSpeakerC;
+        case 7:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                   Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr |
+                   Steinberg_Vst_kSpeakerC;
         // regular 8.0
-        case 8: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr | Steinberg_Vst_kSpeakerC | Steinberg_Vst_kSpeakerCs;
+        case 8:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                   Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr |
+                   Steinberg_Vst_kSpeakerC | Steinberg_Vst_kSpeakerCs;
         // regular 8.1
-        case 9: return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr | Steinberg_Vst_kSpeakerC | Steinberg_Vst_kSpeakerCs | Steinberg_Vst_kSpeakerLfe;
+        case 9:
+            return Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                   Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr |
+                   Steinberg_Vst_kSpeakerC | Steinberg_Vst_kSpeakerCs | Steinberg_Vst_kSpeakerLfe;
         // cinema 10.0
-        case 10: return (
-            Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR |
-            Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs |
-            Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr |
-            Steinberg_Vst_kSpeakerLc | Steinberg_Vst_kSpeakerRc |
-            Steinberg_Vst_kSpeakerC | Steinberg_Vst_kSpeakerCs);
+        case 10:
+            return (
+                Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr |
+                Steinberg_Vst_kSpeakerLc | Steinberg_Vst_kSpeakerRc | Steinberg_Vst_kSpeakerC |
+                Steinberg_Vst_kSpeakerCs);
         // cinema 10.1
-        case 11: return (
-            Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR |
-            Steinberg_Vst_kSpeakerLs | Steinberg_Vst_kSpeakerRs |
-            Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr |
-            Steinberg_Vst_kSpeakerLc | Steinberg_Vst_kSpeakerRc |
-            Steinberg_Vst_kSpeakerC | Steinberg_Vst_kSpeakerCs | Steinberg_Vst_kSpeakerLfe);
+        case 11:
+            return (
+                Steinberg_Vst_kSpeakerL | Steinberg_Vst_kSpeakerR | Steinberg_Vst_kSpeakerLs |
+                Steinberg_Vst_kSpeakerRs | Steinberg_Vst_kSpeakerSl | Steinberg_Vst_kSpeakerSr |
+                Steinberg_Vst_kSpeakerLc | Steinberg_Vst_kSpeakerRc | Steinberg_Vst_kSpeakerC |
+                Steinberg_Vst_kSpeakerCs | Steinberg_Vst_kSpeakerLfe);
         default:
             d_stderr("portCountToSpeaker error: got weirdly big number ports %u in a single bus", portCount);
             return 0;
         }
     }
 
-    template<bool isInput>
-    Steinberg_Vst_Speaker getSpeakerArrangementForAudioPort(const BusInfo& busInfo, const uint32_t portGroupId, const uint32_t busId) const noexcept
+    template <bool isInput>
+    Steinberg_Vst_Speaker
+    getSpeakerArrangementForAudioPort(const BusInfo& busInfo, const uint32_t portGroupId, const uint32_t busId)
+        const noexcept
     {
         if (portGroupId == kPortGroupMono)
             return Steinberg_Vst_kSpeakerM;
@@ -2293,13 +2347,13 @@ public:
         return Steinberg_Vst_kSpeakerM;
     }
 
-    template<bool isInput>
+    template <bool isInput>
     bool getAudioBusArrangement(uint32_t busId, Steinberg_Vst_Speaker* const speaker) const
     {
         constexpr const uint32_t numPorts = isInput ? DISTRHO_PLUGIN_NUM_INPUTS : DISTRHO_PLUGIN_NUM_OUTPUTS;
-        const BusInfo& busInfo(isInput ? inputBuses : outputBuses);
+        const BusInfo&           busInfo(isInput ? inputBuses : outputBuses);
 
-        for (uint32_t i=0; i<numPorts; ++i)
+        for (uint32_t i = 0; i < numPorts; ++i)
         {
             const AudioPortWithBusId& port(fPlugin.getAudioPort(isInput, i));
 
@@ -2317,32 +2371,32 @@ public:
         return false;
     }
 
-    template<bool isInput>
+    template <bool isInput>
     bool setAudioBusArrangement(Steinberg_Vst_Speaker* const speakers, const uint32_t numBuses)
     {
         constexpr const uint32_t numPorts = isInput ? DISTRHO_PLUGIN_NUM_INPUTS : DISTRHO_PLUGIN_NUM_OUTPUTS;
-        BusInfo& busInfo(isInput ? inputBuses : outputBuses);
-        bool* const enabledPorts = isInput
-                                #if DISTRHO_PLUGIN_NUM_INPUTS > 0
-                                 ? fEnabledInputs
-                                #else
-                                 ? nullptr
-                                #endif
-                                #if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
-                                 : fEnabledOutputs;
-                                #else
-                                 : nullptr;
-                                #endif
+        BusInfo&                 busInfo(isInput ? inputBuses : outputBuses);
+        bool* const              enabledPorts = isInput
+#if DISTRHO_PLUGIN_NUM_INPUTS > 0
+                                       ? fEnabledInputs
+#else
+                                       ? nullptr
+#endif
+#if DISTRHO_PLUGIN_NUM_OUTPUTS > 0
+                                       : fEnabledOutputs;
+#else
+                                       : nullptr;
+#endif
 
         bool ok = true;
 
-        for (uint32_t busId=0; busId<numBuses; ++busId)
+        for (uint32_t busId = 0; busId < numBuses; ++busId)
         {
             const Steinberg_Vst_Speaker arr = speakers[busId];
 
             // d_debug("setAudioBusArrangement %d %d | %d %lx", (int)isInput, numBuses, busId, arr);
 
-            for (uint32_t i=0; i<numPorts; ++i)
+            for (uint32_t i = 0; i < numPorts; ++i)
             {
                 AudioPortWithBusId& port(fPlugin.getAudioPort(isInput, i));
 
@@ -2353,7 +2407,8 @@ public:
                 }
 
                 // get the only valid speaker arrangement for this bus, assuming enabled
-                const Steinberg_Vst_Speaker earr = getSpeakerArrangementForAudioPort<isInput>(busInfo, port.groupId, busId);
+                const Steinberg_Vst_Speaker earr =
+                    getSpeakerArrangementForAudioPort<isInput>(busInfo, port.groupId, busId);
 
                 // fail if host tries to map it to anything else
                 // FIXME should we allow to map speaker to zero as a way to disable it?
@@ -2370,9 +2425,9 @@ public:
         // disable any buses outside of the requested arrangement
         const uint32_t totalBuses = busInfo.audio + busInfo.sidechain + busInfo.groups + busInfo.cvPorts;
 
-        for (uint32_t busId=numBuses; busId<totalBuses; ++busId)
+        for (uint32_t busId = numBuses; busId < totalBuses; ++busId)
         {
-            for (uint32_t i=0; i<numPorts; ++i)
+            for (uint32_t i = 0; i < numPorts; ++i)
             {
                 const AudioPortWithBusId& port(fPlugin.getAudioPort(isInput, i));
 
@@ -2386,31 +2441,19 @@ public:
 
         return ok;
     }
-   #endif
+#endif
 
     // ----------------------------------------------------------------------------------------------------------------
     // helper functions called during process, cannot block
 
     void updateParametersFromProcessing(Steinberg_Vst_IParameterChanges* const outparamsptr, const int32_t offset)
     {
-        DISTRHO_SAFE_ASSERT_RETURN(outparamsptr != nullptr,);
+        DISTRHO_SAFE_ASSERT_RETURN(outparamsptr != nullptr, );
 
-        float curValue;
+        float  curValue;
         double normalized;
 
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        for (uint32_t i=kVst3InternalParameterBufferSize; i<=kVst3InternalParameterSampleRate; ++i)
-        {
-            if (! fParameterValuesChangedDuringProcessing[i])
-                continue;
-
-            normalized = plainParameterToNormalized(i, fCachedParameterValues[i]);
-            fParameterValuesChangedDuringProcessing[i] = false;
-            addParameterDataToHostOutputEvents(outparamsptr, i, normalized);
-        }
-       #endif
-
-        for (uint32_t i=0; i<fParameterCount; ++i)
+        for (uint32_t i = 0; i < fParameterCount; ++i)
         {
             if (fPlugin.isParameterOutput(i))
             {
@@ -2441,9 +2484,9 @@ public:
             }
 
             fCachedParameterValues[kVst3InternalParameterBaseCount + i] = curValue;
-           #if DISTRHO_PLUGIN_HAS_UI
+#if DISTRHO_PLUGIN_HAS_UI
             fParameterValueChangesForUI[kVst3InternalParameterBaseCount + i] = true;
-           #endif
+#endif
 
             normalized = _getNormalizedParameterValue(i, curValue);
 
@@ -2451,28 +2494,30 @@ public:
                 break;
         }
 
-       #if DISTRHO_PLUGIN_WANT_LATENCY
+#if DISTRHO_PLUGIN_WANT_LATENCY
         const uint32_t latency = fPlugin.getLatency();
 
         if (fLastKnownLatency != latency)
         {
             fLastKnownLatency = latency;
 
-            normalized = plainParameterToNormalized(kVst3InternalParameterLatency,
-                                                    fCachedParameterValues[kVst3InternalParameterLatency]);
+            normalized = plainParameterToNormalized(
+                kVst3InternalParameterLatency,
+                fCachedParameterValues[kVst3InternalParameterLatency]);
             addParameterDataToHostOutputEvents(outparamsptr, kVst3InternalParameterLatency, normalized);
         }
-       #endif
+#endif
     }
 
-    bool addParameterDataToHostOutputEvents(Steinberg_Vst_IParameterChanges* const outparamsptr,
-                                            const uint32_t paramId,
-                                            const double normalized,
-                                            const int32_t offset = 0)
+    bool addParameterDataToHostOutputEvents(
+        Steinberg_Vst_IParameterChanges* const outparamsptr,
+        const uint32_t                         paramId,
+        const double                           normalized,
+        const int32_t                          offset = 0)
     {
-        int32_t index = 0;
-        Steinberg_Vst_IParamValueQueue* const queue = outparamsptr->lpVtbl->addParameterData(outparamsptr,
-                                                                                      &paramId, &index);
+        int32_t                               index = 0;
+        Steinberg_Vst_IParamValueQueue* const queue =
+            outparamsptr->lpVtbl->addParameterData(outparamsptr, &paramId, &index);
         DISTRHO_SAFE_ASSERT_RETURN(queue != nullptr, false);
         DISTRHO_SAFE_ASSERT_RETURN(queue->lpVtbl->addPoint(queue, 0, normalized, &index) == Steinberg_kResultOk, false);
 
@@ -2487,18 +2532,18 @@ public:
         (void)offset;
     }
 
-   #if DISTRHO_PLUGIN_HAS_UI
+#if DISTRHO_PLUGIN_HAS_UI
     // ----------------------------------------------------------------------------------------------------------------
     // helper functions called during message passing, can block
 
     Steinberg_Vst_IMessage* createMessage(const char* const id) const
     {
-        DISTRHO_SAFE_ASSERT_RETURN(fHostApplication != nullptr, nullptr);
+        DISTRHO_SAFE_ASSERT_RETURN(fHost != nullptr, nullptr);
 
         Steinberg_TUID iid;
         memcpy(iid, Steinberg_Vst_IMessage_iid, sizeof(iid));
         Steinberg_Vst_IMessage* msg = nullptr;
-        const Steinberg_tresult res = fHostApplication->lpVtbl->createInstance(fHostApplication, iid, iid, (void**)&msg);
+        const Steinberg_tresult res = fHost->lpVtbl->createInstance(fHost, iid, iid, (void**)&msg);
         DISTRHO_SAFE_ASSERT_INT_RETURN(res == Steinberg_kResultTrue, res, nullptr);
         DISTRHO_SAFE_ASSERT_RETURN(msg != nullptr, nullptr);
 
@@ -2509,10 +2554,10 @@ public:
     void sendParameterSetToUI(const uint32_t rindex, const double value) const
     {
         Steinberg_Vst_IMessage* const message = createMessage("parameter-set");
-        DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
+        DISTRHO_SAFE_ASSERT_RETURN(message != nullptr, );
 
         Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
+        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr, );
 
         attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 2);
         attrlist->lpVtbl->setInt(attrlist, "rindex", rindex);
@@ -2525,22 +2570,22 @@ public:
     void sendReadyToUI() const
     {
         Steinberg_Vst_IMessage* const message = createMessage("ready");
-        DISTRHO_SAFE_ASSERT_RETURN(message != nullptr,);
+        DISTRHO_SAFE_ASSERT_RETURN(message != nullptr, );
 
         Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr,);
+        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr, );
 
         attrlist->lpVtbl->setInt(attrlist, "__dpf_msg_target__", 2);
         fConnectionFromCtrlToView->lpVtbl->notify(fConnectionFromCtrlToView, (Steinberg_Vst_IMessage*)(void*)message);
 
         message->lpVtbl->release(message);
     }
-   #endif
+#endif
 
     // ----------------------------------------------------------------------------------------------------------------
     // DPF callbacks
 
-   #if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+#if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
     bool requestParameterValueChange(const uint32_t index, float)
     {
         fParameterValuesChangedDuringProcessing[kVst3InternalParameterBaseCount + index] = true;
@@ -2551,15 +2596,15 @@ public:
     {
         return ((PluginVst3*)ptr)->requestParameterValueChange(index, value);
     }
-   #endif
+#endif
 
-   #if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
+#if DISTRHO_PLUGIN_WANT_MIDI_OUTPUT
     bool writeMidi(const MidiEvent& midiEvent)
     {
         DISTRHO_CUSTOM_SAFE_ASSERT_ONCE_RETURN("MIDI output unsupported", fHostEventOutputHandle != nullptr, false);
 
         Steinberg_Vst_Event event;
-        std::memset(&event, 0, sizeof(event));
+        memset(&event, 0, sizeof(event));
         event.sampleOffset = midiEvent.frame;
 
         const uint8_t* const data = midiEvent.size > MidiEvent::kDataSize ? midiEvent.dataExt : midiEvent.data;
@@ -2567,34 +2612,34 @@ public:
         switch (data[0] & 0xf0)
         {
         case 0x80:
-            event.type = Steinberg_Vst_Event_EventTypes_kNoteOffEvent;
-            event.Steinberg_Vst_Event_noteOff.channel = data[0] & 0xf;
-            event.Steinberg_Vst_Event_noteOff.pitch = data[1];
+            event.type                                 = Steinberg_Vst_Event_EventTypes_kNoteOffEvent;
+            event.Steinberg_Vst_Event_noteOff.channel  = data[0] & 0xf;
+            event.Steinberg_Vst_Event_noteOff.pitch    = data[1];
             event.Steinberg_Vst_Event_noteOff.velocity = (float)data[2] / 127.0f;
             // int32_t note_id;
             // float tuning;
             break;
         case 0x90:
-            event.type = Steinberg_Vst_Event_EventTypes_kNoteOnEvent;
+            event.type                               = Steinberg_Vst_Event_EventTypes_kNoteOnEvent;
             event.Steinberg_Vst_Event_noteOn.channel = data[0] & 0xf;
-            event.Steinberg_Vst_Event_noteOn.pitch = data[1];
+            event.Steinberg_Vst_Event_noteOn.pitch   = data[1];
             // float tuning;
             event.Steinberg_Vst_Event_noteOn.velocity = (float)data[2] / 127.0f;
             // int32_t length;
             // int32_t note_id;
             break;
         case 0xA0:
-            event.type = Steinberg_Vst_Event_EventTypes_kPolyPressureEvent;
-            event.Steinberg_Vst_Event_polyPressure.channel = data[0] & 0xf;
-            event.Steinberg_Vst_Event_polyPressure.pitch = data[1];
+            event.type                                      = Steinberg_Vst_Event_EventTypes_kPolyPressureEvent;
+            event.Steinberg_Vst_Event_polyPressure.channel  = data[0] & 0xf;
+            event.Steinberg_Vst_Event_polyPressure.pitch    = data[1];
             event.Steinberg_Vst_Event_polyPressure.pressure = (float)data[2] / 127.0f;
             // int32_t note_id;
             break;
         case 0xB0:
-            event.type = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
-            event.Steinberg_Vst_Event_midiCCOut.channel = data[0] & 0xf;
+            event.type                                        = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
+            event.Steinberg_Vst_Event_midiCCOut.channel       = data[0] & 0xf;
             event.Steinberg_Vst_Event_midiCCOut.controlNumber = data[1];
-            event.Steinberg_Vst_Event_midiCCOut.value = data[2];
+            event.Steinberg_Vst_Event_midiCCOut.value         = data[2];
             if (midiEvent.size == 4)
                 event.Steinberg_Vst_Event_midiCCOut.value2 = midiEvent.size == 4;
             break;
@@ -2603,17 +2648,17 @@ public:
             break;
         */
         case 0xD0:
-            event.type = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
-            event.Steinberg_Vst_Event_midiCCOut.channel = data[0] & 0xf;
+            event.type                                        = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
+            event.Steinberg_Vst_Event_midiCCOut.channel       = data[0] & 0xf;
             event.Steinberg_Vst_Event_midiCCOut.controlNumber = 128;
-            event.Steinberg_Vst_Event_midiCCOut.value = data[1];
+            event.Steinberg_Vst_Event_midiCCOut.value         = data[1];
             break;
         case 0xE0:
-            event.type = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
-            event.Steinberg_Vst_Event_midiCCOut.channel = data[0] & 0xf;
+            event.type                                        = Steinberg_Vst_Event_EventTypes_kLegacyMIDICCOutEvent;
+            event.Steinberg_Vst_Event_midiCCOut.channel       = data[0] & 0xf;
             event.Steinberg_Vst_Event_midiCCOut.controlNumber = 129;
-            event.Steinberg_Vst_Event_midiCCOut.value = data[1];
-            event.Steinberg_Vst_Event_midiCCOut.value2 = data[2];
+            event.Steinberg_Vst_Event_midiCCOut.value         = data[1];
+            event.Steinberg_Vst_Event_midiCCOut.value2        = data[2];
             break;
         default:
             return true;
@@ -2626,1468 +2671,1002 @@ public:
     {
         return ((PluginVst3*)ptr)->writeMidi(midiEvent);
     }
-   #endif
+#endif
 };
 
-// --------------------------------------------------------------------------------------------------------------------
+static_assert(std::is_standard_layout<PluginVst3>::value, "Must be standard layout");
 
-/**
- * VST3 low-level pointer thingies follow, proceed with care.
- */
-
-// --------------------------------------------------------------------------------------------------------------------
-// Steinberg_FUnknown for static instances
-
-static uint32_t dpf_static_ref(void*) { return 1; }
-static uint32_t dpf_static_unref(void*) { return 0; }
-
-// --------------------------------------------------------------------------------------------------------------------
-// Store components that we can't delete properly, to be cleaned up on module unload
-
-struct dpf_component;
-
-static std::vector<dpf_component*> gComponentGarbage;
-
-static uint32_t handleUncleanComponent(dpf_component* const component)
+// Naughty pointer shifting for VST3 classes
+static PluginVst3* plugin_from_controller(dpf_edit_controller* ptr)
 {
-    gComponentGarbage.push_back(component);
-    return 0;
+    return (PluginVst3*)((char*)(ptr)-offsetof(PluginVst3, controller));
+}
+static PluginVst3* plugin_from_processor(dpf_audio_processor* ptr)
+{
+    return (PluginVst3*)((char*)(ptr)-offsetof(PluginVst3, processor));
 }
 
-#if DPF_VST3_USES_SEPARATE_CONTROLLER
-// --------------------------------------------------------------------------------------------------------------------
-// Store controllers that we can't delete properly, to be cleaned up on module unload
-
-struct dpf_edit_controller;
-
-static std::vector<dpf_edit_controller*> gControllerGarbage;
-
-static uint32_t handleUncleanController(dpf_edit_controller* const controllerptr)
+static PluginVst3* plugin_from_component(dpf_component* ptr)
 {
-    gControllerGarbage.push_back(controllerptr);
-    return 0;
+    return (PluginVst3*)((char*)(ptr)-offsetof(PluginVst3, component));
 }
-
-// --------------------------------------------------------------------------------------------------------------------
-// dpf_comp2ctrl_connection_point
-
-struct dpf_comp2ctrl_connection_point {
-    Steinberg_Vst_IConnectionPointVtbl* lpVtbl;
-    Steinberg_Vst_IConnectionPointVtbl base;
-    std::atomic_int refcounter;
-    ScopedPointer<PluginVst3>& vst3;
-    Steinberg_Vst_IConnectionPoint* other;
-
-    dpf_comp2ctrl_connection_point(ScopedPointer<PluginVst3>& v)
-        : lpVtbl(&base),
-          refcounter(1),
-          vst3(v),
-          other(nullptr)
-    {
-        // Steinberg_FUnknown, single instance
-        base.queryInterface = query_interface_connection_point;
-        base.addRef = addRef_connection_point;
-        base.release = release_connection_point;
-
-        // Steinberg_Vst_IConnectionPoint
-        base.connect = connect_comp2ctrl_connection_point;
-        base.disconnect = disconnect_comp2ctrl_connection_point;
-        base.notify = notify_comp2ctrl_connection_point;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_FUnknown
-
-    static Steinberg_tresult query_interface_connection_point(void* const self, const Steinberg_TUID iid, void** const iface)
-    {
-        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
-
-        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
-            tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
-        {
-            d_debug("dpf_comp2ctrl_connection_point => %p %s %p | OK", self, tuid2str(iid), iface);
-            ++point->refcounter;
-            *iface = self;
-            return Steinberg_kResultOk;
-        }
-
-        d_debug("dpf_comp2ctrl_connection_point => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
-
-        *iface = nullptr;
-        return Steinberg_kNoInterface;
-    }
-
-    static uint32_t addRef_connection_point(void* const self)
-    {
-        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
-        return ++point->refcounter;
-    }
-
-    static uint32_t release_connection_point(void* const self)
-    {
-        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
-        return --point->refcounter;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_Vst_IConnectionPoint
-
-    static Steinberg_tresult connect_comp2ctrl_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
-    {
-        d_debug("dpf_comp2ctrl_connection_point::connect => %p %p", self, other);
-        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, Steinberg_kInvalidArgument);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other != other, Steinberg_kInvalidArgument);
-
-        point->other = other;
-
-        if (PluginVst3* const vst3 = point->vst3)
-            vst3->comp2ctrl_connect(other);
-
-        return Steinberg_kResultOk;
-    }
-
-    static Steinberg_tresult disconnect_comp2ctrl_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
-    {
-        d_debug("dpf_comp2ctrl_connection_point => %p %p", self, other);
-        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, Steinberg_kInvalidArgument);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other == other, Steinberg_kInvalidArgument);
-
-        if (PluginVst3* const vst3 = point->vst3)
-            vst3->comp2ctrl_disconnect();
-
-        point->other = nullptr;
-
-        return Steinberg_kResultOk;
-    }
-
-    static Steinberg_tresult notify_comp2ctrl_connection_point(void* const self, Steinberg_Vst_IMessage* const message)
-    {
-        dpf_comp2ctrl_connection_point* const point = static_cast<dpf_comp2ctrl_connection_point*>(self);
-
-        PluginVst3* const vst3 = point->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, Steinberg_kNotInitialized);
-
-        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr, Steinberg_kInvalidArgument);
-
-        int64_t target = 0;
-        const Steinberg_tresult res = attrlist->lpVtbl->getInt(attrlist, "__dpf_msg_target__", &target);
-        DISTRHO_SAFE_ASSERT_RETURN(res == Steinberg_kResultOk, res);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(target == 1, target, Steinberg_kInternalError);
-
-        // view -> edit controller -> component
-        return vst3->comp2ctrl_notify(message);
-    }
-};
-#endif // DPF_VST3_USES_SEPARATE_CONTROLLER
 
 #if DISTRHO_PLUGIN_HAS_UI
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_ctrl2view_connection_point
 
-struct dpf_ctrl2view_connection_point {
-    Steinberg_Vst_IConnectionPointVtbl* lpVtbl;
-    Steinberg_Vst_IConnectionPointVtbl base;
-    ScopedPointer<PluginVst3>& vst3;
-    Steinberg_Vst_IConnectionPoint* other;
+static PluginVst3* plugin_from_ctrl2view(dpf_ctrl2view_connection_point* ptr)
+{
+    return (
+        PluginVst3*)((char*)(ptr) - (offsetof(PluginVst3, controller) + offsetof(dpf_edit_controller, connectionCtrl2View)));
+}
 
-    dpf_ctrl2view_connection_point(ScopedPointer<PluginVst3>& v)
-        : lpVtbl(&base),
-          vst3(v),
-          other(nullptr)
-    {
-        // Steinberg_FUnknown, single instance, used internally
-        base.queryInterface = nullptr;
-        base.addRef = nullptr;
-        base.release = nullptr;
+dpf_ctrl2view_connection_point::dpf_ctrl2view_connection_point()
+    : lpVtbl(&base)
+    , other(nullptr)
+{
+    // Steinberg_FUnknown, single instance, used internally
+    base.queryInterface = nullptr;
+    base.addRef         = nullptr;
+    base.release        = nullptr;
 
-        // Steinberg_Vst_IConnectionPoint
-        base.connect = connect_ctrl2view_connection_point;
-        base.disconnect = disconnect_ctrl2view_connection_point;
-        base.notify = notify_ctrl2view_connection_point;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
     // Steinberg_Vst_IConnectionPoint
+    base.connect    = vst3ctrl2viewconnection_connect;
+    base.disconnect = vst3ctrl2viewconnection_disconnect;
+    base.notify     = vst3ctrl2viewconnection_notify;
+}
 
-    static Steinberg_tresult connect_ctrl2view_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
+// ----------------------------------------------------------------------------------------------------------------
+// Steinberg_Vst_IConnectionPoint
+
+static Steinberg_tresult vst3ctrl2viewconnection_connect(void* const self, Steinberg_Vst_IConnectionPoint* const other)
+{
+    d_debug("vst3ctrl2viewconnection_connect => %p %p", self, other);
+    dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
+    DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, Steinberg_kInvalidArgument);
+    DISTRHO_SAFE_ASSERT_RETURN(point->other != other, Steinberg_kInvalidArgument);
+
+    point->other = other;
+
+    if (PluginVst3* const vst3 = plugin_from_ctrl2view(point))
+        vst3->ctrl2view_connect(other);
+
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult
+vst3ctrl2viewconnection_disconnect(void* const self, Steinberg_Vst_IConnectionPoint* const other)
+{
+    d_debug("vst3ctrl2viewconnection_disconnect => %p %p", self, other);
+    dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
+    DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, Steinberg_kInvalidArgument);
+    DISTRHO_SAFE_ASSERT_RETURN(point->other == other, Steinberg_kInvalidArgument);
+
+    if (PluginVst3* const vst3 = plugin_from_ctrl2view(point))
+        vst3->ctrl2view_disconnect();
+
+    point->other->lpVtbl->release(point->other);
+    point->other = nullptr;
+
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult vst3ctrl2viewconnection_notify(void* const self, Steinberg_Vst_IMessage* const message)
+{
+    dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
+
+    PluginVst3* const vst3 = plugin_from_ctrl2view(point);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    Steinberg_Vst_IConnectionPoint* const other = point->other;
+    DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, Steinberg_kNotInitialized);
+
+    Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
+    DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr, Steinberg_kInvalidArgument);
+
+    int64_t                 target = 0;
+    const Steinberg_tresult res    = attrlist->lpVtbl->getInt(attrlist, "__dpf_msg_target__", &target);
+    DISTRHO_SAFE_ASSERT_RETURN(res == Steinberg_kResultOk, res);
+    DISTRHO_SAFE_ASSERT_INT_RETURN(target == 1 || target == 2, target, Steinberg_kInternalError);
+
+    if (target == 1)
     {
-        d_debug("dpf_ctrl2view_connection_point::connect => %p %p", self, other);
-        dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other == nullptr, Steinberg_kInvalidArgument);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other != other, Steinberg_kInvalidArgument);
-
-        point->other = other;
-
-        if (PluginVst3* const vst3 = point->vst3)
-            vst3->ctrl2view_connect(other);
-
-        return Steinberg_kResultOk;
+        // view -> edit controller
+        return vst3->ctrl2view_notify(message);
     }
-
-    static Steinberg_tresult disconnect_ctrl2view_connection_point(void* const self, Steinberg_Vst_IConnectionPoint* const other)
+    else
     {
-        d_debug("dpf_ctrl2view_connection_point::disconnect => %p %p", self, other);
-        dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, Steinberg_kInvalidArgument);
-        DISTRHO_SAFE_ASSERT_RETURN(point->other == other, Steinberg_kInvalidArgument);
-
-        if (PluginVst3* const vst3 = point->vst3)
-            vst3->ctrl2view_disconnect();
-
-        point->other->lpVtbl->release(point->other);
-        point->other = nullptr;
-
-        return Steinberg_kResultOk;
+        // edit controller -> view
+        return other->lpVtbl->notify(other, message);
     }
-
-    static Steinberg_tresult notify_ctrl2view_connection_point(void* const self, Steinberg_Vst_IMessage* const message)
-    {
-        dpf_ctrl2view_connection_point* const point = static_cast<dpf_ctrl2view_connection_point*>(self);
-
-        PluginVst3* const vst3 = point->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        Steinberg_Vst_IConnectionPoint* const other = point->other;
-        DISTRHO_SAFE_ASSERT_RETURN(point->other != nullptr, Steinberg_kNotInitialized);
-
-        Steinberg_Vst_IAttributeList* const attrlist = message->lpVtbl->getAttributes(message);
-        DISTRHO_SAFE_ASSERT_RETURN(attrlist != nullptr, Steinberg_kInvalidArgument);
-
-        int64_t target = 0;
-        const Steinberg_tresult res = attrlist->lpVtbl->getInt(attrlist, "__dpf_msg_target__", &target);
-        DISTRHO_SAFE_ASSERT_RETURN(res == Steinberg_kResultOk, res);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(target == 1 || target == 2, target, Steinberg_kInternalError);
-
-        if (target == 1)
-        {
-            // view -> edit controller
-            return vst3->ctrl2view_notify(message);
-        }
-        else
-        {
-            // edit controller -> view
-            return other->lpVtbl->notify(other, message);
-        }
-    }
-};
+}
 #endif // DISTRHO_PLUGIN_HAS_UI
 
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_midi_mapping
 
-struct dpf_midi_mapping {
-    Steinberg_Vst_IMidiMappingVtbl* lpVtbl;
-    Steinberg_Vst_IMidiMappingVtbl base;
-    dpf_midi_mapping() : lpVtbl(&base)
-    {
-        // Steinberg_FUnknown
-        base.queryInterface = query_interface_midi_mapping;
-        base.addRef = dpf_static_ref;
-        base.release = dpf_static_unref;
-
-        // Steinberg_Vst_IMidiMapping
-        base.getMidiControllerAssignment = get_midi_controller_assignment;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
+dpf_midi_mapping::dpf_midi_mapping()
+    : lpVtbl(&base)
+{
     // Steinberg_FUnknown
+    base.queryInterface = vst3midimapping_query_interface;
+    base.addRef         = dpf_static_ref;
+    base.release        = dpf_static_unref;
 
-    static Steinberg_tresult query_interface_midi_mapping(void* const self, const Steinberg_TUID iid, void** const iface)
-    {
-        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
-            tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
-        {
-            d_debug("query_interface_midi_mapping => %p %s %p | OK", self, tuid2str(iid), iface);
-            *iface = self;
-            return Steinberg_kResultOk;
-        }
-
-        d_debug("query_interface_midi_mapping => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
-
-        *iface = nullptr;
-        return Steinberg_kNoInterface;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
     // Steinberg_Vst_IMidiMapping
-
-    static Steinberg_tresult get_midi_controller_assignment(void*, const int32_t bus, const int16_t channel, const int16_t cc, uint32_t* const id)
+    base.getMidiControllerAssignment = vst3midimapping_get_midi_controller_assignment;
+}
+// Steinberg_FUnknown
+static Steinberg_tresult vst3midimapping_query_interface(void* const self, const Steinberg_TUID iid, void** const iface)
+{
+    if (tuid_match(iid, Steinberg_FUnknown_iid) || tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
     {
-        DISTRHO_SAFE_ASSERT_INT_RETURN(bus == 0, bus, Steinberg_kResultFalse);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(channel >= 0 && channel < 16, channel, Steinberg_kResultFalse);
-        DISTRHO_SAFE_ASSERT_INT_RETURN(cc >= 0 && cc < 130, cc, Steinberg_kResultFalse);
-
-        *id = kVst3InternalParameterMidiCC_start + channel * 130 + cc;
-        return Steinberg_kResultTrue;
+        d_debug("query_interface_midi_mapping => %p %s %p | OK", self, tuid2str(iid), iface);
+        *iface = self;
+        return Steinberg_kResultOk;
     }
 
-    DISTRHO_PREVENT_HEAP_ALLOCATION
-};
+    d_debug("query_interface_midi_mapping => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
+
+    *iface = nullptr;
+    return Steinberg_kNoInterface;
+}
+// Steinberg_Vst_IMidiMapping
+static Steinberg_tresult vst3midimapping_get_midi_controller_assignment(
+    void*,
+    const int32_t   bus,
+    const int16_t   channel,
+    const int16_t   cc,
+    uint32_t* const id)
+{
+    DISTRHO_SAFE_ASSERT_INT_RETURN(bus == 0, bus, Steinberg_kResultFalse);
+    DISTRHO_SAFE_ASSERT_INT_RETURN(channel >= 0 && channel < 16, channel, Steinberg_kResultFalse);
+    DISTRHO_SAFE_ASSERT_INT_RETURN(cc >= 0 && cc < 130, cc, Steinberg_kResultFalse);
+
+    *id = kVst3InternalParameterMidiCC_start + channel * 130 + cc;
+    return Steinberg_kResultTrue;
+}
 #endif // DISTRHO_PLUGIN_WANT_MIDI_INPUT
 
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_edit_controller
 
-struct dpf_edit_controller {
-    Steinberg_Vst_IEditControllerVtbl* lpVtbl;
-    Steinberg_Vst_IEditControllerVtbl base;
-    std::atomic_int refcounter;
-   #if DISTRHO_PLUGIN_HAS_UI
-    ScopedPointer<dpf_ctrl2view_connection_point> connectionCtrl2View;
-   #endif
-   #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    ScopedPointer<dpf_comp2ctrl_connection_point> connectionComp2Ctrl;
-    ScopedPointer<PluginVst3> vst3;
-   #else
-    ScopedPointer<PluginVst3>& vst3;
-    bool initialized;
-   #endif
-    // cached values
-    Steinberg_Vst_IComponentHandler* handler;
-    Steinberg_Vst_IHostApplication* const hostApplicationFromFactory;
-   #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-    Steinberg_Vst_IHostApplication* const hostApplicationFromComponent;
-    Steinberg_Vst_IHostApplication* hostApplicationFromComponentInitialize;
-   #endif
-    Steinberg_Vst_IHostApplication* hostApplicationFromInitialize;
+dpf_edit_controller::dpf_edit_controller()
+    : lpVtbl(&base)
+    , refcounter(1)
+{
+    // Steinberg_FUnknown, everything custom
+    base.queryInterface = vst3controller_query_interface;
+    base.addRef         = vst3controller_ref;
+    base.release        = vst3controller_unref;
 
-   #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    dpf_edit_controller(Steinberg_Vst_IHostApplication* const hostApp)
-        : lpVtbl(&base),
-          refcounter(1),
-          vst3(nullptr),
-   #else
-    dpf_edit_controller(ScopedPointer<PluginVst3>& v, Steinberg_Vst_IHostApplication* const hostApp, Steinberg_Vst_IHostApplication* const hostComp)
-        : lpVtbl(&base),
-          refcounter(1),
-          vst3(v),
-          initialized(false),
-   #endif
-          handler(nullptr),
-          hostApplicationFromFactory(hostApp),
-         #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-          hostApplicationFromComponent(hostComp),
-          hostApplicationFromComponentInitialize(nullptr),
-         #endif
-          hostApplicationFromInitialize(nullptr)
+    // Steinberg_IPluginBase
+    base.initialize = vst3controller_initialize;
+    base.terminate  = vst3controller_terminate;
+
+    // Steinberg_Vst_IEditController
+    base.setComponentState      = vst3controller_set_component_state;
+    base.setState               = vst3controller_set_state;
+    base.getState               = vst3controller_get_state;
+    base.getParameterCount      = vst3controller_get_parameter_count;
+    base.getParameterInfo       = vst3controller_get_parameter_info;
+    base.getParamStringByValue  = vst3controller_get_parameter_string_for_value;
+    base.getParamValueByString  = vst3controller_get_parameter_value_for_string;
+    base.normalizedParamToPlain = vst3controller_normalised_parameter_to_plain;
+    base.plainParamToNormalized = vst3controller_plain_parameter_to_normalised;
+    base.getParamNormalized     = vst3controller_get_parameter_normalised;
+    base.setParamNormalized     = vst3controller_set_parameter_normalised;
+    base.setComponentHandler    = vst3controller_set_component_handler;
+    base.createView             = vst3controller_create_view;
+}
+// Steinberg_FUnknown
+static Steinberg_tresult vst3controller_query_interface(void* const self, const Steinberg_TUID iid, void** const iface)
+{
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    if (tuid_match(iid, Steinberg_FUnknown_iid) || tuid_match(iid, Steinberg_IPluginBase_iid) ||
+        tuid_match(iid, Steinberg_Vst_IEditController_iid))
     {
-        d_debug("dpf_edit_controller() with hostApplication %p", hostApplicationFromFactory);
-
-        // make sure host application is valid through out this controller lifetime
-        if (hostApplicationFromFactory != nullptr)
-            hostApplicationFromFactory->lpVtbl->addRef(hostApplicationFromFactory);
-       #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-        if (hostApplicationFromComponent != nullptr)
-            hostApplicationFromComponent->lpVtbl->addRef(hostApplicationFromComponent);
-       #endif
-
-        // Steinberg_FUnknown, everything custom
-        base.queryInterface = query_interface_edit_controller;
-        base.addRef = ref_edit_controller;
-        base.release = unref_edit_controller;
-
-        // Steinberg_IPluginBase
-        base.initialize = initialize;
-        base.terminate = terminate;
-
-        // Steinberg_Vst_IEditController
-        base.setComponentState = set_component_state;
-        base.setState = set_state;
-        base.getState = get_state;
-        base.getParameterCount = get_parameter_count;
-        base.getParameterInfo = get_parameter_info;
-        base.getParamStringByValue = get_parameter_string_for_value;
-        base.getParamValueByString = get_parameter_value_for_string;
-        base.normalizedParamToPlain = normalised_parameter_to_plain;
-        base.plainParamToNormalized = plain_parameter_to_normalised;
-        base.getParamNormalized = get_parameter_normalised;
-        base.setParamNormalized = set_parameter_normalised;
-        base.setComponentHandler = set_component_handler;
-        base.createView = create_view;
+        d_debug("vst3controller_query_interface => %p %s %p | OK", self, tuid2str(iid), iface);
+        ++controller->refcounter;
+        *iface = self;
+        return Steinberg_kResultOk;
     }
 
-    ~dpf_edit_controller()
+    if (tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
     {
-        d_debug("~dpf_edit_controller()");
-       #if DISTRHO_PLUGIN_HAS_UI
-        connectionCtrl2View = nullptr;
-       #endif
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        connectionComp2Ctrl = nullptr;
-        vst3 = nullptr;
-       #endif
-
-       #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-        if (hostApplicationFromComponent != nullptr)
-            hostApplicationFromComponent->lpVtbl->release(hostApplicationFromComponent);
-       #endif
-        if (hostApplicationFromFactory != nullptr)
-            hostApplicationFromFactory->lpVtbl->release(hostApplicationFromFactory);
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_FUnknown
-
-    static Steinberg_tresult query_interface_edit_controller(void* const self, const Steinberg_TUID iid, void** const iface)
-    {
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
-            tuid_match(iid, Steinberg_IPluginBase_iid) ||
-            tuid_match(iid, Steinberg_Vst_IEditController_iid))
-        {
-            d_debug("query_interface_edit_controller => %p %s %p | OK", self, tuid2str(iid), iface);
-            ++controller->refcounter;
-            *iface = self;
-            return Steinberg_kResultOk;
-        }
-
-        if (tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
-        {
-           #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-            d_debug("query_interface_edit_controller => %p %s %p | OK convert static", self, tuid2str(iid), iface);
-            static dpf_midi_mapping midi_mapping;
-            *iface = &midi_mapping;
-            return Steinberg_kResultOk;
-           #else
-            d_debug("query_interface_edit_controller => %p %s %p | reject unused", self, tuid2str(iid), iface);
-            *iface = nullptr;
-            return Steinberg_kNoInterface;
-           #endif
-        }
-
-        if (tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
-        {
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            d_debug("query_interface_edit_controller => %p %s %p | OK convert %p",
-                    self, tuid2str(iid), iface, controller->connectionComp2Ctrl.get());
-
-            if (controller->connectionComp2Ctrl == nullptr)
-                controller->connectionComp2Ctrl = new dpf_comp2ctrl_connection_point(controller->vst3);
-            else
-                ++controller->connectionComp2Ctrl->refcounter;
-            *iface = controller->connectionComp2Ctrl;
-            return Steinberg_kResultOk;
-           #else
-            d_debug("query_interface_edit_controller => %p %s %p | reject unwanted", self, tuid2str(iid), iface);
-            *iface = nullptr;
-            return Steinberg_kNoInterface;
-           #endif
-        }
-
-        d_debug("query_interface_edit_controller => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+        d_debug("vst3controller_query_interface => %p %s %p | OK convert static", self, tuid2str(iid), iface);
+        static dpf_midi_mapping midi_mapping;
+        *iface = &midi_mapping;
+        return Steinberg_kResultOk;
+#else
+        d_debug("vst3controller_query_interface => %p %s %p | reject unused", self, tuid2str(iid), iface);
         *iface = nullptr;
         return Steinberg_kNoInterface;
+#endif
     }
 
-    static uint32_t ref_edit_controller(void* const self)
+    d_debug("vst3controller_query_interface => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
+    *iface = nullptr;
+    return Steinberg_kNoInterface;
+}
+
+static uint32_t vst3controller_ref(void* const self)
+{
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+    const int                  refcount   = ++controller->refcounter;
+    d_debug("vst3controller_query_interface => %p | refcount %i", self, refcount);
+    return refcount;
+}
+
+static uint32_t vst3controller_unref(void* const self)
+{
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    if (const int refcount = --controller->refcounter)
     {
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-        const int refcount = ++controller->refcounter;
-        d_debug("dpf_edit_controller::ref => %p | refcount %i", self, refcount);
+        d_debug("vst3controller_unref => %p | refcount %i", self, refcount);
         return refcount;
     }
+    return 0;
+}
+// Steinberg_IPluginBase
+static Steinberg_tresult vst3controller_initialize(void* const self, Steinberg_FUnknown* const context)
+{
+    d_debug("vst3controller_initialize => %p %p", self, context);
+    return Steinberg_kResultOk;
+}
 
-    static uint32_t unref_edit_controller(void* const self)
+static Steinberg_tresult vst3controller_terminate(void* self)
+{
+    d_debug("vst3controller_terminate => %p", self);
+    return Steinberg_kResultOk;
+}
+// Steinberg_Vst_IEditController
+static Steinberg_tresult vst3controller_set_component_state(void* const self, Steinberg_IBStream* const stream)
+{
+    d_debug("vst3controller_set_component_state => %p %p", self, stream);
+    return Steinberg_kNotImplemented;
+}
+
+static Steinberg_tresult vst3controller_set_state(void* const self, Steinberg_IBStream* const stream)
+{
+    d_debug("vst3controller_set_state => %p %p", self, stream);
+    return Steinberg_kNotImplemented;
+}
+
+static Steinberg_tresult vst3controller_get_state(void* const self, Steinberg_IBStream* const stream)
+{
+    d_debug("vst3controller_get_state => %p %p", self, stream);
+    return Steinberg_kNotImplemented;
+}
+
+static int32_t vst3controller_get_parameter_count(void* self)
+{
+    // d_debug("vst3controller_get_parameter_count => %p", self);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+    return DISTRHO_PLUGIN_NUM_PARAMS;
+}
+
+static Steinberg_tresult
+vst3controller_get_parameter_info(void* self, int32_t param_idx, Steinberg_Vst_ParameterInfo* param_info)
+{
+    // d_debug("vst3controller_get_parameter_info => %p %i", self, param_idx);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->getParameterInfo(param_idx, param_info);
+}
+
+static Steinberg_tresult vst3controller_get_parameter_string_for_value(
+    void*                   self,
+    uint32_t                index,
+    double                  normalized,
+    Steinberg_Vst_String128 output)
+{
+    // NOTE very noisy, called many times
+    // d_debug("vst3controller_get_parameter_string_for_value => %p %u %f %p", self, index, normalized,
+    // output);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->getParameterStringForValue(index, normalized, output);
+}
+
+static Steinberg_tresult
+vst3controller_get_parameter_value_for_string(void* self, uint32_t index, char16_t* input, double* output)
+{
+    d_debug("vst3controller_get_parameter_value_for_string => %p %u %p %p", self, index, input, output);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->getParameterValueForString(index, input, output);
+}
+
+static double vst3controller_normalised_parameter_to_plain(void* self, uint32_t index, double normalized)
+{
+    d_debug("vst3controller_normalised_parameter_to_plain => %p %u %f", self, index, normalized);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->normalizedParameterToPlain(index, normalized);
+}
+
+static double vst3controller_plain_parameter_to_normalised(void* self, uint32_t index, double plain)
+{
+    d_debug("vst3controller_plain_parameter_to_normalised => %p %u %f", self, index, plain);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->plainParameterToNormalized(index, plain);
+}
+
+static double vst3controller_get_parameter_normalised(void* self, uint32_t index)
+{
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+
+    return vst3->getParameterNormalized(index);
+}
+
+static Steinberg_tresult
+vst3controller_set_parameter_normalised(void* const self, const uint32_t index, const double normalized)
+{
+    // d_debug("vst3controller_set_parameter_normalised => %p %u %f", self, index, normalized);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->setParameterNormalized(index, normalized);
+}
+
+static Steinberg_tresult vst3controller_set_component_handler(void* self, Steinberg_Vst_IComponentHandler* handler)
+{
+    d_debug("vst3controller_set_component_handler => %p %p", self, handler);
+    /* Ableton 10 has been spotted trying to pass NULL here */
+    DISTRHO_SAFE_ASSERT_RETURN(handler != NULL, Steinberg_kInvalidArgument);
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    controller->componentHandler = handler;
+
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_IPlugView* vst3controller_create_view(void* self, const char* name)
+{
+    d_debug("vst3controller_create_view => %p %s", self, name);
+
+#if DISTRHO_PLUGIN_HAS_UI
+    dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+
+    // plugin must be initialized
+    PluginVst3* const vst3 = plugin_from_controller(controller);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, nullptr);
+
+    // we require a host application for message creation
+    Steinberg_Vst_IHostApplication* const host = vst3->fHost;
+
+    d_debug("vst3controller_create_view => %p %s | host %p", self, name, host);
+
+    DISTRHO_SAFE_ASSERT_RETURN(host != nullptr, nullptr);
+
+    Steinberg_IPlugView* const view = dpf_plugin_view_create(
+        (Steinberg_Vst_IHostApplication*)host,
+        vst3->fPlugin.fPlugin,
+        vst3->fPlugin.getSampleRate());
+    DISTRHO_SAFE_ASSERT_RETURN(view != nullptr, nullptr);
+
+    Steinberg_Vst_IConnectionPoint* uiconn = nullptr;
+    if (view->lpVtbl->queryInterface(view, Steinberg_Vst_IConnectionPoint_iid, (void**)&uiconn) == Steinberg_kResultOk)
     {
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
+        d_debug("view connection query ok %p", uiconn);
 
-        if (const int refcount = --controller->refcounter)
-        {
-            d_debug("dpf_edit_controller::unref => %p | refcount %i", self, refcount);
-            return refcount;
-        }
+        Steinberg_Vst_IConnectionPoint* const ctrlconn =
+            (Steinberg_Vst_IConnectionPoint*)&controller->connectionCtrl2View;
 
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        /**
-         * Some hosts will have unclean instances of a few of the controller child classes at this point.
-         * We check for those here, going through the whole possible chain to see if it is safe to delete.
-         * If not, we add this controller to the `gControllerGarbage` global which will take care of it during unload.
-         */
-
-        bool unclean = false;
-
-        if (dpf_comp2ctrl_connection_point* const point = controller->connectionComp2Ctrl)
-        {
-            if (const int refcount = point->refcounter)
-            {
-                unclean = true;
-                d_stderr("DPF warning: asked to delete controller while component connection point still active (refcount %d)", refcount);
-            }
-        }
-
-        if (unclean)
-            return handleUncleanController(controller);
-
-        d_debug("dpf_edit_controller::unref => %p | refcount is zero, deleting everything now!", self);
-
-        delete controller;
-       #else
-        d_debug("dpf_edit_controller::unref => %p | refcount is zero, deletion will be done by component later", self);
-       #endif
-        return 0;
+        uiconn->lpVtbl->connect(uiconn, ctrlconn);
+        ctrlconn->lpVtbl->connect(ctrlconn, uiconn);
     }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_IPluginBase
-
-    static Steinberg_tresult initialize(void* const self, Steinberg_FUnknown* const context)
-    {
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        // check if already initialized
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        DISTRHO_SAFE_ASSERT_RETURN(controller->vst3 == nullptr, Steinberg_kInvalidArgument);
-       #else
-        DISTRHO_SAFE_ASSERT_RETURN(! controller->initialized, Steinberg_kInvalidArgument);
-       #endif
-
-        // query for host application
-        Steinberg_Vst_IHostApplication* hostApplication = nullptr;
-        if (context != nullptr)
-            context->lpVtbl->queryInterface(context, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
-
-        d_debug("dpf_edit_controller::initialize => %p %p | host %p", self, context, hostApplication);
-
-        // save it for later so we can unref it
-        controller->hostApplicationFromInitialize = hostApplication;
-
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        // provide the factory application to the plugin if this new one is missing
-        if (hostApplication == nullptr)
-            hostApplication = controller->hostApplicationFromFactory;
-
-        // default early values
-        if (d_nextBufferSize == 0)
-            d_nextBufferSize = 1024;
-        if (d_nextSampleRate <= 0.0)
-            d_nextSampleRate = 44100.0;
-
-        d_nextCanRequestParameterValueChanges = true;
-
-        // create the actual plugin
-        controller->vst3 = new PluginVst3(hostApplication, false);
-
-        // set connection point if needed
-        if (dpf_comp2ctrl_connection_point* const point = controller->connectionComp2Ctrl)
-        {
-            if (point->other != nullptr)
-                controller->vst3->comp2ctrl_connect(point->other);
-        }
-       #else
-        // mark as initialized
-        controller->initialized = true;
-       #endif
-
-        return Steinberg_kResultOk;
-    }
-
-    static Steinberg_tresult terminate(void* self)
-    {
-        d_debug("dpf_edit_controller::terminate => %p", self);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        // check if already terminated
-        DISTRHO_SAFE_ASSERT_RETURN(controller->vst3 != nullptr, Steinberg_kInvalidArgument);
-
-        // delete actual plugin
-        controller->vst3 = nullptr;
-       #else
-        // check if already terminated
-        DISTRHO_SAFE_ASSERT_RETURN(controller->initialized, Steinberg_kInvalidArgument);
-
-        // mark as uninitialzed
-        controller->initialized = false;
-       #endif
-
-        // unref host application received during initialize
-        if (controller->hostApplicationFromInitialize != nullptr)
-        {
-            controller->hostApplicationFromInitialize->lpVtbl->release(controller->hostApplicationFromInitialize);
-            controller->hostApplicationFromInitialize = nullptr;
-        }
-
-        return Steinberg_kResultOk;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_Vst_IEditController
-
-    static Steinberg_tresult set_component_state(void* const self, Steinberg_IBStream* const stream)
-    {
-        d_debug("dpf_edit_controller::set_component_state => %p %p", self, stream);
-
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->setState(stream);
-       #else
-        return Steinberg_kResultOk;
-
-        // unused
-        (void)self;
-        (void)stream;
-       #endif
-    }
-
-    static Steinberg_tresult set_state(void* const self, Steinberg_IBStream* const stream)
-    {
-        d_debug("dpf_edit_controller::set_state => %p %p", self, stream);
-
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(controller->vst3 != nullptr, Steinberg_kNotInitialized);
-       #endif
-
-        return Steinberg_kNotImplemented;
-
-        // maybe unused
-        (void)self;
-        (void)stream;
-    }
-
-    static Steinberg_tresult get_state(void* const self, Steinberg_IBStream* const stream)
-    {
-        d_debug("dpf_edit_controller::get_state => %p %p", self, stream);
-
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-        DISTRHO_SAFE_ASSERT_RETURN(controller->vst3 != nullptr, Steinberg_kNotInitialized);
-       #endif
-
-        return Steinberg_kNotImplemented;
-
-        // maybe unused
-        (void)self;
-        (void)stream;
-    }
-
-    static int32_t get_parameter_count(void* self)
-    {
-        // d_debug("dpf_edit_controller::get_parameter_count => %p", self);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->getParameterCount();
-    }
-
-    static Steinberg_tresult get_parameter_info(void* self, int32_t param_idx, Steinberg_Vst_ParameterInfo* param_info)
-    {
-        // d_debug("dpf_edit_controller::get_parameter_info => %p %i", self, param_idx);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->getParameterInfo(param_idx, param_info);
-    }
-
-    static Steinberg_tresult get_parameter_string_for_value(void* self, uint32_t index, double normalized, Steinberg_Vst_String128 output)
-    {
-        // NOTE very noisy, called many times
-        // d_debug("dpf_edit_controller::get_parameter_string_for_value => %p %u %f %p", self, index, normalized, output);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->getParameterStringForValue(index, normalized, output);
-    }
-
-    static Steinberg_tresult get_parameter_value_for_string(void* self, uint32_t  index, char16_t* input, double* output)
-    {
-        d_debug("dpf_edit_controller::get_parameter_value_for_string => %p %u %p %p", self, index, input, output);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->getParameterValueForString(index, input, output);
-    }
-
-    static double normalised_parameter_to_plain(void* self, uint32_t index, double normalized)
-    {
-        d_debug("dpf_edit_controller::normalised_parameter_to_plain => %p %u %f", self, index, normalized);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->normalizedParameterToPlain(index, normalized);
-    }
-
-    static double plain_parameter_to_normalised(void* self, uint32_t index, double plain)
-    {
-        d_debug("dpf_edit_controller::plain_parameter_to_normalised => %p %u %f", self, index, plain);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->plainParameterToNormalized(index, plain);
-    }
-
-    static double get_parameter_normalised(void* self, uint32_t index)
-    {
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, 0.0);
-
-        return vst3->getParameterNormalized(index);
-    }
-
-    static Steinberg_tresult set_parameter_normalised(void* const self, const uint32_t index, const double normalized)
-    {
-        // d_debug("dpf_edit_controller::set_parameter_normalised => %p %u %f", self, index, normalized);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->setParameterNormalized(index, normalized);
-    }
-
-    static Steinberg_tresult set_component_handler(void* self, Steinberg_Vst_IComponentHandler* handler)
-    {
-        d_debug("dpf_edit_controller::set_component_handler => %p %p", self, handler);
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        controller->handler = handler;
-
-        if (PluginVst3* const vst3 = controller->vst3)
-            return vst3->setComponentHandler(handler);
-
-        return Steinberg_kNotInitialized;
-    }
-
-    static Steinberg_IPlugView* create_view(void* self, const char* name)
-    {
-        d_debug("dpf_edit_controller::create_view => %p %s", self, name);
-
-       #if DISTRHO_PLUGIN_HAS_UI
-        dpf_edit_controller* const controller = static_cast<dpf_edit_controller*>(self);
-
-        d_debug("create_view has contexts %p %p",
-                controller->hostApplicationFromFactory, controller->hostApplicationFromInitialize);
-
-        // plugin must be initialized
-        PluginVst3* const vst3 = controller->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, nullptr);
-
-        d_debug("dpf_edit_controller::create_view => %p %s | edit-ctrl %p, factory %p",
-                self, name,
-                controller->hostApplicationFromInitialize,
-                controller->hostApplicationFromFactory);
-
-        // we require a host application for message creation
-        Steinberg_Vst_IHostApplication* const host = controller->hostApplicationFromInitialize != nullptr
-                                         ? controller->hostApplicationFromInitialize
-                                        #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-                                         : controller->hostApplicationFromComponent != nullptr
-                                         ? controller->hostApplicationFromComponent
-                                         : controller->hostApplicationFromComponentInitialize != nullptr
-                                         ? controller->hostApplicationFromComponentInitialize
-                                        #endif
-                                         : controller->hostApplicationFromFactory;
-        DISTRHO_SAFE_ASSERT_RETURN(host != nullptr, nullptr);
-
-        Steinberg_IPlugView* const view = dpf_plugin_view_create((Steinberg_Vst_IHostApplication*)host,
-                                                             vst3->fPlugin.fPlugin,
-                                                             vst3->fPlugin.getSampleRate());
-        DISTRHO_SAFE_ASSERT_RETURN(view != nullptr, nullptr);
-
-        Steinberg_Vst_IConnectionPoint* uiconn = nullptr;
-        if (view->lpVtbl->queryInterface(view, Steinberg_Vst_IConnectionPoint_iid, (void**)&uiconn) == Steinberg_kResultOk)
-        {
-            d_debug("view connection query ok %p", uiconn);
-            controller->connectionCtrl2View = new dpf_ctrl2view_connection_point(controller->vst3);
-
-            Steinberg_Vst_IConnectionPoint* const ctrlconn = (Steinberg_Vst_IConnectionPoint*)controller->connectionCtrl2View.get();
-
-            uiconn->lpVtbl->connect(uiconn, ctrlconn);
-            ctrlconn->lpVtbl->connect(ctrlconn, uiconn);
-        }
-        else
-        {
-            controller->connectionCtrl2View = nullptr;
-        }
-
-        return view;
-       #else
-        return nullptr;
-       #endif
-
-        // maybe unused
-        (void)self;
-        (void)name;
-    }
-};
+    return view;
+#else
+    return nullptr;
+#endif
+
+    // maybe unused
+    (void)self;
+    (void)name;
+}
 
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_process_context_requirements
 
-struct dpf_process_context_requirements {
-    Steinberg_Vst_IProcessContextRequirementsVtbl* lpVtbl;
-    Steinberg_Vst_IProcessContextRequirementsVtbl base;
-    dpf_process_context_requirements() : lpVtbl(&base)
-    {
-        // Steinberg_FUnknown
-        base.queryInterface = query_interface_process_context_requirements;
-        base.addRef = dpf_static_ref;
-        base.release = dpf_static_unref;
-
-        // Steinberg_Vst_IProcessContextRequirements
-        base.getProcessContextRequirements = get_process_context_requirements;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
+dpf_process_context_requirements::dpf_process_context_requirements()
+    : lpVtbl(&base)
+{
     // Steinberg_FUnknown
+    base.queryInterface = vst3processcontext_query_interface;
+    base.addRef         = dpf_static_ref;
+    base.release        = dpf_static_unref;
 
-    static Steinberg_tresult query_interface_process_context_requirements(void* const self, const Steinberg_TUID iid, void** const iface)
-    {
-        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
-            tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
-        {
-            d_debug("query_interface_process_context_requirements => %p %s %p | OK", self, tuid2str(iid), iface);
-            *iface = self;
-            return Steinberg_kResultOk;
-        }
-
-        d_debug("query_interface_process_context_requirements => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
-
-        *iface = nullptr;
-        return Steinberg_kNoInterface;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
     // Steinberg_Vst_IProcessContextRequirements
+    base.getProcessContextRequirements = vst3processcontext_get_process_context_requirements;
+}
 
-    static uint32_t get_process_context_requirements(void*)
+// ----------------------------------------------------------------------------------------------------------------
+// Steinberg_FUnknown
+
+static Steinberg_tresult
+vst3processcontext_query_interface(void* const self, const Steinberg_TUID iid, void** const iface)
+{
+    if (tuid_match(iid, Steinberg_FUnknown_iid) || tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
     {
-       #if DISTRHO_PLUGIN_WANT_TIMEPOS
-        return 0x0
-            | Steinberg_Vst_IProcessContextRequirements_Flags_kNeedContinousTimeSamples // Steinberg_Vst_ProcessContext_StatesAndFlags_kContTimeValid
-            | Steinberg_Vst_IProcessContextRequirements_Flags_kNeedProjectTimeMusic     // Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid
-            | Steinberg_Vst_IProcessContextRequirements_Flags_kNeedTempo                // Steinberg_Vst_ProcessContext_StatesAndFlags_kTempoValid
-            | Steinberg_Vst_IProcessContextRequirements_Flags_kNeedTimeSignature        // Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid
-            | Steinberg_Vst_IProcessContextRequirements_Flags_kNeedTransportState;      // Steinberg_Vst_ProcessContext_StatesAndFlags_kPlaying
-       #else
-        return 0x0;
-       #endif
+        d_debug("query_interface_process_context_requirements => %p %s %p | OK", self, tuid2str(iid), iface);
+        *iface = self;
+        return Steinberg_kResultOk;
     }
 
-    DISTRHO_PREVENT_HEAP_ALLOCATION
-};
+    d_debug(
+        "query_interface_process_context_requirements => %p %s %p | WARNING UNSUPPORTED",
+        self,
+        tuid2str(iid),
+        iface);
+
+    *iface = nullptr;
+    return Steinberg_kNoInterface;
+}
+// Steinberg_Vst_IProcessContextRequirements
+static uint32_t vst3processcontext_get_process_context_requirements(void*)
+{
+#if DISTRHO_PLUGIN_WANT_TIMEPOS
+    return 0x0 |
+           Steinberg_Vst_IProcessContextRequirements_Flags_kNeedContinousTimeSamples // Steinberg_Vst_ProcessContext_StatesAndFlags_kContTimeValid
+           |
+           Steinberg_Vst_IProcessContextRequirements_Flags_kNeedProjectTimeMusic // Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid
+           |
+           Steinberg_Vst_IProcessContextRequirements_Flags_kNeedTempo // Steinberg_Vst_ProcessContext_StatesAndFlags_kTempoValid
+           |
+           Steinberg_Vst_IProcessContextRequirements_Flags_kNeedTimeSignature // Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid
+           |
+           Steinberg_Vst_IProcessContextRequirements_Flags_kNeedTransportState; // Steinberg_Vst_ProcessContext_StatesAndFlags_kPlaying
+#else
+    return 0x0;
+#endif
+}
 
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_audio_processor
 
-struct dpf_audio_processor {
-    Steinberg_Vst_IAudioProcessorVtbl* lpVtbl;
-    Steinberg_Vst_IAudioProcessorVtbl base;
-    std::atomic_int refcounter;
-    ScopedPointer<PluginVst3>& vst3;
+dpf_audio_processor::dpf_audio_processor()
+    : lpVtbl(&base)
+    , refcounter(1)
+{
+    // Steinberg_FUnknown, single instance
+    base.queryInterface = vst3processor_query_interface;
+    base.addRef         = vst3processor_addRef;
+    base.release        = vst3processor_release;
 
-    dpf_audio_processor(ScopedPointer<PluginVst3>& v)
-        : lpVtbl(&base),
-          refcounter(1),
-          vst3(v)
-    {
-        // Steinberg_FUnknown, single instance
-        base.queryInterface = query_interface_audio_processor;
-        base.addRef = addRef_audio_processor;
-        base.release = release_audio_processor;
-
-        // Steinberg_Vst_IAudioProcessor
-        base.setBusArrangements = set_bus_arrangements;
-        base.getBusArrangement = get_bus_arrangement;
-        base.canProcessSampleSize = can_process_sample_size;
-        base.getLatencySamples = get_latency_samples;
-        base.setupProcessing = setup_processing;
-        base.setProcessing = set_processing;
-        base.process = process;
-        base.getTailSamples = get_tail_samples;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_FUnknown
-
-    static Steinberg_tresult query_interface_audio_processor(void* const self, const Steinberg_TUID iid, void** const iface)
-    {
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
-
-        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
-            tuid_match(iid, Steinberg_Vst_IAudioProcessor_iid))
-        {
-            d_debug("query_interface_audio_processor => %p %s %p | OK", self, tuid2str(iid), iface);
-            ++processor->refcounter;
-            *iface = self;
-            return Steinberg_kResultOk;
-        }
-
-        if (tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
-        {
-            d_debug("query_interface_audio_processor => %p %s %p | OK convert static", self, tuid2str(iid), iface);
-            static dpf_process_context_requirements context_req;
-            *iface = &context_req;
-            return Steinberg_kResultOk;
-        }
-
-        d_debug("query_interface_audio_processor => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
-
-        *iface = nullptr;
-        return Steinberg_kNoInterface;
-    }
-
-    static uint32_t addRef_audio_processor(void* const self)
-    {
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
-        return ++processor->refcounter;
-    }
-
-    static uint32_t release_audio_processor(void* const self)
-    {
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
-        return --processor->refcounter;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
     // Steinberg_Vst_IAudioProcessor
+    base.setBusArrangements   = vst3processor_set_bus_arrangements;
+    base.getBusArrangement    = vst3processor_get_bus_arrangement;
+    base.canProcessSampleSize = vst3processor_can_process_sample_size;
+    base.getLatencySamples    = vst3processor_get_latency_samples;
+    base.setupProcessing      = vst3processor_setup_processing;
+    base.setProcessing        = vst3processor_set_processing;
+    base.process              = vst3processor_process;
+    base.getTailSamples       = vst3processor_get_tail_samples;
+}
 
-    static Steinberg_tresult set_bus_arrangements(void* const self,
-                                                 Steinberg_Vst_Speaker* const inputs, const int32_t num_inputs,
-                                                 Steinberg_Vst_Speaker* const outputs, const int32_t num_outputs)
+// ----------------------------------------------------------------------------------------------------------------
+// Steinberg_FUnknown
+
+static Steinberg_tresult vst3processor_query_interface(void* const self, const Steinberg_TUID iid, void** const iface)
+{
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+
+    if (tuid_match(iid, Steinberg_FUnknown_iid) || tuid_match(iid, Steinberg_Vst_IAudioProcessor_iid))
     {
-        // NOTE this is called a bunch of times in JUCE hosts
-        d_debug("dpf_audio_processor::set_bus_arrangements => %p %p %i %p %i",
-                self, inputs, num_inputs, outputs, num_outputs);
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
-
-        PluginVst3* const vst3 = processor->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return processor->vst3->setBusArrangements(inputs, num_inputs, outputs, num_outputs);
+        d_debug("query_interface_audio_processor => %p %s %p | OK", self, tuid2str(iid), iface);
+        ++processor->refcounter;
+        *iface = self;
+        return Steinberg_kResultOk;
     }
 
-    static Steinberg_tresult get_bus_arrangement(void* const self, const int32_t bus_direction,
-                                                const int32_t idx, Steinberg_Vst_Speaker* const arr)
+    if (tuid_match(iid, Steinberg_Vst_IProcessContextRequirements_iid))
     {
-        d_debug("dpf_audio_processor::get_bus_arrangement => %p %s %i %p",
-                self, get_bus_direction_str(bus_direction), idx, arr);
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
-
-        PluginVst3* const vst3 = processor->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return processor->vst3->getBusArrangement(bus_direction, idx, arr);
+        d_debug("query_interface_audio_processor => %p %s %p | OK convert static", self, tuid2str(iid), iface);
+        static dpf_process_context_requirements context_req;
+        *iface = &context_req;
+        return Steinberg_kResultOk;
     }
 
-    static Steinberg_tresult can_process_sample_size(void*, const int32_t symbolic_sample_size)
-    {
-        // NOTE runs during RT
-        // d_debug("dpf_audio_processor::can_process_sample_size => %i", symbolic_sample_size);
-        return symbolic_sample_size == Steinberg_Vst_SymbolicSampleSizes_kSample32 ? Steinberg_kResultOk : Steinberg_kNotImplemented;
-    }
+    d_debug("query_interface_audio_processor => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
 
-    static uint32_t get_latency_samples(void* const self)
-    {
-        d_debug("dpf_audio_processor::get_latency_samples => %p", self);
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+    *iface = nullptr;
+    return Steinberg_kNoInterface;
+}
 
-        PluginVst3* const vst3 = processor->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, 0);
+static uint32_t vst3processor_addRef(void* const self)
+{
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+    return ++processor->refcounter;
+}
 
-        return processor->vst3->getLatencySamples();
-    }
+static uint32_t vst3processor_release(void* const self)
+{
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+    return --processor->refcounter;
+}
 
-    static Steinberg_tresult setup_processing(void* const self, Steinberg_Vst_ProcessSetup* const setup)
-    {
-        d_debug("dpf_audio_processor::setup_processing => %p %p", self, setup);
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+// ----------------------------------------------------------------------------------------------------------------
+// Steinberg_Vst_IAudioProcessor
 
-        PluginVst3* const vst3 = processor->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+static Steinberg_tresult vst3processor_set_bus_arrangements(
+    void* const                  self,
+    Steinberg_Vst_Speaker* const inputs,
+    const int32_t                num_inputs,
+    Steinberg_Vst_Speaker* const outputs,
+    const int32_t                num_outputs)
+{
+    // NOTE this is called a bunch of times in JUCE hosts
+    d_debug(
+        "vst3processor_set_bus_arrangements => %p %p %i %p %i",
+        self,
+        inputs,
+        num_inputs,
+        outputs,
+        num_outputs);
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
-        d_debug("dpf_audio_processor::setup_processing => %p %p | %d %f", self, setup, setup->maxSamplesPerBlock, setup->sample_rate);
+    PluginVst3* const vst3 = plugin_from_processor(processor);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        d_nextBufferSize = setup->maxSamplesPerBlock;
-        d_nextSampleRate = setup->sampleRate;
-        return processor->vst3->setupProcessing(setup);
-    }
+    return vst3->setBusArrangements(inputs, num_inputs, outputs, num_outputs);
+}
 
-    static Steinberg_tresult set_processing(void* const self, const Steinberg_TBool state)
-    {
-        d_debug("dpf_audio_processor::set_processing => %p %u", self, state);
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+static Steinberg_tresult vst3processor_get_bus_arrangement(
+    void* const                  self,
+    const int32_t                bus_direction,
+    const int32_t                idx,
+    Steinberg_Vst_Speaker* const arr)
+{
+    d_debug(
+        "vst3processor_get_bus_arrangement => %p %s %i %p",
+        self,
+        get_bus_direction_str(bus_direction),
+        idx,
+        arr);
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
-        PluginVst3* const vst3 = processor->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+    PluginVst3* const vst3 = plugin_from_processor(processor);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        return processor->vst3->setProcessing(state);
-    }
+    return vst3->getBusArrangement(bus_direction, idx, arr);
+}
 
-    static Steinberg_tresult process(void* const self, Steinberg_Vst_ProcessData* const data)
-    {
-        // NOTE runs during RT
-        // d_debug("dpf_audio_processor::process => %p", self);
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+static Steinberg_tresult vst3processor_can_process_sample_size(void*, const int32_t symbolic_sample_size)
+{
+    // NOTE runs during RT
+    // d_debug("vst3processor_can_process_sample_size => %i", symbolic_sample_size);
+    return symbolic_sample_size == Steinberg_Vst_SymbolicSampleSizes_kSample32 ? Steinberg_kResultOk
+                                                                               : Steinberg_kNotImplemented;
+}
 
-        PluginVst3* const vst3 = processor->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+static uint32_t vst3processor_get_latency_samples(void* const self)
+{
+    d_debug("vst3processor_get_latency_samples => %p", self);
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
-        return processor->vst3->process(data);
-    }
+    PluginVst3* const vst3 = plugin_from_processor(processor);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, 0);
 
-    static uint32_t get_tail_samples(void* const self)
-    {
-        d_debug("dpf_audio_processor::get_tail_samples => %p", self);
-        dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+    return vst3->getLatencySamples();
+}
 
-        PluginVst3* const vst3 = processor->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, 0);
+static Steinberg_tresult vst3processor_setup_processing(void* const self, Steinberg_Vst_ProcessSetup* const setup)
+{
+    d_debug("vst3processor_setup_processing => %p %p", self, setup);
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
 
-        return processor->vst3->getTailSamples();
-    }
-};
+    PluginVst3* const vst3 = plugin_from_processor(processor);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    d_debug(
+        "vst3processor_setup_processing => %p %p | %d %f",
+        self,
+        setup,
+        setup->maxSamplesPerBlock,
+        setup->sampleRate);
+
+    d_nextBufferSize = setup->maxSamplesPerBlock;
+    d_nextSampleRate = setup->sampleRate;
+    return vst3->setupProcessing(setup);
+}
+
+static Steinberg_tresult vst3processor_set_processing(void* const self, const Steinberg_TBool state)
+{
+    d_debug("vst3processor_set_processing => %p %u", self, state);
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+
+    PluginVst3* const vst3 = plugin_from_processor(processor);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->setProcessing(state);
+}
+
+static Steinberg_tresult vst3processor_process(void* const self, Steinberg_Vst_ProcessData* const data)
+{
+    // NOTE runs during RT
+    // d_debug("vst3processor_process => %p", self);
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+
+    PluginVst3* const vst3 = plugin_from_processor(processor);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+
+    return vst3->process(data);
+}
+
+static uint32_t vst3processor_get_tail_samples(void* const self)
+{
+    // d_debug("vst3processor_get_tail_samples => %p", self);
+    dpf_audio_processor* const processor = static_cast<dpf_audio_processor*>(self);
+
+    PluginVst3* const vst3 = plugin_from_processor(processor);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, 0);
+
+    return vst3->getTailSamples();
+}
 
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_component
 
-struct dpf_component {
-    Steinberg_Vst_IComponentVtbl* lpVtbl;
-	Steinberg_Vst_IComponentVtbl base;
-    std::atomic_int refcounter;
-    ScopedPointer<dpf_audio_processor> processor;
-   #if DPF_VST3_USES_SEPARATE_CONTROLLER
-    ScopedPointer<dpf_comp2ctrl_connection_point> connectionComp2Ctrl;
-   #else
-    ScopedPointer<dpf_edit_controller> controller;
-   #endif
-    ScopedPointer<PluginVst3> vst3;
-    Steinberg_Vst_IHostApplication* const hostApplicationFromFactory;
-    Steinberg_Vst_IHostApplication* hostApplicationFromInitialize;
+dpf_component::dpf_component()
+    : lpVtbl(&base)
+    , refcounter(1)
+{
+    // Steinberg_FUnknown, everything custom
+    base.queryInterface = vst3component_query_interface;
+    base.addRef         = vst3component_ref;
+    base.release        = vst3component_unref;
+    // Steinberg_IPluginBase
+    base.initialize = vst3component_initialize;
+    base.terminate  = vst3component_terminate;
+    // Steinberg_Vst_IComponent
+    base.getControllerClassId = vst3component_get_controller_class_id;
+    base.setIoMode            = vst3component_set_io_mode;
+    base.getBusCount          = vst3component_get_bus_count;
+    base.getBusInfo           = vst3component_get_bus_info;
+    base.getRoutingInfo       = vst3component_get_routing_info;
+    base.activateBus          = vst3component_activate_bus;
+    base.setActive            = vst3component_set_active;
+    base.setState             = vst3component_set_state;
+    base.getState             = vst3component_get_state;
+}
 
-    dpf_component(Steinberg_Vst_IHostApplication* const host)
-        : lpVtbl(&base),
-          refcounter(1),
-          hostApplicationFromFactory(host),
-          hostApplicationFromInitialize(nullptr)
+// Steinberg_FUnknown
+static Steinberg_tresult vst3component_query_interface(void* const self, const Steinberg_TUID iid, void** const iface)
+{
+    dpf_component* const component = static_cast<dpf_component*>(self);
+
+    if (tuid_match(iid, Steinberg_FUnknown_iid) || tuid_match(iid, Steinberg_IPluginBase_iid) ||
+        tuid_match(iid, Steinberg_Vst_IComponent_iid))
     {
-        d_debug("dpf_component() with hostApplication %p", hostApplicationFromFactory);
-
-        // make sure host application is valid through out this component lifetime
-        if (hostApplicationFromFactory != nullptr)
-            hostApplicationFromFactory->lpVtbl->addRef(hostApplicationFromFactory);
-
-        // Steinberg_FUnknown, everything custom
-        base.queryInterface = query_interface_component;
-        base.addRef = ref_component;
-        base.release = unref_component;
-
-        // Steinberg_IPluginBase
-        base.initialize = initialize;
-        base.terminate = terminate;
-
-        // Steinberg_Vst_IComponent
-        base.getControllerClassId = get_controller_class_id;
-        base.setIoMode = set_io_mode;
-        base.getBusCount = get_bus_count;
-        base.getBusInfo = get_bus_info;
-        base.getRoutingInfo = get_routing_info;
-        base.activateBus = activate_bus;
-        base.setActive = set_active;
-        base.setState = set_state;
-        base.getState = get_state;
+        d_debug("vst3component_query_interface => %p %s %p | OK", self, tuid2str(iid), iface);
+        component->refcounter++;
+        *iface = self;
+        return Steinberg_kResultOk;
     }
 
-    ~dpf_component()
+    if (tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
     {
-        d_debug("~dpf_component()");
-        processor = nullptr;
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        connectionComp2Ctrl = nullptr;
-       #else
-        controller = nullptr;
-       #endif
-        vst3 = nullptr;
-
-        if (hostApplicationFromFactory != nullptr)
-            hostApplicationFromFactory->lpVtbl->release(hostApplicationFromFactory);
+#if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+        d_debug("vst3component_query_interface => %p %s %p | OK convert static", self, tuid2str(iid), iface);
+        static dpf_midi_mapping midi_mapping;
+        *iface = &midi_mapping;
+        return Steinberg_kResultOk;
+#else
+        d_debug("vst3component_query_interface => %p %s %p | reject unused", self, tuid2str(iid), iface);
+        *iface = nullptr;
+        return Steinberg_kNoInterface;
+#endif
     }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_FUnknown
-
-    static Steinberg_tresult query_interface_component(void* const self, const Steinberg_TUID iid, void** const iface)
+    if (tuid_match(iid, Steinberg_Vst_IAudioProcessor_iid))
     {
-        dpf_component* const component = static_cast<dpf_component*>(self);
+        PluginVst3* vst3 = plugin_from_component(component);
 
-        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
-            tuid_match(iid, Steinberg_IPluginBase_iid) ||
-            tuid_match(iid, Steinberg_Vst_IComponent_iid))
-        {
-            d_debug("query_interface_component => %p %s %p | OK", self, tuid2str(iid), iface);
-            ++component->refcounter;
-            *iface = self;
-            return Steinberg_kResultOk;
-        }
+        d_debug(
+            "vst3component_query_interface => %p %s %p | OK convert %p",
+            self,
+            tuid2str(iid),
+            iface,
+            &vst3->processor);
 
-        if (tuid_match(iid, Steinberg_Vst_IMidiMapping_iid))
-        {
-           #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
-            d_debug("query_interface_component => %p %s %p | OK convert static", self, tuid2str(iid), iface);
-            static dpf_midi_mapping midi_mapping;
-            *iface = &midi_mapping;
-            return Steinberg_kResultOk;
-           #else
-            d_debug("query_interface_component => %p %s %p | reject unused", self, tuid2str(iid), iface);
-            *iface = nullptr;
-            return Steinberg_kNoInterface;
-           #endif
-        }
+        vst3->processor.refcounter++;
+        *iface = &vst3->processor;
+        return Steinberg_kResultOk;
+    }
 
-        if (tuid_match(iid, Steinberg_Vst_IAudioProcessor_iid))
-        {
-            d_debug("query_interface_component => %p %s %p | OK convert %p",
-                    self, tuid2str(iid), iface, component->processor.get());
-
-            if (component->processor == nullptr)
-                component->processor = new dpf_audio_processor(component->vst3);
-            else
-                ++component->processor->refcounter;
-            *iface = component->processor.get();
-            return Steinberg_kResultOk;
-        }
-
-        if (tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
-        {
-           #if DPF_VST3_USES_SEPARATE_CONTROLLER
-            d_debug("query_interface_component => %p %s %p | OK convert %p",
-                    self, tuid2str(iid), iface, component->connectionComp2Ctrl.get());
-
-            if (component->connectionComp2Ctrl == nullptr)
-                component->connectionComp2Ctrl = new dpf_comp2ctrl_connection_point(component->vst3);
-            else
-                ++component->connectionComp2Ctrl->refcounter;
-            *iface = component->connectionComp2Ctrl;
-            return Steinberg_kResultOk;
-           #else
-            d_debug("query_interface_component => %p %s %p | reject unwanted", self, tuid2str(iid), iface);
-            *iface = nullptr;
-            return Steinberg_kNoInterface;
-           #endif
-        }
-
-        if (tuid_match(iid, Steinberg_Vst_IEditController_iid))
-        {
-           #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-            d_debug("query_interface_component => %p %s %p | OK convert %p",
-                    self, tuid2str(iid), iface, component->controller.get());
-
-            if (component->controller == nullptr)
-                component->controller = new dpf_edit_controller(component->vst3,
-                                                                component->hostApplicationFromFactory,
-                                                                component->hostApplicationFromInitialize);
-            else
-                ++component->controller->refcounter;
-            *iface = component->controller;
-            return Steinberg_kResultOk;
-           #else
-            d_debug("query_interface_component => %p %s %p | reject unwanted", self, tuid2str(iid), iface);
-            *iface = nullptr;
-            return Steinberg_kNoInterface;
-           #endif
-        }
-
-        d_debug("query_interface_component => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
+    if (tuid_match(iid, Steinberg_Vst_IConnectionPoint_iid))
+    {
+        d_debug("vst3component_query_interface => %p %s %p | reject unwanted", self, tuid2str(iid), iface);
         *iface = nullptr;
         return Steinberg_kNoInterface;
     }
 
-    static uint32_t ref_component(void* const self)
+    if (tuid_match(iid, Steinberg_Vst_IEditController_iid))
     {
-        dpf_component* const component = static_cast<dpf_component*>(self);
-        const int refcount = ++component->refcounter;
-        d_debug("dpf_component::ref => %p | refcount %i", self, refcount);
+        PluginVst3* vst3 = plugin_from_component(component);
+
+        d_debug(
+            "vst3component_query_interface => %p %s %p | OK convert %p",
+            self,
+            tuid2str(iid),
+            iface,
+            &vst3->controller);
+
+        vst3->controller.refcounter++;
+        *iface = &vst3->controller;
+        return Steinberg_kResultOk;
+    }
+
+    d_debug("vst3component_query_interface => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
+    *iface = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static uint32_t vst3component_ref(void* const self)
+{
+    dpf_component* const component = static_cast<dpf_component*>(self);
+    const int            refcount  = ++component->refcounter;
+    d_debug("vst3component_ref => %p | refcount %i", self, refcount);
+    return refcount;
+}
+
+static uint32_t vst3component_unref(void* const self)
+{
+    dpf_component* const component = static_cast<dpf_component*>(self);
+
+    if (const int refcount = --component->refcounter)
+    {
+        d_debug("vst3component_unref => %p | refcount %i", self, refcount);
         return refcount;
     }
 
-    static uint32_t unref_component(void* const self)
+    /**
+     * Some hosts will have unclean instances of a few of the component child classes at this point.
+     * We check for those here, going through the whole possible chain to see if it is safe to delete.
+     * If not, we add this component to the `gComponentGarbage` global which will take care of it during unload.
+     */
+
+    bool unclean = false;
+
+    PluginVst3* vst3 = plugin_from_component(component);
+
+    if (const int refcount = vst3->processor.refcounter.load())
     {
-        dpf_component* const component = static_cast<dpf_component*>(self);
+        unclean = true;
+        d_stderr(
+            "DPF warning: asked to delete component while audio processor still active (refcount %d)",
+            refcount);
+    }
 
-        if (const int refcount = --component->refcounter)
-        {
-            d_debug("dpf_component::unref => %p | refcount %i", self, refcount);
-            return refcount;
+    if (const int refcount = vst3->controller.refcounter)
+    {
+        unclean = true;
+        d_stderr(
+            "DPF warning: asked to delete component while edit controller still active (refcount %d)",
+            refcount);
+    }
+
+    if (unclean)
+    {
+        if (std::find(gPluginGarbage.begin(), gPluginGarbage.end(), vst3) == gPluginGarbage.end()) {
+            gPluginGarbage.push_back(vst3);
         }
-
-        /**
-         * Some hosts will have unclean instances of a few of the component child classes at this point.
-         * We check for those here, going through the whole possible chain to see if it is safe to delete.
-         * If not, we add this component to the `gComponentGarbage` global which will take care of it during unload.
-         */
-
-        bool unclean = false;
-
-        if (dpf_audio_processor* const proc = component->processor)
-        {
-            if (const int refcount = proc->refcounter.load())
-            {
-                unclean = true;
-                d_stderr("DPF warning: asked to delete component while audio processor still active (refcount %d)", refcount);
-            }
-        }
-
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        if (dpf_comp2ctrl_connection_point* const point = component->connectionComp2Ctrl)
-        {
-            if (const int refcount = point->refcounter)
-            {
-                unclean = true;
-                d_stderr("DPF warning: asked to delete component while connection point still active (refcount %d)", refcount);
-            }
-        }
-       #else
-        if (dpf_edit_controller* const controller = component->controller)
-        {
-            if (const int refcount = controller->refcounter)
-            {
-                unclean = true;
-                d_stderr("DPF warning: asked to delete component while edit controller still active (refcount %d)", refcount);
-            }
-        }
-       #endif
-
-        if (unclean)
-            return handleUncleanComponent(component);
-
-        d_debug("dpf_component::unref => %p | refcount is zero, deleting everything now!", self);
-
-        delete component;
         return 0;
     }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_IPluginBase
+    d_debug("vst3component_unref => %p | refcount is zero, deleting everything now!", self);
 
-    static Steinberg_tresult initialize(void* const self, Steinberg_FUnknown* const context)
-    {
-        dpf_component* const component = static_cast<dpf_component*>(self);
+    delete vst3;
+    return 0;
+}
+// Steinberg_IPluginBase
+static Steinberg_tresult vst3component_initialize(void* const self, Steinberg_FUnknown* const context)
+{
+    dpf_component* const component = static_cast<dpf_component*>(self);
+    PluginVst3*          vst3      = plugin_from_component(component);
 
-        // check if already initialized
-        DISTRHO_SAFE_ASSERT_RETURN(component->vst3 == nullptr, Steinberg_kInvalidArgument);
+    // check if already initialized
+    DISTRHO_SAFE_ASSERT_RETURN(vst3->fHost == nullptr, Steinberg_kInvalidArgument);
 
-        // query for host application
-        Steinberg_Vst_IHostApplication* hostApplication = nullptr;
-        if (context != nullptr)
-            ((Steinberg_FUnknown*)context)->lpVtbl->queryInterface((Steinberg_FUnknown*)context, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
+    // query for host application
+    if (vst3->fHost == NULL && context != nullptr)
+        ((Steinberg_FUnknown*)context)
+            ->lpVtbl
+            ->queryInterface((Steinberg_FUnknown*)context, Steinberg_Vst_IHostApplication_iid, (void**)&vst3->fHost);
 
-        d_debug("dpf_component::initialize => %p %p | hostApplication %p", self, context, hostApplication);
+    d_debug("vst3component_initialize => %p %p | hostApplication %p", self, context, vst3->fHost);
 
-        // save it for later so we can unref it
-        component->hostApplicationFromInitialize = hostApplication;
+    // default early values
+    if (d_nextBufferSize == 0)
+        d_nextBufferSize = 1024;
+    if (d_nextSampleRate <= 0.0)
+        d_nextSampleRate = 44100.0;
 
-       #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-        // save it in edit controller too, needed for some hosts
-        if (component->controller != nullptr)
-            component->controller->hostApplicationFromComponentInitialize = hostApplication;
-       #endif
+    d_nextCanRequestParameterValueChanges = true;
 
-        // provide the factory application to the plugin if this new one is missing
-        if (hostApplication == nullptr)
-            hostApplication = component->hostApplicationFromFactory;
+    // TODO: call init in out plugin
 
-        // default early values
-        if (d_nextBufferSize == 0)
-            d_nextBufferSize = 1024;
-        if (d_nextSampleRate <= 0.0)
-            d_nextSampleRate = 44100.0;
+    return Steinberg_kResultOk;
+}
 
-        d_nextCanRequestParameterValueChanges = true;
+static Steinberg_tresult vst3component_terminate(void* const self)
+{
+    d_debug("vst3component_terminate => %p", self);
+    dpf_component* const component = static_cast<dpf_component*>(self);
+    PluginVst3*          vst3      = plugin_from_component(component);
 
-        // create the actual plugin
-        component->vst3 = new PluginVst3(hostApplication, true);
+    // TODO: call deinit in out plugin
 
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        // set connection point if needed
-        if (dpf_comp2ctrl_connection_point* const point = component->connectionComp2Ctrl)
-        {
-            if (point->other != nullptr)
-                component->vst3->comp2ctrl_connect(point->other);
-        }
-       #endif
+    return Steinberg_kResultOk;
+}
+// Steinberg_Vst_IComponent
+static Steinberg_tresult vst3component_get_controller_class_id(void*, Steinberg_TUID class_id)
+{
+    d_debug("vst3component_get_controller_class_id => %p", class_id);
 
-        return Steinberg_kResultOk;
-    }
+    memcpy(class_id, dpf_tuid_controller, sizeof(Steinberg_TUID));
+    return Steinberg_kResultOk;
+}
 
-    static Steinberg_tresult terminate(void* const self)
-    {
-        d_debug("dpf_component::terminate => %p", self);
-        dpf_component* const component = static_cast<dpf_component*>(self);
+static Steinberg_tresult vst3component_set_io_mode(void* const self, const int32_t io_mode)
+{
+    d_debug("vst3component_set_io_mode => %p %i", self, io_mode);
 
-        // check if already terminated
-        DISTRHO_SAFE_ASSERT_RETURN(component->vst3 != nullptr, Steinberg_kInvalidArgument);
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-        // delete actual plugin
-        component->vst3 = nullptr;
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-       #if !DPF_VST3_USES_SEPARATE_CONTROLLER
-        // remove previous host application saved during initialize
-        if (component->controller != nullptr)
-            component->controller->hostApplicationFromComponentInitialize = nullptr;
-       #endif
+    // TODO
+    return Steinberg_kNotImplemented;
 
-        // unref host application received during initialize
-        if (component->hostApplicationFromInitialize != nullptr)
-        {
-            component->hostApplicationFromInitialize->lpVtbl->release(component->hostApplicationFromInitialize);
-            component->hostApplicationFromInitialize = nullptr;
-        }
+    // unused
+    (void)io_mode;
+}
 
-        return Steinberg_kResultOk;
-    }
+static int32_t vst3component_get_bus_count(void* const self, const int32_t media_type, const int32_t bus_direction)
+{
+    // NOTE runs during RT
+    // d_debug("vst3component_get_bus_count => %p %s %s",
+    //          self, get_media_type_str(media_type), get_bus_direction_str(bus_direction));
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_Vst_IComponent
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-    static Steinberg_tresult get_controller_class_id(void*, Steinberg_TUID class_id)
-    {
-        d_debug("dpf_component::get_controller_class_id => %p", class_id);
+    const int32_t ret = vst3->getBusCount(media_type, bus_direction);
+    // d_debug("vst3component_get_bus_count returns %i", ret);
+    return ret;
+}
 
-        std::memcpy(class_id, dpf_tuid_controller, sizeof(Steinberg_TUID));
-        return Steinberg_kResultOk;
-    }
+static Steinberg_tresult vst3component_get_bus_info(
+    void* const                      self,
+    const Steinberg_Vst_MediaType    media_type,
+    const Steinberg_Vst_BusDirection bus_direction,
+    const int32_t                    bus_idx,
+    Steinberg_Vst_BusInfo* const     info)
+{
+    d_debug(
+        "vst3component_get_bus_info => %p %s %s %i %p",
+        self,
+        get_media_type_str(media_type),
+        get_bus_direction_str(bus_direction),
+        bus_idx,
+        info);
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-    static Steinberg_tresult set_io_mode(void* const self, const int32_t io_mode)
-    {
-        d_debug("dpf_component::set_io_mode => %p %i", self, io_mode);
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        dpf_component* const component = static_cast<dpf_component*>(self);
+    return vst3->getBusInfo(media_type, bus_direction, bus_idx, info);
+}
 
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+static Steinberg_tresult vst3component_get_routing_info(
+    void* const                      self,
+    Steinberg_Vst_RoutingInfo* const input,
+    Steinberg_Vst_RoutingInfo* const output)
+{
+    d_debug("vst3component_get_routing_info => %p %p %p", self, input, output);
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-        // TODO
-        return Steinberg_kNotImplemented;
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        // unused
-        (void)io_mode;
-    }
+    return vst3->getRoutingInfo(input, output);
+}
 
-    static int32_t get_bus_count(void* const self, const int32_t media_type, const int32_t bus_direction)
-    {
-        // NOTE runs during RT
-        // d_debug("dpf_component::get_bus_count => %p %s %s",
-        //          self, get_media_type_str(media_type), get_bus_direction_str(bus_direction));
-        dpf_component* const component = static_cast<dpf_component*>(self);
+static Steinberg_tresult vst3component_activate_bus(
+    void* const           self,
+    const int32_t         media_type,
+    const int32_t         bus_direction,
+    const int32_t         bus_idx,
+    const Steinberg_TBool state)
+{
+    // NOTE this is called a bunch of times
+    // d_debug("vst3component_activate_bus => %p %s %s %i %u",
+    //         self, get_media_type_str(media_type), get_bus_direction_str(bus_direction), bus_idx, state);
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        const int32_t ret = vst3->getBusCount(media_type, bus_direction);
-        // d_debug("dpf_component::get_bus_count returns %i", ret);
-        return ret;
-    }
+    return vst3->activateBus(media_type, bus_direction, bus_idx, state);
+}
 
-    static Steinberg_tresult get_bus_info(void* const self, const Steinberg_Vst_MediaType media_type, const Steinberg_Vst_BusDirection bus_direction,
-                                         const int32_t bus_idx, Steinberg_Vst_BusInfo* const info)
-    {
-        d_debug("dpf_component::get_bus_info => %p %s %s %i %p",
-                self, get_media_type_str(media_type), get_bus_direction_str(bus_direction), bus_idx, info);
-        dpf_component* const component = static_cast<dpf_component*>(self);
+static Steinberg_tresult vst3component_set_active(void* const self, const Steinberg_TBool state)
+{
+    d_debug("vst3component_set_active => %p %u", self, state);
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        return vst3->getBusInfo(media_type, bus_direction, bus_idx, info);
-    }
+    return vst3->setActive(state);
+}
 
-    static Steinberg_tresult get_routing_info(void* const self, Steinberg_Vst_RoutingInfo* const input, Steinberg_Vst_RoutingInfo* const output)
-    {
-        d_debug("dpf_component::get_routing_info => %p %p %p", self, input, output);
-        dpf_component* const component = static_cast<dpf_component*>(self);
+static Steinberg_tresult vst3component_set_state(void* const self, Steinberg_IBStream* const stream)
+{
+    d_debug("vst3component_set_state => %p", self);
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        return vst3->getRoutingInfo(input, output);
-    }
+    return vst3->setState(stream);
+}
 
-    static Steinberg_tresult activate_bus(void* const self, const int32_t media_type, const int32_t bus_direction,
-                                         const int32_t bus_idx, const Steinberg_TBool state)
-    {
-        // NOTE this is called a bunch of times
-        // d_debug("dpf_component::activate_bus => %p %s %s %i %u",
-        //         self, get_media_type_str(media_type), get_bus_direction_str(bus_direction), bus_idx, state);
-        dpf_component* const component = static_cast<dpf_component*>(self);
+static Steinberg_tresult vst3component_get_state(void* const self, Steinberg_IBStream* const stream)
+{
+    d_debug("vst3component_get_state => %p %p", self, stream);
+    dpf_component* const component = static_cast<dpf_component*>(self);
 
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
+    PluginVst3* const vst3 = plugin_from_component(component);
+    DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
 
-        return vst3->activateBus(media_type, bus_direction, bus_idx, state);
-    }
-
-    static Steinberg_tresult set_active(void* const self, const Steinberg_TBool state)
-    {
-        d_debug("dpf_component::set_active => %p %u", self, state);
-        dpf_component* const component = static_cast<dpf_component*>(self);
-
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return component->vst3->setActive(state);
-    }
-
-    static Steinberg_tresult set_state(void* const self, Steinberg_IBStream* const stream)
-    {
-        d_debug("dpf_component::set_state => %p", self);
-        dpf_component* const component = static_cast<dpf_component*>(self);
-
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->setState(stream);
-    }
-
-    static Steinberg_tresult get_state(void* const self, Steinberg_IBStream* const stream)
-    {
-        d_debug("dpf_component::get_state => %p %p", self, stream);
-        dpf_component* const component = static_cast<dpf_component*>(self);
-
-        PluginVst3* const vst3 = component->vst3;
-        DISTRHO_SAFE_ASSERT_RETURN(vst3 != nullptr, Steinberg_kNotInitialized);
-
-        return vst3->getState(stream);
-    }
-};
+    return vst3->getState(stream);
+}
 
 // --------------------------------------------------------------------------------------------------------------------
 
 static const char* getPluginCategories()
 {
     static String categories;
-    static bool firstInit = true;
+    static bool   firstInit = true;
 
     if (firstInit)
     {
-       #ifdef DISTRHO_PLUGIN_VST3_CATEGORIES
+#ifdef DISTRHO_PLUGIN_VST3_CATEGORIES
         categories = DISTRHO_PLUGIN_VST3_CATEGORIES;
-       #elif DISTRHO_PLUGIN_IS_SYNTH
+#elif DISTRHO_PLUGIN_IS_SYNTH
         categories = "Instrument";
-       #endif
+#endif
         firstInit = false;
     }
 
@@ -4103,12 +3682,15 @@ static const char* getPluginVersion()
         const uint32_t versionNum = plugin_getVersion();
 
         char versionBuf[64];
-        std::snprintf(versionBuf, sizeof(versionBuf)-1, "%d.%d.%d",
-                      (versionNum >> 16) & 0xff,
-                      (versionNum >>  8) & 0xff,
-                      (versionNum >>  0) & 0xff);
-        versionBuf[sizeof(versionBuf)-1] = '\0';
-        version = versionBuf;
+        snprintf(
+            versionBuf,
+            sizeof(versionBuf) - 1,
+            "%d.%d.%d",
+            (versionNum >> 16) & 0xff,
+            (versionNum >> 8) & 0xff,
+            (versionNum >> 0) & 0xff);
+        versionBuf[sizeof(versionBuf) - 1] = '\0';
+        version                            = versionBuf;
     }
 
     return version.buffer();
@@ -4117,293 +3699,235 @@ static const char* getPluginVersion()
 // --------------------------------------------------------------------------------------------------------------------
 // dpf_factory
 
-struct dpf_factory {
-    Steinberg_IPluginFactory3Vtbl* lpVtbl;
-    Steinberg_IPluginFactory3Vtbl base;
-
-    std::atomic_int refcounter;
-
-    // cached values
-    Steinberg_FUnknown* hostContext;
-
-    dpf_factory()
-        : refcounter(1),
-          hostContext(nullptr)
-    {
-        lpVtbl = &base;
-        // Steinberg_FUnknown
-        base.queryInterface = query_interface_factory;
-        base.addRef = ref_factory;
-        base.release = unref_factory;
-
-        // Steinberg_IPluginFactory
-        base.getFactoryInfo = get_factory_info;
-        base.countClasses = num_classes;
-        base.getClassInfo = get_class_info;
-        base.createInstance = create_instance;
-
-        // Steinberg_IPluginFactory2
-        base.getClassInfo2 = get_class_info_2;
-
-        // Steinberg_IPluginFactory3
-        base.getClassInfoUnicode = get_class_info_utf16;
-        base.setHostContext = set_host_context;
-    }
-
-    ~dpf_factory()
-    {
-        // unref old context if there is one
-        if (hostContext != nullptr)
-            hostContext->lpVtbl->release(hostContext);
-
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        if (gControllerGarbage.size() != 0)
-        {
-            d_debug("DPF notice: cleaning up previously undeleted controllers now");
-
-            for (std::vector<dpf_edit_controller*>::iterator it = gControllerGarbage.begin();
-                it != gControllerGarbage.end(); ++it)
-            {
-                dpf_edit_controller* const controller = *it;
-                delete controller;
-            }
-
-            gControllerGarbage.clear();
-        }
-       #endif
-
-        if (gComponentGarbage.size() != 0)
-        {
-            d_debug("DPF notice: cleaning up previously undeleted components now");
-
-            for (std::vector<dpf_component*>::iterator it = gComponentGarbage.begin();
-                it != gComponentGarbage.end(); ++it)
-            {
-                dpf_component* const component = *it;
-                delete component;
-            }
-
-            gComponentGarbage.clear();
-        }
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
+dpf_factory::dpf_factory()
+    : refcounter(1)
+    , hostContext(nullptr)
+{
+    lpVtbl = &base;
     // Steinberg_FUnknown
+    base.queryInterface = vst3factory_query_interface;
+    base.addRef         = vst3factory_ref;
+    base.release        = vst3factory_unref;
+    // Steinberg_IPluginFactory
+    base.getFactoryInfo = vst3factory_get_factory_info;
+    base.countClasses   = vst3factory_num_classes;
+    base.getClassInfo   = vst3factory_get_class_info;
+    base.createInstance = vst3factory_create_instance;
+    // Steinberg_IPluginFactory2
+    base.getClassInfo2 = vst3factory_get_class_info_2;
+    // Steinberg_IPluginFactory3
+    base.getClassInfoUnicode = vst3factory_get_class_info_utf16;
+    base.setHostContext      = vst3factory_set_host_context;
+}
 
-    static Steinberg_tresult query_interface_factory(void* const self, const Steinberg_TUID iid, void** const iface)
+dpf_factory::~dpf_factory()
+{
+    // unref old context if there is one
+    if (hostContext != nullptr)
+        hostContext->lpVtbl->release(hostContext);
+
+    if (gPluginGarbage.size() != 0)
     {
-        dpf_factory* const factory = (dpf_factory*)(self);
+        d_debug("DPF notice: cleaning up previously undeleted components now");
 
-        if (tuid_match(iid, Steinberg_FUnknown_iid) ||
-            tuid_match(iid, Steinberg_IPluginFactory_iid) ||
-            tuid_match(iid, Steinberg_IPluginFactory2_iid) ||
-            tuid_match(iid, Steinberg_IPluginFactory3_iid))
+        for (std::vector<PluginVst3*>::iterator it = gPluginGarbage.begin(); it != gPluginGarbage.end(); ++it)
         {
-            d_debug("query_interface_factory => %p %s %p | OK", self, tuid2str(iid), iface);
-            ++factory->refcounter;
-            *iface = self;
-            return Steinberg_kResultOk;
+            PluginVst3* const vst3 = *it;
+            delete vst3;
         }
 
-        d_debug("query_interface_factory => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
+        gPluginGarbage.clear();
+    }
+}
+// Steinberg_FUnknown
+Steinberg_tresult vst3factory_query_interface(void* const self, const Steinberg_TUID iid, void** const iface)
+{
+    dpf_factory* const factory = (dpf_factory*)(self);
 
-        *iface = nullptr;
-        return Steinberg_kNoInterface;
+    if (tuid_match(iid, Steinberg_FUnknown_iid) || tuid_match(iid, Steinberg_IPluginFactory_iid) ||
+        tuid_match(iid, Steinberg_IPluginFactory2_iid) || tuid_match(iid, Steinberg_IPluginFactory3_iid))
+    {
+        d_debug("vst3factory_query_interface => %p %s %p | OK", self, tuid2str(iid), iface);
+        ++factory->refcounter;
+        *iface = self;
+        return Steinberg_kResultOk;
     }
 
-    static uint32_t ref_factory(void* const self)
+    d_debug("vst3factory_query_interface => %p %s %p | WARNING UNSUPPORTED", self, tuid2str(iid), iface);
+
+    *iface = nullptr;
+    return Steinberg_kNoInterface;
+}
+
+uint32_t vst3factory_ref(void* const self)
+{
+    dpf_factory* const factory  = (dpf_factory*)(self);
+    const int          refcount = ++factory->refcounter;
+    d_debug("vst3factory_ref => %p | refcount %i", self, refcount);
+    return refcount;
+}
+
+uint32_t vst3factory_unref(void* const self)
+{
+    dpf_factory* const factory = (dpf_factory*)(self);
+
+    if (const int refcount = --factory->refcounter)
     {
-        dpf_factory* const factory = (dpf_factory*)(self);
-        const int refcount = ++factory->refcounter;
-        d_debug("ref_factory::ref => %p | refcount %i", self, refcount);
+        d_debug("vst3factory_unref => %p | refcount %i", self, refcount);
         return refcount;
     }
 
-    static uint32_t unref_factory(void* const self)
+    d_debug("vst3factory_unref => %p | refcount is zero, deleting factory", self);
+
+    delete factory;
+    return 0;
+}
+// Steinberg_IPluginFactory
+Steinberg_tresult vst3factory_get_factory_info(void*, Steinberg_PFactoryInfo* const info)
+{
+    d_debug("vst3factory_get_factory_info => %p", info);
+    memset(info, 0, sizeof(*info));
+
+    info->flags = 0x10; // unicode
+    d_strncpy(info->vendor, plugin_getMaker(), ARRAY_SIZE(info->vendor));
+    d_strncpy(info->url, plugin_getHomePage(), ARRAY_SIZE(info->url));
+    // d_strncpy(info->email, "", ARRAY_SIZE(info->email)); // TODO
+    return Steinberg_kResultOk;
+}
+
+int32_t vst3factory_num_classes(void*)
+{
+    d_debug("vst3factory_num_classes");
+    return 1; // factory can only create component, edit-controller must be casted
+}
+
+Steinberg_tresult vst3factory_get_class_info(void*, const int32_t idx, Steinberg_PClassInfo* const info)
+{
+    d_debug("vst3factory_get_class_info => %i %p", idx, info);
+    memset(info, 0, sizeof(*info));
+    DISTRHO_SAFE_ASSERT_RETURN(idx <= 2, Steinberg_kInvalidArgument);
+
+    info->cardinality = Steinberg_PClassInfo_ClassCardinality_kManyInstances;
+    d_strncpy(info->name, plugin_getName(), ARRAY_SIZE(info->name));
+    if (idx == 0)
     {
-        dpf_factory* const factory = (dpf_factory*)(self);
-
-        if (const int refcount = --factory->refcounter)
-        {
-            d_debug("unref_factory::unref => %p | refcount %i", self, refcount);
-            return refcount;
-        }
-
-        d_debug("unref_factory::unref => %p | refcount is zero, deleting factory", self);
-
-        delete factory;
-        return 0;
+        memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
+        d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
+    }
+    else
+    {
+        memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
+        d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
     }
 
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_IPluginFactory
+    return Steinberg_kResultOk;
+}
 
-    static Steinberg_tresult get_factory_info(void*, Steinberg_PFactoryInfo* const info)
+Steinberg_tresult
+vst3factory_create_instance(void* self, const Steinberg_TUID class_id, const Steinberg_TUID iid, void** const instance)
+{
+    d_debug("vst3factory_create_instance => %p %s %s %p", self, tuid2str(class_id), tuid2str(iid), instance);
+    dpf_factory* const factory = (dpf_factory*)(self);
+
+    // query for host application
+    Steinberg_Vst_IHostApplication* hostApplication = nullptr;
+    if (factory->hostContext != nullptr)
+        ((Steinberg_FUnknown*)factory->hostContext)
+            ->lpVtbl->queryInterface(
+                (Steinberg_FUnknown*)factory->hostContext,
+                Steinberg_Vst_IHostApplication_iid,
+                (void**)&hostApplication);
+
+    // create component
+    if (tuid_match(class_id, dpf_tuid_class) &&
+        (tuid_match(iid, Steinberg_Vst_IComponent_iid) || tuid_match(iid, Steinberg_FUnknown_iid)))
     {
-        d_debug("dpf_factory::get_factory_info => %p", info);
-        std::memset(info, 0, sizeof(*info));
-
-        info->flags = 0x10; // unicode
-        d_strncpy(info->vendor, plugin_getMaker(), ARRAY_SIZE(info->vendor));
-        d_strncpy(info->url, plugin_getHomePage(), ARRAY_SIZE(info->url));
-        // d_strncpy(info->email, "", ARRAY_SIZE(info->email)); // TODO
+        PluginVst3* vst3 = new PluginVst3();
+        *instance        = &vst3->component;
         return Steinberg_kResultOk;
     }
 
-    static int32_t num_classes(void*)
+    // unsupported, roll back host application
+    if (hostApplication != nullptr)
+        hostApplication->lpVtbl->release(hostApplication);
+
+    return Steinberg_kNoInterface;
+}
+// Steinberg_IPluginFactory2
+Steinberg_tresult vst3factory_get_class_info_2(void*, const int32_t idx, Steinberg_PClassInfo2* const info)
+{
+    d_debug("vst3factory_get_class_info_2 => %i %p", idx, info);
+    memset(info, 0, sizeof(*info));
+    DISTRHO_SAFE_ASSERT_RETURN(idx <= 2, Steinberg_kInvalidArgument);
+
+    info->cardinality = Steinberg_PClassInfo_ClassCardinality_kManyInstances;
+    d_strncpy(info->subCategories, getPluginCategories(), ARRAY_SIZE(info->subCategories));
+    d_strncpy(info->name, plugin_getName(), ARRAY_SIZE(info->name));
+    info->classFlags = Steinberg_Vst_ComponentFlags_kSimpleModeSupported;
+    d_strncpy(info->vendor, plugin_getMaker(), ARRAY_SIZE(info->vendor));
+    d_strncpy(info->version, getPluginVersion(), ARRAY_SIZE(info->version));
+    d_strncpy(info->sdkVersion, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdkVersion));
+
+    if (idx == 0)
     {
-        d_debug("dpf_factory::num_classes");
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        return 2; // factory can create component and edit-controller
-       #else
-        return 1; // factory can only create component, edit-controller must be casted
-       #endif
+        memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
+        d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
+    }
+    else
+    {
+        memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
+        d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
     }
 
-    static Steinberg_tresult get_class_info(void*, const int32_t idx, Steinberg_PClassInfo* const info)
+    return Steinberg_kResultOk;
+}
+// Steinberg_IPluginFactory3
+Steinberg_tresult vst3factory_get_class_info_utf16(void*, const int32_t idx, Steinberg_PClassInfoW* const info)
+{
+    d_debug("vst3factory_get_class_info_utf16 => %i %p", idx, info);
+    memset(info, 0, sizeof(*info));
+    DISTRHO_SAFE_ASSERT_RETURN(idx <= 2, Steinberg_kInvalidArgument);
+
+    info->cardinality = Steinberg_PClassInfo_ClassCardinality_kManyInstances;
+    d_strncpy(info->subCategories, getPluginCategories(), ARRAY_SIZE(info->subCategories));
+    strncpy_utf16((int16_t*)info->name, plugin_getName(), ARRAY_SIZE(info->name));
+    info->classFlags = Steinberg_Vst_ComponentFlags_kSimpleModeSupported;
+    strncpy_utf16((int16_t*)info->vendor, plugin_getMaker(), ARRAY_SIZE(info->vendor));
+    strncpy_utf16((int16_t*)info->version, getPluginVersion(), ARRAY_SIZE(info->version));
+    strncpy_utf16((int16_t*)info->sdkVersion, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdkVersion));
+
+    if (idx == 0)
     {
-        d_debug("dpf_factory::get_class_info => %i %p", idx, info);
-        std::memset(info, 0, sizeof(*info));
-        DISTRHO_SAFE_ASSERT_RETURN(idx <= 2, Steinberg_kInvalidArgument);
-
-        info->cardinality = 0x7FFFFFFF;
-        d_strncpy(info->name, plugin_getName(), ARRAY_SIZE(info->name));
-
-        if (idx == 0)
-        {
-            std::memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
-            d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
-        }
-        else
-        {
-            std::memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
-            d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
-        }
-
-        return Steinberg_kResultOk;
+        memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
+        d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
+    }
+    else
+    {
+        memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
+        d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
     }
 
-    static Steinberg_tresult create_instance(void* self, const Steinberg_TUID class_id, const Steinberg_TUID iid, void** const instance)
-    {
-        d_debug("dpf_factory::create_instance => %p %s %s %p", self, tuid2str(class_id), tuid2str(iid), instance);
-        dpf_factory* const factory = (dpf_factory*)(self);
+    return Steinberg_kResultOk;
+}
 
-        // query for host application
-        Steinberg_Vst_IHostApplication* hostApplication = nullptr;
-        if (factory->hostContext != nullptr)
-            ((Steinberg_FUnknown*)factory->hostContext)->lpVtbl->queryInterface((Steinberg_FUnknown*)factory->hostContext, Steinberg_Vst_IHostApplication_iid, (void**)&hostApplication);
+Steinberg_tresult vst3factory_set_host_context(void* const self, Steinberg_FUnknown* const context)
+{
+    d_debug("vst3factory_set_host_context => %p %p", self, context);
+    dpf_factory* const factory = static_cast<dpf_factory*>(self);
 
-        // create component
-        if (tuid_match(class_id, dpf_tuid_class) && (tuid_match(iid, Steinberg_Vst_IComponent_iid) ||
-                                                                          tuid_match(iid, Steinberg_FUnknown_iid)))
-        {
-            *instance = (void*)(new dpf_component(hostApplication));
-            return Steinberg_kResultOk;
-        }
+    // unref old context if there is one
+    if (factory->hostContext != nullptr)
+        factory->hostContext->lpVtbl->release(factory->hostContext);
 
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER
-        // create edit controller
-        if (tuid_match(class_id, dpf_tuid_controller) && (tuid_match(iid, Steinberg_Vst_IEditController_iid) ||
-                                                                               tuid_match(iid, Steinberg_FUnknown_iid)))
-        {
-            *instance = (void*)(new dpf_edit_controller(hostApplication));
-            return Steinberg_kResultOk;
-        }
-       #endif
+    // store new context
+    factory->hostContext = context;
 
-        // unsupported, roll back host application
-        if (hostApplication != nullptr)
-            hostApplication->lpVtbl->release(hostApplication);
+    // make sure the object keeps being valid for a while
+    if (context != nullptr)
+        context->lpVtbl->addRef(context);
 
-        return Steinberg_kNoInterface;
-    }
-
-    // ----------------------------------------------------------------------------------------------------------------
-    // Steinberg_IPluginFactory2
-
-    static Steinberg_tresult get_class_info_2(void*, const int32_t idx, Steinberg_PClassInfo2* const info)
-    {
-        d_debug("dpf_factory::get_class_info_2 => %i %p", idx, info);
-        std::memset(info, 0, sizeof(*info));
-        DISTRHO_SAFE_ASSERT_RETURN(idx <= 2, Steinberg_kInvalidArgument);
-
-        info->cardinality = 0x7FFFFFFF;
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER || !DISTRHO_PLUGIN_HAS_UI
-        info->classFlags = Steinberg_Vst_ComponentFlags_kDistributable;
-       #endif
-        d_strncpy(info->subCategories, getPluginCategories(), ARRAY_SIZE(info->subCategories));
-        d_strncpy(info->name, plugin_getName(), ARRAY_SIZE(info->name));
-        d_strncpy(info->vendor, plugin_getMaker(), ARRAY_SIZE(info->vendor));
-        d_strncpy(info->version, getPluginVersion(), ARRAY_SIZE(info->version));
-        d_strncpy(info->sdkVersion, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdkVersion));
-
-        if (idx == 0)
-        {
-            std::memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
-            d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
-        }
-        else
-        {
-            std::memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
-            d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
-        }
-
-        return Steinberg_kResultOk;
-    }
-
-    // ------------------------------------------------------------------------------------------------------------
-    // Steinberg_IPluginFactory3
-
-    static Steinberg_tresult get_class_info_utf16(void*, const int32_t idx, Steinberg_PClassInfoW* const info)
-    {
-        d_debug("dpf_factory::get_class_info_utf16 => %i %p", idx, info);
-        std::memset(info, 0, sizeof(*info));
-        DISTRHO_SAFE_ASSERT_RETURN(idx <= 2, Steinberg_kInvalidArgument);
-
-        info->cardinality = 0x7FFFFFFF;
-       #if DPF_VST3_USES_SEPARATE_CONTROLLER || !DISTRHO_PLUGIN_HAS_UI
-        info->classFlags = Steinberg_Vst_ComponentFlags_kDistributable;
-       #endif
-        d_strncpy(info->subCategories, getPluginCategories(), ARRAY_SIZE(info->subCategories));
-        strncpy_utf16((int16_t*)info->name, plugin_getName(), ARRAY_SIZE(info->name));
-        strncpy_utf16((int16_t*)info->vendor, plugin_getMaker(), ARRAY_SIZE(info->vendor));
-        strncpy_utf16((int16_t*)info->version, getPluginVersion(), ARRAY_SIZE(info->version));
-        strncpy_utf16((int16_t*)info->sdkVersion, Steinberg_Vst_SDKVersionString, ARRAY_SIZE(info->sdkVersion));
-
-        if (idx == 0)
-        {
-            std::memcpy(info->cid, dpf_tuid_class, sizeof(info->cid));
-            d_strncpy(info->category, "Audio Module Class", ARRAY_SIZE(info->category));
-        }
-        else
-        {
-            std::memcpy(info->cid, dpf_tuid_controller, sizeof(info->cid));
-            d_strncpy(info->category, "Component Controller Class", ARRAY_SIZE(info->category));
-        }
-
-        return Steinberg_kResultOk;
-    }
-
-    static Steinberg_tresult set_host_context(void* const self, Steinberg_FUnknown* const context)
-    {
-        d_debug("dpf_factory::set_host_context => %p %p", self, context);
-        dpf_factory* const factory = static_cast<dpf_factory*>(self);
-
-        // unref old context if there is one
-        if (factory->hostContext != nullptr)
-            factory->hostContext->lpVtbl->release(factory->hostContext);
-
-        // store new context
-        factory->hostContext = context;
-
-        // make sure the object keeps being valid for a while
-        if (context != nullptr)
-            context->lpVtbl->addRef(context);
-
-        return Steinberg_kResultOk;
-    }
-};
-
+    return Steinberg_kResultOk;
+}
 
 // --------------------------------------------------------------------------------------------------------------------
 // VST3 entry point
@@ -4411,26 +3935,23 @@ struct dpf_factory {
 DISTRHO_PLUGIN_EXPORT
 const void* GetPluginFactory(void);
 
-const void* GetPluginFactory(void)
-{
-    return new dpf_factory();
-}
+const void* GetPluginFactory(void) { return new dpf_factory(); }
 
 // --------------------------------------------------------------------------------------------------------------------
 // OS specific module load
 
 #if defined(DISTRHO_OS_MAC)
-# define ENTRYFNNAME bundleEntry
-# define ENTRYFNNAMEARGS void*
-# define EXITFNNAME bundleExit
+#define ENTRYFNNAME bundleEntry
+#define ENTRYFNNAMEARGS void*
+#define EXITFNNAME bundleExit
 #elif defined(DISTRHO_OS_WINDOWS)
-# define ENTRYFNNAME InitDll
-# define ENTRYFNNAMEARGS void
-# define EXITFNNAME ExitDll
+#define ENTRYFNNAME InitDll
+#define ENTRYFNNAMEARGS void
+#define EXITFNNAME ExitDll
 #else
-# define ENTRYFNNAME ModuleEntry
-# define ENTRYFNNAMEARGS void*
-# define EXITFNNAME ModuleExit
+#define ENTRYFNNAME ModuleEntry
+#define ENTRYFNNAMEARGS void*
+#define EXITFNNAME ModuleExit
 #endif
 
 DISTRHO_PLUGIN_EXPORT
@@ -4438,6 +3959,7 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS);
 
 bool ENTRYFNNAME(ENTRYFNNAMEARGS)
 {
+    d_debug("Bundle entry");
     // find plugin bundle
     static String bundlePath;
     if (bundlePath.isEmpty())
@@ -4449,7 +3971,7 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
         if (tmpPath.endsWith(DISTRHO_OS_SEP_STR "Contents"))
         {
             tmpPath.truncate(tmpPath.rfind(DISTRHO_OS_SEP));
-            bundlePath = tmpPath;
+            bundlePath       = tmpPath;
             d_nextBundlePath = bundlePath.buffer();
         }
         else
@@ -4459,16 +3981,16 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
     }
 
     // set valid but dummy values
-    d_nextBufferSize = 512;
-    d_nextSampleRate = 44100.0;
+    d_nextBufferSize                      = 512;
+    d_nextSampleRate                      = 44100.0;
     d_nextCanRequestParameterValueChanges = true;
 
     // unset
-    d_nextBufferSize = 0;
-    d_nextSampleRate = 0.0;
+    // d_nextBufferSize                      = 0;
+    // d_nextSampleRate                      = 0.0;
     d_nextCanRequestParameterValueChanges = false;
 
-    uint32_t id= plugin_getUniqueId();
+    uint32_t id = plugin_getUniqueId();
     memcpy(&dpf_tuid_class[2], &id, 4);
     memcpy(&dpf_tuid_component[2], &id, 4);
     memcpy(&dpf_tuid_controller[2], &id, 4);
@@ -4481,8 +4003,8 @@ bool ENTRYFNNAME(ENTRYFNNAMEARGS)
 DISTRHO_PLUGIN_EXPORT
 bool EXITFNNAME(void);
 
-bool EXITFNNAME(void)
-{
+bool EXITFNNAME(void) {
+    d_debug("Bundle exit");
     return true;
 }
 

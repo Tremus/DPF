@@ -66,7 +66,7 @@ namespace std {
 // --------------------------------------------------------------------------------------------------------------------
 
 enum Vst3InternalParameters {
-   #if DPF_VST3_USES_SEPARATE_CONTROLLER
+   #if DISTRHO_PLUGIN_WANT_LATENCY
     kVst3InternalParameterBufferSize,
     kVst3InternalParameterSampleRate,
    #endif
@@ -83,14 +83,14 @@ enum Vst3InternalParameters {
    #endif
 };
 
-#if DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_MIDI_INPUT
+#if DISTRHO_PLUGIN_WANT_LATENCY || DISTRHO_PLUGIN_WANT_MIDI_INPUT
 # define DPF_VST3_HAS_INTERNAL_PARAMETERS 1
 #else
 # define DPF_VST3_HAS_INTERNAL_PARAMETERS 0
 #endif
 
 #if DPF_VST3_HAS_INTERNAL_PARAMETERS && DISTRHO_PLUGIN_WANT_MIDI_INPUT && \
-    !(DPF_VST3_USES_SEPARATE_CONTROLLER || DISTRHO_PLUGIN_WANT_LATENCY)
+    !DISTRHO_PLUGIN_WANT_LATENCY
 # define DPF_VST3_PURE_MIDI_INTERNAL_PARAMETERS 1
 #else
 # define DPF_VST3_PURE_MIDI_INTERNAL_PARAMETERS 0

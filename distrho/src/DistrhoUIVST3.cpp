@@ -139,9 +139,16 @@ static uint32_t translateVST3Modifiers(const int64_t modifiers) noexcept
 /**
  * Helper class for getting a native idle timer via native APIs.
  */
-class NativeIdleHelper
+struct NativeIdleHelper
 {
-public:
+    IdleCallback* const fCallback;
+    #ifdef DISTRHO_OS_MAC
+    CFRunLoopTimerRef fTimerRef;
+    #else
+    HWND fTimerWindow;
+    String fTimerWindowClassName;
+    #endif
+
     NativeIdleHelper(IdleCallback* const callback)
         : fCallback(callback),
        #ifdef DISTRHO_OS_MAC
@@ -216,20 +223,12 @@ public:
        #endif
     }
 
-private:
-    IdleCallback* const fCallback;
-
    #ifdef DISTRHO_OS_MAC
-    CFRunLoopTimerRef fTimerRef;
-
     static void platformIdleTimerCallback(CFRunLoopTimerRef, void* const info)
     {
         static_cast<NativeIdleHelper*>(info)->fCallback->idleCallback();
     }
    #else
-    HWND fTimerWindow;
-    String fTimerWindowClassName;
-
     static void WINAPI platformIdleTimerCallback(const HWND hwnd, UINT, UINT_PTR, DWORD)
     {
         reinterpret_cast<NativeIdleHelper*>(GetWindowLongPtr(hwnd, GWLP_USERDATA))->fCallback->idleCallback();
@@ -242,9 +241,16 @@ private:
  * Helper class for getting a native idle timer, either through pugl or via native APIs.
  */
 #if !DPF_VST3_USING_HOST_RUN_LOOP
-class NativeIdleCallback : public IdleCallback
+struct NativeIdleCallback : public IdleCallback
 {
 public:
+    bool fCallbackRegistered;
+   #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
+    NativeIdleHelper fIdleHelper;
+   #else
+    UIExporter& fUI;
+   #endif
+
     NativeIdleCallback(UIExporter& ui)
         : fCallbackRegistered(false),
          #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
@@ -282,14 +288,6 @@ public:
         fUI.removeIdleCallbackForNativeIdle(this);
        #endif
     }
-
-private:
-    bool fCallbackRegistered;
-   #if DISTRHO_PLUGIN_HAS_EXTERNAL_UI
-    NativeIdleHelper fIdleHelper;
-   #else
-    UIExporter& fUI;
-   #endif
 };
 #endif
 
@@ -309,6 +307,23 @@ class UIVst3
 #endif
 {
 public:
+    // VST3 stuff
+    Steinberg_IPlugView* const fView;
+    Steinberg_Vst_IHostApplication* const fHostApplication;
+    Steinberg_Vst_IConnectionPoint* fConnection;
+    Steinberg_IPlugFrame* fFrame;
+
+    // Temporary data
+    float fScaleFactor;
+    bool fReadyForPluginData;
+    bool fIsResizingFromPlugin;
+    bool fIsResizingFromHost;
+    bool fNeedsResizeFromPlugin;
+    Steinberg_ViewRect fNextPluginRect; // for when plugin requests a new size
+
+    // Plugin UI (after VST3 stuff so the UI can call into us during its constructor)
+    UIExporter fUI;
+
     UIVst3(Steinberg_IPlugView* const view,
            Steinberg_Vst_IHostApplication* const host,
            Steinberg_Vst_IConnectionPoint* const connection,
@@ -578,16 +593,6 @@ public:
 
             if (rindex < kVst3InternalParameterBaseCount)
             {
-                switch (rindex)
-                {
-               #if DPF_VST3_USES_SEPARATE_CONTROLLER
-                case kVst3InternalParameterSampleRate:
-                    DISTRHO_SAFE_ASSERT_RETURN(value >= 0.0, Steinberg_kInvalidArgument);
-                    fUI.setSampleRate(value, true);
-                    break;
-               #endif
-                }
-
                 // others like latency and buffer-size do not matter on UI side
                 return Steinberg_kResultOk;
             }
@@ -667,23 +672,6 @@ public:
     // ----------------------------------------------------------------------------------------------------------------
 
 private:
-    // VST3 stuff
-    Steinberg_IPlugView* const fView;
-    Steinberg_Vst_IHostApplication* const fHostApplication;
-    Steinberg_Vst_IConnectionPoint* fConnection;
-    Steinberg_IPlugFrame* fFrame;
-
-    // Temporary data
-    float fScaleFactor;
-    bool fReadyForPluginData;
-    bool fIsResizingFromPlugin;
-    bool fIsResizingFromHost;
-    bool fNeedsResizeFromPlugin;
-    Steinberg_ViewRect fNextPluginRect; // for when plugin requests a new size
-
-    // Plugin UI (after VST3 stuff so the UI can call into us during its constructor)
-    UIExporter fUI;
-
     // ----------------------------------------------------------------------------------------------------------------
     // helper functions called during message passing
 

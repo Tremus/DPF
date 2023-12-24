@@ -17,6 +17,13 @@
 #ifndef DISTRHO_DEFINES_H_INCLUDED
 #define DISTRHO_DEFINES_H_INCLUDED
 
+#if !defined(DEBUG) && !defined(NDEBUG)
+#define DEBUG 1
+#endif
+#if !defined(_DEBUG) && !defined(NDEBUG)
+#define _DEBUG 1
+#endif
+
 /* Compatibility with non-clang compilers */
 #ifndef __has_feature
 # define __has_feature(x) 0
